@@ -1,0 +1,54 @@
+{
+  "preprocessing_version": "tourism-v1",
+  "place_preprocessing_version": "places-v5",
+  "title_aliases": {
+    "용두암해안도로": "용담해안도로"
+  },
+  "dataset_rules": {
+    "lodging": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"},
+    "food": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal", "target_collection": "restaurants", "recommendation_scope": "default"},
+    "leisure": {"entity_type": "activity", "place_subtype": "leisure", "itinerary_role": "activity", "target_collection": "activities", "recommendation_scope": "intent_only"},
+    "shopping": {"entity_type": "shopping", "place_subtype": "shopping", "itinerary_role": "shopping", "target_collection": "shopping", "recommendation_scope": "intent_only"}
+  },
+  "lcls2_rules": {
+    "FD01": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal"},
+    "FD02": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal"},
+    "FD03": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal"},
+    "FD04": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal"},
+    "FD05": {"entity_type": "cafe", "place_subtype": "cafe_tea", "itinerary_role": "cafe_break"},
+    "LS01": {"place_subtype": "land_leisure", "itinerary_role": "activity"},
+    "LS02": {"place_subtype": "water_leisure", "itinerary_role": "activity"},
+    "LS04": {"place_subtype": "complex_leisure", "itinerary_role": "activity"},
+    "SH04": {"place_subtype": "general_retail", "itinerary_role": "shopping", "recommendation_scope": "intent_only"},
+    "SH05": {"place_subtype": "local_specialty", "itinerary_role": "shopping", "recommendation_scope": "intent_only"},
+    "SH06": {"entity_type": "market", "place_subtype": "market", "itinerary_role": "market_visit", "recommendation_scope": "default"},
+    "SH07": {"place_subtype": "local_specialty", "itinerary_role": "shopping", "recommendation_scope": "intent_only"}
+  },
+  "content_type_rules": {
+    "12": {"entity_type": "attraction", "place_subtype": "attraction", "itinerary_role": "visit", "target_collection": "attractions", "recommendation_scope": "default"},
+    "14": {"entity_type": "culture", "place_subtype": "culture", "itinerary_role": "visit", "target_collection": "attractions", "recommendation_scope": "default"},
+    "28": {"entity_type": "activity", "place_subtype": "leisure", "itinerary_role": "activity", "target_collection": "activities", "recommendation_scope": "excluded"},
+    "32": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"}
+  },
+  "tourism_lcls3_rules": {
+    "VE050200": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"}
+  },
+  "intent_only_lcls2": ["VE09", "VE12"],
+  "overrides": {
+    "131717": {"entity_type": "activity", "target_collection": "activities", "recommendation_scope": "intent_only", "requires_verification": false},
+    "930345": {"entity_type": "experience", "target_collection": "activities", "recommendation_scope": "intent_only", "requires_verification": true}
+  },
+  "excluded_content_ids": {
+    "127492": "관광단지 요약 정보로 RAG 제외",
+    "1957971": "관광특구 요약 정보로 RAG 제외",
+    "1939121": "일반 관광 목적이 아닌 청소년문화시설",
+    "130193": "일반 관광 목적이 아닌 지역 문화원",
+    "130036": "일반 관광 목적이 아닌 지역 문화원",
+    "131644": "일반 관광 목적이 아닌 청소년수련시설",
+    "131222": "일반 관광 목적이 아닌 청소년수련시설"
+  },
+  "place_relationships": [
+    {"parent_contentid": "138185", "child_contentid": "600584", "relationship_type": "onsite_activity"},
+    {"parent_contentid": "2796937", "child_contentid": "2876795", "relationship_type": "onsite_lodging"}
+  ]
+}
