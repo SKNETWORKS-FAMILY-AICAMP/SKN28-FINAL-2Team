@@ -1,0 +1,72 @@
+# Environment variables and local secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode and packaging artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.eggs/
+*.egg
+*.egg-info/
+*.whl
+pip-wheel-metadata/
+build/
+dist/
+
+# Test, coverage, and tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+junit.xml
+htmlcov/
+test-results/
+.hypothesis/
+.ipynb_checkpoints/
+
+# Django and local runtime files
+*.log
+*.pid
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+media/
+staticfiles/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+.DS_Store
+Desktop.ini
+Thumbs.db
+
+# Temporary files
+*.bak
+*.orig
+*.rej
+*.tmp
+*.temp
+~$*
+
+# AIHub 원본은 로컬에서 준비합니다.
+data/raw/aihub/
+
+# ChromaDB 파일은 재생성하며 manifest만 공유합니다.
+data/vectorstore/*
+!data/vectorstore/chromadb_manifest.json
