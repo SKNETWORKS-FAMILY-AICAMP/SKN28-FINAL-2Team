@@ -1,0 +1,93 @@
+.page{ min-height:100vh; background: var(--bg-soft); }
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex; align-items:center; gap:8px;
+  font-family: var(--display); font-weight:700; font-size:15px;
+  padding: 11px 20px; border-radius: 100px;
+  border: 2.5px solid var(--ink); cursor:pointer;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  background:#fff;
+}
+.primary{ background: var(--green); color:#fff; box-shadow: 3px 3px 0 var(--ink); }
+.primary:hover{ background: var(--green-deep); transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.primary:disabled{ opacity:.55; cursor:not-allowed; transform:none; box-shadow: 3px 3px 0 var(--ink); }
+.ghost{ color: var(--ink); border: 2.5px solid var(--ink); box-shadow: 3px 3px 0 var(--line); }
+.ghost:hover{ transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--line); color: var(--green-deep); }
+.sm{ padding:8px 15px; font-size:12.5px; }
+.wide{ width:100%; justify-content:center; padding-top:16px; padding-bottom:16px; font-size:16px; }
+
+/* ---------- app header ---------- */
+.appnav{ height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; border-bottom: 1px solid var(--line); background:#fff; position:sticky; top:0; z-index:20; }
+.logo{ display:flex; align-items:center; gap:9px; font-family: var(--display); font-size:19px; font-weight:700; letter-spacing:-0.01em; }
+.logoMark{ width:30px; height:30px; border-radius:50%; background: var(--green); border: 2.5px solid var(--ink); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.appLinks{ display:flex; align-items:center; gap:26px; }
+.appLinks a{ font-size:14px; font-weight:600; color: var(--muted); }
+.appLinks a:hover{ color: var(--ink); }
+.appRight{ display:flex; align-items:center; gap:16px; }
+.avatar{ width:34px; height:34px; border-radius:50%; background: var(--green-soft); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-size:15px; }
+
+/* ---------- page head ---------- */
+.wrap{ max-width:980px; margin:0 auto; padding: 34px 32px 60px; }
+.pageHead{ text-align:center; margin-bottom:8px; }
+.sectionTag{ display:inline-flex; align-items:center; gap:7px; font-family: var(--display); font-size:13px; color: var(--green-deep); background: #fff; border:2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding:7px 15px; border-radius:100px; margin-bottom:12px; }
+.pageHead h1{ font-family: var(--display); font-weight:700; font-size: clamp(22px, 2.6vw, 28px); }
+.pageHead p{ margin-top:6px; font-size:13px; color: var(--muted); }
+.backLink{ display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color: var(--muted); font-weight:600; margin-bottom:18px; }
+.backLink:hover{ color: var(--ink); }
+
+/* ---------- shell ---------- */
+.shell{ margin-top:24px; display:grid; grid-template-columns: 1fr 320px; gap:20px; align-items:start; }
+
+/* package list */
+.card{ background:#fff; border:2.5px solid var(--ink); border-radius:20px; padding:22px; box-shadow: 5px 5px 0 var(--green-soft-2); }
+.card h4{ font-family: var(--display); font-weight:700; font-size:16px; margin-bottom:14px; }
+
+.pkgRow{ display:flex; align-items:center; gap:14px; padding:14px; border:2px solid var(--line); border-radius:16px; margin-bottom:12px; cursor:pointer; transition: border-color .15s, background .15s; }
+.pkgRow:last-child{ margin-bottom:0; }
+.pkgRowChecked{ border-color: var(--ink); background: var(--green-soft); }
+.checkbox{ width:22px; height:22px; border-radius:7px; border:2px solid var(--ink); background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:13px; color:#fff; }
+.checkboxChecked{ background: var(--green); }
+.pkgThumb{ width:52px; height:52px; border-radius:13px; background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2)); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+.pkgInfo{ flex:1; min-width:0; }
+.pkgInfo h5{ font-size:14.5px; font-weight:700; }
+.pkgInfo .desc{ font-size:12px; color: var(--muted); margin-top:2px; }
+.pkgInfo .rating{ font-size:11.5px; color: var(--muted); font-weight:600; margin-top:4px; }
+.pkgPrice{ font-size:14px; font-weight:800; color: var(--green-deep); flex-shrink:0; }
+
+.saveCard{ margin-top:18px; }
+.saveRow{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.visibility{ display:flex; align-items:center; gap:8px; font-size:12.5px; color: var(--muted); }
+.visibility b{ color: var(--ink); }
+
+/* payment summary */
+.paySummary{ position:sticky; top:84px; }
+.payRow{ display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
+.payRow .k{ color: var(--muted); }
+.payRow .v{ font-weight:700; }
+.payRow .discount{ color: var(--green-deep); }
+.payDivider{ height:1px; background: var(--line); margin: 10px 0; }
+.payTotalLabel{ font-size:12px; color: var(--muted); margin-bottom:2px; }
+.payTotal{ font-size:23px; font-weight:900; color: var(--green-deep); margin-bottom:18px; }
+
+.payMethod{ display:flex; justify-content:space-between; align-items:center; padding:13px 14px; background: var(--bg-soft); border-radius:13px; margin-bottom:16px; }
+.payMethod .label{ font-size:11.5px; color: var(--muted); }
+.payMethod .val{ font-size:13px; font-weight:700; margin-top:2px; }
+.payMethod .change{ font-size:12px; color: var(--green-deep); font-weight:700; }
+
+.terms{ text-align:center; font-size:11px; color: var(--muted); margin-top:10px; }
+
+/* success state */
+.successCard{ background:#fff; border:2.5px solid var(--ink); border-radius:22px; padding: 50px 30px; text-align:center; box-shadow: 6px 6px 0 var(--green-soft-2); }
+.successBadge{ width:64px; height:64px; border-radius:50%; background: var(--green); border:3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 20px; }
+.successCard h2{ font-family: var(--display); font-weight:700; font-size:22px; }
+.successCard p{ margin-top:10px; font-size:13.5px; color: var(--muted); line-height:1.7; }
+.successMeta{ margin-top:20px; display:inline-flex; flex-direction:column; gap:4px; background: var(--bg-soft); border-radius:14px; padding:14px 24px; text-align:left; }
+.successMeta .row{ display:flex; justify-content:space-between; gap:24px; font-size:12.5px; }
+.successMeta .row .k{ color: var(--muted); }
+.successMeta .row .v{ font-weight:700; }
+
+@media (max-width: 820px){
+  .shell{ grid-template-columns: 1fr; }
+  .paySummary{ position:static; }
+}

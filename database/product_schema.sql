@@ -1,0 +1,32 @@
+CREATE TABLE IF NOT EXISTS virtual_travel_products (
+    product_id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(160) NOT NULL,
+    summary TEXT NOT NULL,
+    content_description TEXT NOT NULL,
+    pattern_code VARCHAR(80) NOT NULL UNIQUE,
+    duration_days TINYINT UNSIGNED NOT NULL,
+    min_people TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    max_people TINYINT UNSIGNED NOT NULL DEFAULT 20,
+    price_per_person INT UNSIGNED NOT NULL,
+    regions JSON NOT NULL,
+    tags JSON NOT NULL,
+    companion_types JSON NOT NULL,
+    transport_mode VARCHAR(40) NOT NULL,
+    accommodation_type VARCHAR(80) NOT NULL,
+    meal_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    included JSON NOT NULL,
+    excluded JSON NOT NULL,
+    highlights JSON NOT NULL,
+    itinerary JSON NOT NULL,
+    visit_places JSON NOT NULL,
+    source_references JSON NOT NULL,
+    is_virtual BOOLEAN NOT NULL DEFAULT TRUE,
+    availability BOOLEAN NOT NULL DEFAULT TRUE,
+    researched_at DATE NOT NULL,
+    data_version VARCHAR(40) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_virtual_products_recommendation (
+        availability, duration_days, price_per_person
+    )
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
