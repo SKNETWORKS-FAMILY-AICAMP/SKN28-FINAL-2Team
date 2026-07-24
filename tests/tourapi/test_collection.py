@@ -23,7 +23,7 @@ RULES = PlaceRules(
         "12": {"entity_type": "attraction", "target_collection": "attractions", "recommendation_scope": "default"},
         "14": {"entity_type": "culture", "target_collection": "attractions", "recommendation_scope": "default"},
         "28": {"entity_type": "activity", "target_collection": "activities", "recommendation_scope": "excluded"},
-        "32": {"entity_type": "lodging", "target_collection": "lodgings", "recommendation_scope": "default"},
+        "32": {"entity_type": "lodging", "target_collection": "lodgings", "recommendation_scope": "intent_only"},
     },
     intent_only_lcls2=frozenset(),
     overrides={
@@ -31,7 +31,7 @@ RULES = PlaceRules(
     },
     excluded_content_ids={"excluded": "정책 제외"},
     dataset_rules={
-        "lodging": {"entity_type": "lodging", "target_collection": "lodgings", "recommendation_scope": "default"},
+        "lodging": {"entity_type": "lodging", "target_collection": "lodgings", "recommendation_scope": "intent_only"},
         "food": {"entity_type": "restaurant", "target_collection": "restaurants", "recommendation_scope": "default"},
         "leisure": {"entity_type": "activity", "target_collection": "activities", "recommendation_scope": "intent_only"},
         "shopping": {"entity_type": "shopping", "target_collection": "shopping", "recommendation_scope": "intent_only"},

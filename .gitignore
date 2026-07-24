@@ -62,6 +62,7 @@ Thumbs.db
 *.rej
 *.tmp
 *.temp
+/.codex-test-tmp/
 ~$*
 
 # AIHub 원본은 로컬에서 준비합니다.

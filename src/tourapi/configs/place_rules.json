@@ -1,11 +1,11 @@
 {
   "preprocessing_version": "tourism-v1",
-  "place_preprocessing_version": "places-v4",
+  "place_preprocessing_version": "places-v5",
   "title_aliases": {
     "용두암해안도로": "용담해안도로"
   },
   "dataset_rules": {
-    "lodging": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "excluded"},
+    "lodging": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"},
     "food": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal", "target_collection": "restaurants", "recommendation_scope": "default"},
     "leisure": {"entity_type": "activity", "place_subtype": "leisure", "itinerary_role": "activity", "target_collection": "activities", "recommendation_scope": "intent_only"},
     "shopping": {"entity_type": "shopping", "place_subtype": "shopping", "itinerary_role": "shopping", "target_collection": "shopping", "recommendation_scope": "intent_only"}
@@ -28,10 +28,10 @@
     "12": {"entity_type": "attraction", "place_subtype": "attraction", "itinerary_role": "visit", "target_collection": "attractions", "recommendation_scope": "default"},
     "14": {"entity_type": "culture", "place_subtype": "culture", "itinerary_role": "visit", "target_collection": "attractions", "recommendation_scope": "default"},
     "28": {"entity_type": "activity", "place_subtype": "leisure", "itinerary_role": "activity", "target_collection": "activities", "recommendation_scope": "excluded"},
-    "32": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "excluded"}
+    "32": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"}
   },
   "tourism_lcls3_rules": {
-    "VE050200": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "excluded"}
+    "VE050200": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"}
   },
   "intent_only_lcls2": ["VE09", "VE12"],
   "overrides": {

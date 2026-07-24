@@ -32,7 +32,7 @@ RULES = PlaceRules(
         "12": {"entity_type": "attraction", "target_collection": "attractions", "recommendation_scope": "default"},
         "14": {"entity_type": "culture", "target_collection": "attractions", "recommendation_scope": "default"},
         "28": {"entity_type": "activity", "target_collection": "activities", "recommendation_scope": "excluded"},
-        "32": {"entity_type": "lodging", "target_collection": "lodgings", "recommendation_scope": "default"},
+        "32": {"entity_type": "lodging", "target_collection": "lodgings", "recommendation_scope": "intent_only"},
     },
     intent_only_lcls2=frozenset({"VE09", "VE12"}),
     overrides={
@@ -40,7 +40,7 @@ RULES = PlaceRules(
     },
     excluded_content_ids={"excluded": "정책 제외"},
     dataset_rules={
-        "lodging": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "default"},
+        "lodging": {"entity_type": "lodging", "place_subtype": "lodging", "itinerary_role": "stay", "target_collection": "lodgings", "recommendation_scope": "intent_only"},
         "food": {"entity_type": "restaurant", "place_subtype": "restaurant", "itinerary_role": "meal", "target_collection": "restaurants", "recommendation_scope": "default"},
         "leisure": {"entity_type": "activity", "place_subtype": "leisure", "itinerary_role": "activity", "target_collection": "activities", "recommendation_scope": "intent_only"},
         "shopping": {"entity_type": "shopping", "place_subtype": "shopping", "itinerary_role": "shopping", "target_collection": "shopping", "recommendation_scope": "intent_only"},
@@ -202,13 +202,18 @@ class PlacePreprocessingTests(unittest.TestCase):
             "intro_checkintime": "15:00",
             "intro_checkouttime": "11:00",
             "intro_roomtype": "더블룸, 패밀리룸",
+            "intro_subfacility": "수영장, 조식당",
         }
-        document = build_place_vector_document(
-            lodging, classify_place_record(lodging, RULES), "places-test-v1"
-        )
+        classification = classify_place_record(lodging, RULES)
+        document = build_place_vector_document(lodging, classification, "places-test-v1")
 
+        self.assertTrue(classification.is_indexable)
+        self.assertEqual(classification.recommendation_scope, "intent_only")
+        self.assertEqual(classification.target_collection, "lodgings")
         self.assertTrue(document["metadata"]["schedule_eligible"])
+        self.assertIn("숙박", document["embedding_text"])
         self.assertIn("객실 유형: 더블룸, 패밀리룸", document["embedding_text"])
+        self.assertIn("부대시설: 수영장, 조식당", document["embedding_text"])
 
     def test_blank_overview_does_not_abort_preprocessing(self) -> None:
         record = {
@@ -242,11 +247,11 @@ class PlacePreprocessingTests(unittest.TestCase):
             result = preprocess_place_csv(unified, rules)
 
         self.assertEqual(len(rows), 674)
-        self.assertEqual(len(result.documents), 649)
-        self.assertEqual(result.excluded_count, 25)
+        self.assertEqual(len(result.documents), 666)
+        self.assertEqual(result.excluded_count, 8)
         self.assertEqual(
             result.collection_counts,
-            {"activities": 2, "attractions": 647},
+            {"activities": 2, "attractions": 647, "lodgings": 17},
         )
 
     def test_actual_tourism_rules_exclude_complexes_and_classify_resorts_as_lodging(
@@ -278,7 +283,8 @@ class PlacePreprocessingTests(unittest.TestCase):
             self.assertEqual(classification.place_subtype, "lodging")
             self.assertEqual(classification.itinerary_role, "stay")
             self.assertEqual(classification.target_collection, "lodgings")
-            self.assertFalse(classification.is_indexable)
+            self.assertTrue(classification.is_indexable)
+            self.assertEqual(classification.recommendation_scope, "intent_only")
 
         aquana = classify_place_record(rows_by_content_id["600584"], rules)
         self.assertEqual(aquana.entity_type, "attraction")
@@ -303,9 +309,9 @@ class PlacePreprocessingTests(unittest.TestCase):
 
         aquana = documents["600584"]["metadata"]
 
-        self.assertNotIn("138185", documents)
-        self.assertNotIn("2796937", documents)
-        self.assertNotIn("2876795", documents)
+        self.assertIn("138185", documents)
+        self.assertIn("2796937", documents)
+        self.assertIn("2876795", documents)
         self.assertEqual(aquana["parent_contentid"], "138185")
         self.assertEqual(
             aquana["related_places"],
@@ -313,6 +319,36 @@ class PlacePreprocessingTests(unittest.TestCase):
                 {
                     "contentid": "138185",
                     "relationship_type": "onsite_activity",
+                    "relation_role": "child",
+                }
+            ],
+        )
+        self.assertEqual(
+            documents["138185"]["metadata"]["related_places"],
+            [
+                {
+                    "contentid": "600584",
+                    "relationship_type": "onsite_activity",
+                    "relation_role": "parent",
+                }
+            ],
+        )
+        self.assertEqual(
+            documents["2796937"]["metadata"]["related_places"],
+            [
+                {
+                    "contentid": "2876795",
+                    "relationship_type": "onsite_lodging",
+                    "relation_role": "parent",
+                }
+            ],
+        )
+        self.assertEqual(
+            documents["2876795"]["metadata"]["related_places"],
+            [
+                {
+                    "contentid": "2796937",
+                    "relationship_type": "onsite_lodging",
                     "relation_role": "child",
                 }
             ],

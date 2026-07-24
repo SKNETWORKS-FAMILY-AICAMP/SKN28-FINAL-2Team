@@ -27,8 +27,9 @@
 | 장소 분류 로직 | `src/tourapi/preprocessing/classification.py` |
 | 임베딩·저장 로직 | `src/embeddings/`, `src/storage/` |
 
-현재 저장된 기준 데이터는 원본 2,124개 장소와 `places-v4` RAG 문서
-1,866개입니다. 실제 기준은 항상 RAG JSON과 manifest의
+현재 저장된 기준 데이터는 원본 2,124개 장소와 `places-v5` RAG 문서
+2,102개입니다. 이 중 숙소 문서는 236개이며 `intent_only` 범위로 저장됩니다.
+실제 기준은 항상 RAG JSON과 manifest의
 `preprocessing_version`, `document_count`, `sha256`으로 확인합니다.
 
 ## 준비
@@ -101,5 +102,6 @@ python -m scripts.indexing.build_tourapi_vector_index --dry-run
 
 - [TourAPI 호출과 재시도 정책](api.md)
 - [원본·RAG·MySQL·Chroma 데이터 구조](data_schema.md)
+- [여행 일정 LLM용 장소 검색 API](../rag_api.md)
 - [파이프라인 정리 및 검증 기록](SIMreadme.md)
 - [AIHub 전처리·매핑 파이프라인](../aihub/README.md)

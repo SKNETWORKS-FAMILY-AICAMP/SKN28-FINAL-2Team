@@ -50,6 +50,7 @@ LCLS1_LABELS = {
     "SH": "쇼핑",
 }
 PLACE_SUBTYPE_LABELS = {
+    "lodging": "숙박",
     "restaurant": "음식점",
     "cafe_tea": "카페/찻집",
     "land_leisure": "육상 레저",
