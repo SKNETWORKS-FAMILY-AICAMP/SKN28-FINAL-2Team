@@ -1,0 +1,46 @@
+from django.shortcuts import get_object_or_404
+
+from drf_spectacular.utils import extend_schema
+
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Bookmark
+from .serializers import BookmarkCreateSerializer, BookmarkSerializer
+
+
+class BookmarkListCreateAPIView(APIView):
+    """GET: 내 찜 목록 조회 (M001-F-005) / POST: 찜하기 (M005-F-006)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(responses=BookmarkSerializer(many=True))
+    def get(self, request):
+        bookmarks = Bookmark.objects.filter(user=request.user).select_related("package")
+        return Response(BookmarkSerializer(bookmarks, many=True).data)
+
+    @extend_schema(request=BookmarkCreateSerializer, responses=BookmarkSerializer)
+    def post(self, request):
+        serializer = BookmarkCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        bookmark, created = Bookmark.objects.get_or_create(
+            user=request.user, package=serializer.validated_data["package"]
+        )
+        return Response(
+            BookmarkSerializer(bookmark).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class BookmarkDetailAPIView(APIView):
+    """DELETE: 찜 해제."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, pk):
+        bookmark = get_object_or_404(Bookmark, pk=pk, user=request.user)
+        bookmark.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
