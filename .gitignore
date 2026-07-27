@@ -12,6 +12,7 @@ env/
 # Python bytecode and packaging artifacts
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 .eggs/
 *.egg
@@ -36,6 +37,7 @@ htmlcov/
 test-results/
 .hypothesis/
 .ipynb_checkpoints/
+test/
 
 # Node.js dependencies and generated artifacts
 node_modules/
@@ -73,14 +75,9 @@ Thumbs.db
 /.codex-test-tmp/
 ~$*
 
-# AIHub 원본은 로컬에서 준비합니다.
+# AIHub 원본은 로컬에서 준비
 data/raw/aihub/
 
-# ChromaDB 파일은 재생성하며 manifest만 공유합니다.
+# ChromaDB 파일은 재생성하며 manifest만 공유
 data/vectorstore/*
 !data/vectorstore/chromadb_manifest.json
-
-node_modules
-dist
-.DS_Store
-*.local
