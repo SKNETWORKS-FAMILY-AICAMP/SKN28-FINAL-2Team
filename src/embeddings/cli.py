@@ -14,6 +14,8 @@ from .embedder import (
 )
 from .indexer import ChromaIndexError, index_rag_dataset, load_rag_dataset
 from ..common.env import load_env_file
+from ..config.settings import ChromaConfig
+from ..storage.chroma import create_chroma_client
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,14 @@ def run_vector_index_cli(
             model=model,
             dimensions=args.dimensions,
         )
+        chroma_config = ChromaConfig.from_env(
+            default_collection=args.collection,
+        )
+        index_client = (
+            create_chroma_client(chroma_config)
+            if chroma_config.mode == "http"
+            else None
+        )
         summary = index_rag_dataset(
             dataset,
             persist_directory=args.persist_dir,
@@ -93,6 +103,7 @@ def run_vector_index_cli(
             progress=lambda completed, total: print(
                 f"[chroma] checkpoint: {completed}/{total}"
             ),
+            client=index_client,
         )
     except (OSError, ValueError, ChromaIndexError, OpenAIEmbeddingError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -105,6 +116,13 @@ def run_vector_index_cli(
     print(f"  pruned: {summary.pruned_count}")
     print(f"  collection records: {summary.collection_count}")
     print(f"  embedding dimensions: {summary.embedding_dimensions}")
-    print(f"  persist directory: {args.persist_dir}")
+    if chroma_config.mode == "http":
+        scheme = "https" if chroma_config.ssl else "http"
+        print(
+            f"  Chroma server: "
+            f"{scheme}://{chroma_config.host}:{chroma_config.port}"
+        )
+    else:
+        print(f"  persist directory: {args.persist_dir}")
     print(f"  collection: {args.collection}")
     return 0

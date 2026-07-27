@@ -4,9 +4,9 @@
     "label": "TourAPI places",
     "name": "jeju_places",
     "input": "data/processed/jeju_place_rag_documents.json",
-    "document_count": 1866,
-    "preprocessing_version": "places-v4",
+    "document_count": 2102,
+    "preprocessing_version": "places-v5",
     "schema_version": "1.0",
-    "sha256": "dd2c11468bb31b57996b0b753e83d2cc78d81d63948e2058645f1d3b7697a3e3"
+    "sha256": "bf5ede91ff8080d701ef6a8620526657a4b41fb0eb23446290c99b8ceee2def8"
   }
 }
