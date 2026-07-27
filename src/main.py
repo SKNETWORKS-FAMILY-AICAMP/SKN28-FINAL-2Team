@@ -12,4 +12,5 @@ container = create_container(
 
 
 retrieval_service = container.retrieval_service
+place_search_service = retrieval_service
 pattern_service = container.pattern_service
