@@ -79,3 +79,8 @@ data/raw/aihub/
 # ChromaDB 파일은 재생성하며 manifest만 공유합니다.
 data/vectorstore/*
 !data/vectorstore/chromadb_manifest.json
+
+node_modules
+dist
+.DS_Store
+*.local

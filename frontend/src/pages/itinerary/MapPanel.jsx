@@ -1,13 +1,11 @@
 import styles from './itinerary.module.css'
 import cx from '../../utils/cx.js'
-
-const PACKAGES = [
-  { icon: '🏨', rating: '★ 4.6 (321)', title: '오션뷰 힐링 숙소', price: '159,000원 ~' },
-  { icon: '🚗', rating: '★ 4.7 (532)', title: '렌터카 3일', price: '89,700원 ~' },
-  { icon: '🐴', rating: '★ 4.6 (218)', title: '제주 승마 체험', price: '70,000원 ~' },
-]
+import { PACKAGES, won, ratingLabel } from '../../data/packages.js'
+import { useBookmarks } from '../../context/BookmarkContext.jsx'
 
 export default function MapPanel() {
+  const { isBookmarked, toggle } = useBookmarks()
+
   return (
     <div className={styles.mapCol}>
       <div className={styles.mapHead}>
@@ -57,13 +55,20 @@ export default function MapPanel() {
       </div>
 
       {PACKAGES.map((p) => (
-        <div className={styles.pkgRow} key={p.title}>
-          <div className={styles.pkgThumb}>{p.icon}</div>
+        <div className={styles.pkgRow} key={p.id}>
+          <div className={styles.pkgThumb}>{p.thumbnail}</div>
           <div className={styles.pkgInfo}>
-            <div className={styles.rating}>{p.rating}</div>
-            <h5>{p.title}</h5>
-            <div className={styles.price}>{p.price}</div>
+            <div className={styles.rating}>{ratingLabel(p)}</div>
+            <h5>{p.name}</h5>
+            <div className={styles.price}>{won(p.price)}</div>
           </div>
+          <button
+            className={cx(styles.pkgBookmark, isBookmarked(p.id) && styles.pkgBookmarkActive)}
+            onClick={() => toggle(p.id)}
+            aria-label="찜하기"
+          >
+            {isBookmarked(p.id) ? '❤️' : '🤍'}
+          </button>
         </div>
       ))}
     </div>

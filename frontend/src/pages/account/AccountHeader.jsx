@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import styles from './booking.module.css'
+import styles from './account.module.css'
 import AccountMenu from '../../components/AccountMenu.jsx'
 
-export default function AppHeader() {
+export default function AccountHeader() {
   return (
     <header className={styles.appnav}>
       <Link to="/" className={styles.logo}>
@@ -17,9 +17,7 @@ export default function AppHeader() {
         <Link to="/my/itineraries">내 일정</Link>
         <Link to="/my/bookmarks">찜한 패키지</Link>
       </nav>
-      <div className={styles.appRight}>
-        <AccountMenu />
-      </div>
+      <AccountMenu />
     </header>
   )
 }

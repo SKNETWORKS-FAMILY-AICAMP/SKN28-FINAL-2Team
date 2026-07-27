@@ -1,10 +1,9 @@
-const PACKAGES = [
-  { icon: '🏨', rating: '★ 4.8 (321)', title: '해비치 호텔 & 리조트 제주', price: '159,000원 ~' },
-  { icon: '🚗', rating: '★ 4.7 (532)', title: '제주 올레 렌터카 3일', price: '89,700원 ~' },
-  { icon: '🌊', rating: '★ 4.6 (218)', title: '제주 카약 체험 2인', price: '70,000원 ~' },
-]
+import { PACKAGES, won, ratingLabel } from '../data/packages.js'
+import { useBookmarks } from '../context/BookmarkContext.jsx'
 
 export default function Packages() {
+  const { isBookmarked, toggle } = useBookmarks()
+
   return (
     <section className="packages" id="packages">
       <div className="wrap">
@@ -18,12 +17,21 @@ export default function Packages() {
         </div>
         <div className="pkg-grid">
           {PACKAGES.map((p) => (
-            <div className="pkg reveal" key={p.title}>
-              <div className="pkg-img">{p.icon}</div>
+            <div className="pkg reveal" key={p.id}>
+              <div className="pkg-img">
+                {p.thumbnail}
+                <button
+                  className={`pkg-bookmark${isBookmarked(p.id) ? ' active' : ''}`}
+                  onClick={() => toggle(p.id)}
+                  aria-label="찜하기"
+                >
+                  {isBookmarked(p.id) ? '❤️' : '🤍'}
+                </button>
+              </div>
               <div className="pkg-body">
-                <div className="rating">{p.rating}</div>
-                <h4>{p.title}</h4>
-                <div className="price">{p.price}</div>
+                <div className="rating">{ratingLabel(p)}</div>
+                <h4>{p.name}</h4>
+                <div className="price">{won(p.price)} ~</div>
               </div>
             </div>
           ))}
