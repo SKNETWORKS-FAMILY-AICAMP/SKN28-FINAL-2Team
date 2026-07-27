@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+*.local
 
 # Python virtual environments
 .venv/
@@ -35,6 +36,13 @@ htmlcov/
 test-results/
 .hypothesis/
 .ipynb_checkpoints/
+
+# Node.js dependencies and generated artifacts
+node_modules/
+.next/
+.pnpm-store/
+coverage/
+*.tsbuildinfo
 
 # Django and local runtime files
 *.log
