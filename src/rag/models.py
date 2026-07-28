@@ -84,6 +84,7 @@ class TravelConditions:
     arrival_time: str | None = None
     departure_time: str | None = None
     entry_point: str | None = None
+    exit_point: str | None = None
     accommodation_address: str | None = None
     preferred_places: tuple[str, ...] = ()
     preferred_foods: tuple[str, ...] = ()
@@ -150,14 +151,21 @@ class TravelConditions:
             pace=pace,
             arrival_time=_optional_text(raw.get("arrival_time")),
             departure_time=_optional_text(raw.get("departure_time")),
-            entry_point=_optional_text(raw.get("entry_point")),
+            entry_point=_optional_text(
+                raw.get("entry_point") or raw.get("start_point")
+            ),
+            exit_point=_optional_text(
+                raw.get("exit_point") or raw.get("end_point")
+            ),
             accommodation_address=_optional_text(
-                raw.get("accommodation_address")
+                raw.get("accommodation_address") or raw.get("accommodation")
             ),
             preferred_places=_strings(raw.get("preferred_places")),
             preferred_foods=_strings(raw.get("preferred_foods")),
             travel_styles=_strings(raw.get("travel_styles")),
-            must_visit_places=_strings(raw.get("must_visit_places")),
+            must_visit_places=_strings(
+                raw.get("must_visit_places") or raw.get("required_itinerary")
+            ),
             excluded_places=_strings(raw.get("excluded_places")),
             excluded_foods=_strings(raw.get("excluded_foods")),
             avoid_long_distance=_optional_bool(raw.get("avoid_long_distance")),
@@ -305,6 +313,8 @@ class SlotRequest:
     latitude: float | None
     longitude: float | None
     radius_km: float | None
+    template_source: str = "aihub"
+    route_anchor: str | None = None
 
 
 @dataclass(frozen=True)

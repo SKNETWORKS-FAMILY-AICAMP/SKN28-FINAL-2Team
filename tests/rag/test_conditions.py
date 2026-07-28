@@ -41,6 +41,58 @@ class ConditionExtractionTests(unittest.TestCase):
         self.assertEqual(result.conditions.duration_days, 3)
         self.assertEqual(llm.extract_calls, 0)
 
+    def test_accepts_optional_route_and_required_itinerary_selections(self) -> None:
+        llm = FakeConditionLLM(TravelConditions())
+        service = ConditionExtractionService(llm)
+
+        result = service.from_selections(
+            selected_options={
+                "duration_days": 4,
+                "party_type": "non_family_two",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature", "culture"],
+                "start_point": "제주국제공항",
+                "end_point": "제주항",
+                "required_itinerary": ["성산일출봉", "우도"],
+                "accommodation": "서귀포시 중문동 숙소",
+            }
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.conditions.entry_point, "제주국제공항")
+        self.assertEqual(result.conditions.exit_point, "제주항")
+        self.assertEqual(
+            result.conditions.must_visit_places,
+            ("성산일출봉", "우도"),
+        )
+        self.assertEqual(
+            result.conditions.accommodation_address,
+            "서귀포시 중문동 숙소",
+        )
+        self.assertEqual(llm.extract_calls, 0)
+
+    def test_optional_route_fields_do_not_trigger_clarification(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(
+                TravelConditions.from_mapping(
+                    {
+                        "duration_days": 2,
+                        "party_type": "solo",
+                        "local_transport": "public_transit",
+                        "preferred_visit_types": ["history"],
+                    }
+                )
+            )
+        )
+
+        result = service.extract(message="선택 조건 없이 기본 일정")
+
+        self.assertTrue(result.ready)
+        self.assertIsNone(result.conditions.entry_point)
+        self.assertIsNone(result.conditions.exit_point)
+        self.assertIsNone(result.conditions.accommodation_address)
+        self.assertEqual(result.conditions.must_visit_places, ())
+
     def test_returns_questions_for_missing_aihub_fields(self) -> None:
         service = ConditionExtractionService(
             FakeConditionLLM(

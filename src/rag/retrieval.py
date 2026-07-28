@@ -31,6 +31,9 @@ PACE_SLOTS_PER_DAY = {
     "balanced": 4,
     "packed": 5,
 }
+SYNTHETIC_FALLBACK_CATEGORIES = ("nature", "culture", "history")
+SYNTHETIC_TARGET_COLLECTIONS = ("attractions",)
+SYNTHETIC_ITINERARY_ROLES = ("visit",)
 
 
 class SlotRetriever:
@@ -226,6 +229,129 @@ def route_slots(
     return tuple(compacted)
 
 
+def complete_route_slots(
+    slots: Sequence[SlotRequest],
+    conditions: TravelConditions,
+    *,
+    places_per_day: int,
+    anchor_radius_km: float,
+) -> tuple[SlotRequest, ...]:
+    """Fill missing AIHub day slots around the nearest known route anchor.
+
+    Synthetic slots preserve the historical slots already available. They only
+    provide TourAPI retrieval requests and are explicitly marked so they cannot
+    be mistaken for observed AIHub visits.
+    """
+
+    duration_days = int(conditions.duration_days or 0)
+    if duration_days <= 0:
+        raise ValueError("duration_days must be positive")
+    if places_per_day <= 0:
+        raise ValueError("places_per_day must be positive")
+    if anchor_radius_km <= 0:
+        raise ValueError("anchor_radius_km must be positive")
+
+    ordered = sorted(slots, key=lambda slot: (slot.day, slot.sequence))
+    by_day = {
+        day: [slot for slot in ordered if slot.day == day][:places_per_day]
+        for day in range(1, duration_days + 1)
+    }
+    preferred_categories = tuple(
+        category
+        for category in conditions.preferred_visit_types
+        if category != "food_cafe"
+    )
+    historical_categories = tuple(
+        dict.fromkeys(
+            slot.category
+            for slot in ordered
+            if slot.category not in {"", "unknown", "food_cafe"}
+        )
+    )
+    categories = (
+        preferred_categories
+        or historical_categories
+        or SYNTHETIC_FALLBACK_CATEGORIES
+    )
+
+    completed: list[SlotRequest] = []
+    previous_anchor: SlotRequest | None = None
+    for day in range(1, duration_days + 1):
+        existing = list(by_day[day])
+        if existing:
+            previous_anchor = existing[-1]
+        else:
+            previous_anchor = _nearest_route_anchor(
+                ordered,
+                day=day,
+                previous=previous_anchor,
+            )
+
+        while len(existing) < places_per_day:
+            sequence = len(existing) + 1
+            anchor = existing[-1] if existing else previous_anchor
+            route_anchor = None
+            if day == 1 and sequence == 1:
+                route_anchor = conditions.entry_point
+            if day == duration_days and sequence == places_per_day:
+                route_anchor = conditions.exit_point or route_anchor
+            category = categories[(sequence - 1) % len(categories)]
+            synthetic = SlotRequest(
+                day=day,
+                sequence=sequence,
+                role="visit",
+                category=category,
+                target_collections=SYNTHETIC_TARGET_COLLECTIONS,
+                itinerary_roles=SYNTHETIC_ITINERARY_ROLES,
+                stay_minutes=(
+                    anchor.stay_minutes
+                    if anchor is not None and anchor.stay_minutes is not None
+                    else 90
+                ),
+                latitude=anchor.latitude if anchor is not None else None,
+                longitude=anchor.longitude if anchor is not None else None,
+                radius_km=min(
+                    anchor_radius_km,
+                    (
+                        anchor.radius_km
+                        if anchor is not None and anchor.radius_km is not None
+                        else anchor_radius_km
+                    ),
+                ),
+                template_source="synthetic_gap_fill",
+                route_anchor=route_anchor,
+            )
+            existing.append(synthetic)
+            previous_anchor = synthetic
+
+        completed.extend(
+            replace(slot, sequence=sequence)
+            for sequence, slot in enumerate(existing, start=1)
+        )
+        previous_anchor = existing[-1]
+    return tuple(completed)
+
+
+def _nearest_route_anchor(
+    slots: Sequence[SlotRequest],
+    *,
+    day: int,
+    previous: SlotRequest | None,
+) -> SlotRequest | None:
+    if previous is not None and (
+        previous.latitude is not None or previous.longitude is not None
+    ):
+        return previous
+    future = [
+        slot
+        for slot in slots
+        if slot.day > day
+        and slot.latitude is not None
+        and slot.longitude is not None
+    ]
+    return future[0] if future else previous
+
+
 def select_route_context(
     route_context: Mapping[str, Any],
     *,
@@ -331,6 +457,10 @@ def build_slot_query(
         parts.append("여행 속도 " + conditions.pace)
     if conditions.must_visit_places:
         parts.append("필수 " + ", ".join(conditions.must_visit_places))
+    if slot.template_source == "synthetic_gap_fill":
+        parts.append("AIHub 누락 슬롯 보충 관광지")
+    if slot.route_anchor:
+        parts.append("동선 종료 지점 " + slot.route_anchor)
     if conditions.mobility_constraints:
         parts.append("제약 " + ", ".join(conditions.mobility_constraints))
     if conditions.indoor_preference in {"indoor", "outdoor"}:

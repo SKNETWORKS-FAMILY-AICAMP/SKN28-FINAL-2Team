@@ -52,7 +52,7 @@ class OpenAITravelLLM:
         client: Any | None = None,
     ) -> None:
         self.model = (
-            model or os.environ.get("OPENAI_CHAT_MODEL") or "gpt-4.1-mini"
+            model or os.environ.get("OPENAI_CHAT_MODEL") or "gpt-5-mini"
         )
         if client is None:
             key = api_key or os.environ.get("OPENAI_API_KEY", "")
@@ -85,7 +85,7 @@ class OpenAITravelLLM:
             payload=payload,
             schema_name="travel_condition_extraction",
             schema=CONDITION_OUTPUT_SCHEMA,
-            max_output_tokens=1600,
+            max_output_tokens=2400,
         )
         return TravelConditions.from_mapping(parsed)
 

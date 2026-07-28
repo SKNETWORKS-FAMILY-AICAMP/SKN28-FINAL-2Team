@@ -12,6 +12,7 @@ from .llm import LLMError, OpenAITravelLLM, TravelLLM
 from .models import SlotCandidates, TravelConditions
 from .retrieval import (
     SlotRetriever,
+    complete_route_slots,
     route_slots,
     select_route_context,
 )
@@ -135,40 +136,28 @@ class RagOrchestrator:
             }
 
         requested_days = int(conditions.duration_days or 0)
-        covered_days = {slot.day for slot in slots}
-        missing_days = [
-            day for day in range(1, requested_days + 1) if day not in covered_days
-        ]
-        slot_counts = {
+        original_slot_counts = {
             day: len([slot for slot in slots if slot.day == day])
             for day in range(1, requested_days + 1)
         }
-        incomplete_days = [
+        synthesized_days = [
             day
-            for day, count in slot_counts.items()
+            for day, count in original_slot_counts.items()
             if count != PLACES_PER_DAY
         ]
-        if missing_days or incomplete_days:
-            return {
-                "status": "route_template_incomplete",
-                "conditions": conditions.to_dict(),
-                "message": (
-                    "AIHub 유사 여행의 동선 구조가 요청한 전체 여행일수를 "
-                    "포함하지 않습니다."
-                ),
-                "missing_days": missing_days,
-                "incomplete_days": incomplete_days,
-                "required_places_per_day": PLACES_PER_DAY,
-                "slot_counts": slot_counts,
-                "aihub_route_context": _safe_route_context(route_context),
-                "slot_candidates": [],
-                "itinerary": [],
-                "meta": {
-                    "aihub_used": True,
-                    "tourapi_rag_used": False,
-                    "llm_itinerary_used": False,
-                },
-            }
+        slots = complete_route_slots(
+            slots,
+            conditions,
+            places_per_day=PLACES_PER_DAY,
+            anchor_radius_km=max_leg_distance_km(conditions),
+        )
+        synthesized_slot_count = len(
+            [
+                slot
+                for slot in slots
+                if slot.template_source == "synthetic_gap_fill"
+            ]
+        )
 
         retrieved: list[SlotCandidates] = [
             self.slot_retriever.retrieve(slot, conditions) for slot in slots
@@ -194,6 +183,9 @@ class RagOrchestrator:
                     "aihub_used": True,
                     "tourapi_rag_used": True,
                     "llm_itinerary_used": False,
+                    "aihub_original_slot_counts": original_slot_counts,
+                    "synthesized_route_days": synthesized_days,
+                    "synthesized_slot_count": synthesized_slot_count,
                 },
             }
 
@@ -280,6 +272,9 @@ class RagOrchestrator:
                 "validation_messages_before_fallback": validation_messages,
                 "place_source": "tourapi_vector_candidates_only",
                 "aihub_tourapi_mapping": "ignored",
+                "aihub_original_slot_counts": original_slot_counts,
+                "synthesized_route_days": synthesized_days,
+                "synthesized_slot_count": synthesized_slot_count,
             },
         }
 
@@ -322,6 +317,8 @@ def build_itinerary_prompt_context(
                 "role": item.slot.role,
                 "category": item.slot.category,
                 "suggested_stay_minutes": item.slot.stay_minutes,
+                "template_source": item.slot.template_source,
+                "route_anchor": item.slot.route_anchor,
                 "location_hint": {
                     "latitude": item.slot.latitude,
                     "longitude": item.slot.longitude,
@@ -357,6 +354,13 @@ def build_itinerary_prompt_context(
             "every_slot_required": True,
             "duplicate_content_ids_allowed": False,
             "max_leg_distance_km": max_leg_distance_km(conditions),
+            "route_anchors": {
+                "start_point": conditions.entry_point,
+                "end_point": conditions.exit_point,
+                "accommodation": conditions.accommodation_address,
+            },
+            "route_anchors_are_optional": True,
+            "route_anchor_distance_requires_coordinates": True,
         },
     }
 

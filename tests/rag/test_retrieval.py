@@ -10,6 +10,7 @@ from src.rag.models import (
 )
 from src.rag.retrieval import (
     SlotRetriever,
+    complete_route_slots,
     route_slots,
     select_route_context,
 )
@@ -204,6 +205,71 @@ class SlotRetrievalTests(unittest.TestCase):
         self.assertEqual([item.content_id for item in result.candidates], [1])
         self.assertIsNotNone(result.candidates[0].slot_score)
         self.assertLess(result.candidates[0].distance_km or 100, 1)
+
+    def test_fills_missing_day_from_previous_day_end_anchor(self) -> None:
+        context = {
+            "reference_trip_patterns": [
+                {
+                    "days": [
+                        {
+                            "day": day,
+                            "region": {
+                                "center": {
+                                    "latitude": 33.40 + day / 100,
+                                    "longitude": 126.50 + day / 100,
+                                },
+                                "vector_search_radius_km": 8.0,
+                            },
+                            "slots": [
+                                {
+                                    "sequence": sequence,
+                                    "role": "visit",
+                                    "category": "nature",
+                                    "target_collections": ["attractions"],
+                                    "itinerary_roles": ["visit"],
+                                    "stay_minutes": 60,
+                                }
+                                for sequence in range(1, 4)
+                            ],
+                        }
+                        for day in range(1, 4)
+                    ]
+                }
+            ]
+        }
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 4,
+                "party_type": "non_family_two",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature", "culture"],
+                "exit_point": "제주국제공항",
+            }
+        )
+        original = route_slots(
+            context,
+            duration_days=4,
+            max_slots_per_day=3,
+        )
+
+        completed = complete_route_slots(
+            original,
+            conditions,
+            places_per_day=3,
+            anchor_radius_km=20.0,
+        )
+
+        self.assertEqual(len(completed), 12)
+        day_four = [slot for slot in completed if slot.day == 4]
+        self.assertEqual(len(day_four), 3)
+        self.assertTrue(
+            all(slot.template_source == "synthetic_gap_fill" for slot in day_four)
+        )
+        self.assertEqual(day_four[0].latitude, original[-1].latitude)
+        self.assertEqual(day_four[0].longitude, original[-1].longitude)
+        self.assertEqual(day_four[-1].route_anchor, "제주국제공항")
+        self.assertEqual(day_four[-1].target_collections, ("attractions",))
+        self.assertEqual(day_four[-1].itinerary_roles, ("visit",))
 
 
 if __name__ == "__main__":

@@ -79,6 +79,12 @@ result = rag.run(
 직접 전달합니다. 이 경우 조건 추출 LLM을 호출하지 않고 선택값을 확정 조건으로
 사용합니다.
 
+AIHub 유사 동선에 요청 일자의 일부가 없거나 하루 3개보다 적은 경우에는 완전한
+날짜의 동선을 유지하고 부족 슬롯만 `synthetic_gap_fill`로 생성합니다. 합성 슬롯은
+직전 날 마지막 유효 좌표를 중심으로 TourAPI 관광지를 검색하며, 마지막 날에는
+`end_point`도 검색·선택 컨텍스트에 전달합니다. 합성 슬롯도 TourAPI ID
+화이트리스트, 중복, 운영시간, 이동거리 검증을 동일하게 통과해야 합니다.
+
 ```python
 result = rag.run(
     selected_options={
@@ -91,6 +97,11 @@ result = rag.run(
         "pace": "relaxed",
         "avoid_long_distance": True,
         "parking_required": True,
+        # 아래 네 항목은 모두 선택사항입니다.
+        "start_point": "제주국제공항",
+        "end_point": "제주항",
+        "required_itinerary": ["성산일출봉", "우도"],
+        "accommodation": "서귀포시 중문동 숙소",
     }
 )
 ```
@@ -99,6 +110,13 @@ result = rag.run(
 `preferred_visit_types`를 전달해야 합니다. 결과 일정은 매일 정확히 3개 장소로
 구성되며 `itinerary`의 `start_time`, `end_time`으로 시간표를 표시할 수 있습니다.
 추가 대화로 선택값을 변경할 때는 `selected_options`와 `message`를 함께 전달합니다.
+
+선택형 입력은 `start_point`(시작 지점), `end_point`(종료 지점),
+`required_itinerary`(반드시 포함할 장소 목록), `accommodation`(숙소명 또는 주소)을
+추가로 받을 수 있습니다. 내부에서는 각각 `entry_point`, `exit_point`,
+`must_visit_places`, `accommodation_address`로 정규화합니다. 네 항목은 누락되어도
+재질문하지 않습니다. 숙소는 관광지 3곳에 포함하지 않고 일별 동선 참고 지점으로만
+사용합니다.
 
 조건이 부족하면 다음 상태가 반환됩니다.
 
