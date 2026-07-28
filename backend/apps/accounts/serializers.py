@@ -27,7 +27,7 @@ class LogoutSerializer(serializers.Serializer):
 
 
 class UserMeSerializer(serializers.ModelSerializer):
-    """사용자 정보 관리: 조회/수정용 시리얼라이저."""
+    """M001-F-003 사용자 정보 관리: 조회/수정용 시리얼라이저."""
 
     class Meta:
         model = User
