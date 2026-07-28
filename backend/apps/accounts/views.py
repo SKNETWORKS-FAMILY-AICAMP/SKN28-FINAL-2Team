@@ -12,10 +12,11 @@ from .serializers import (
     ErrorSerializer,
     LogoutSerializer,
     SocialLoginSerializer,
+    KakaoLoginSerializer,
     TokenPairSerializer,
     UserMeSerializer,
 )
-from .services import google_login, kakao_login
+from .services import google_login, kakao_login, get_kakao_access_token
 
 
 class GoogleLoginAPIView(APIView):
@@ -53,15 +54,19 @@ class GoogleLoginAPIView(APIView):
 class KakaoLoginAPIView(APIView):
 
     @extend_schema(
-        request=SocialLoginSerializer,
+        request=KakaoLoginSerializer,
         responses={200: TokenPairSerializer, 400: ErrorSerializer},
     )
     def post(self, request):
-        serializer = SocialLoginSerializer(data=request.data)
+        serializer = KakaoLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
-            user = kakao_login(serializer.validated_data["token"])
+            access_token = get_kakao_access_token(
+                serializer.validated_data["code"]
+            )
+
+            user = kakao_login(access_token)
 
             refresh = RefreshToken.for_user(user)
 

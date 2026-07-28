@@ -1,0 +1,156 @@
+{
+  "rules": {
+    "jeju_destination": "TRAVEL_STATUS_DESTINATION == 제주",
+    "jeju_longitude": [
+      126.0,
+      127.0
+    ],
+    "jeju_latitude": [
+      33.0,
+      34.0
+    ],
+    "excluded_visit_types": [
+      "21",
+      "22",
+      "23"
+    ],
+    "training_validation_marker_added": false,
+    "gps_included": false,
+    "poi_master_included": false,
+    "photo_data_included": false
+  },
+  "counts": {
+    "traveller": {
+      "input_rows": 2880,
+      "after_jeju_travel_filter": 1681,
+      "output_rows": 1681,
+      "exact_duplicates_removed": 0
+    },
+    "travel": {
+      "input_rows": 2880,
+      "after_jeju_travel_filter": 1681,
+      "output_rows": 1681,
+      "exact_duplicates_removed": 0
+    },
+    "visit": {
+      "input_rows": 51596,
+      "after_jeju_travel_filter": 37311,
+      "removed_non_jeju_location": 4870,
+      "removed_personal_place": 1040,
+      "output_rows": 31401,
+      "exact_duplicates_removed": 0
+    },
+    "companion": {
+      "input_rows": 4427,
+      "after_jeju_travel_filter": 2367,
+      "output_rows": 2367,
+      "exact_duplicates_removed": 0
+    },
+    "activity": {
+      "input_rows": 60957,
+      "after_jeju_travel_filter": 44243,
+      "output_rows": 41369,
+      "exact_duplicates_removed": 0
+    },
+    "activity_consume": {
+      "input_rows": 30126,
+      "after_jeju_travel_filter": 22061,
+      "output_rows": 21329,
+      "exact_duplicates_removed": 0
+    },
+    "lodge_consume": {
+      "input_rows": 3520,
+      "after_jeju_travel_filter": 2575,
+      "output_rows": 2575,
+      "exact_duplicates_removed": 0
+    },
+    "movement_consume": {
+      "input_rows": 9351,
+      "after_jeju_travel_filter": 6686,
+      "output_rows": 6686,
+      "exact_duplicates_removed": 0
+    },
+    "advance_consume": {
+      "input_rows": 667,
+      "after_jeju_travel_filter": 391,
+      "output_rows": 391,
+      "exact_duplicates_removed": 0
+    },
+    "move": {
+      "input_rows": 51596,
+      "after_jeju_travel_filter": 37311,
+      "output_rows": 31401,
+      "exact_duplicates_removed": 0
+    },
+    "code_a": {
+      "input_rows": 30,
+      "output_rows": 30,
+      "exact_duplicates_removed": 0
+    },
+    "code_b": {
+      "input_rows": 238,
+      "output_rows": 238,
+      "exact_duplicates_removed": 0
+    },
+    "sgg_code": {
+      "input_rows": 8075,
+      "output_rows": 173,
+      "exact_duplicates_removed": 0
+    }
+  },
+  "conversion_failures": {
+    "travel.travel_end_ymd": 0,
+    "travel.travel_start_ymd": 0,
+    "visit.visit_end_ymd": 0,
+    "visit.visit_start_ymd": 0,
+    "visit.residence_time_min": 0,
+    "visit.x_coord": 0,
+    "visit.revisit_intention": 0,
+    "visit.rcmdtn_intention": 0,
+    "visit.y_coord": 0,
+    "visit.dgstfn": 0,
+    "visit.visit_order": 0,
+    "activity_consume.payment_dt": 0,
+    "activity_consume.payment_amt_won": 0,
+    "lodge_consume.chk_in_dt_min": 0,
+    "lodge_consume.payment_dt": 0,
+    "lodge_consume.chk_out_dt_min": 0,
+    "lodge_consume.payment_amt_won": 0,
+    "movement_consume.payment_dt": 0,
+    "movement_consume.payment_amt_won": 0,
+    "advance_consume.payment_dt": 0,
+    "advance_consume.payment_amt_won": 0,
+    "move.end_dt_min": 0,
+    "move.start_dt_min": 0
+  },
+  "validations": {
+    "all_travellers_are_jeju_destination": true,
+    "travel_refs_valid_traveller": true,
+    "all_visits_are_jeju": true,
+    "no_personal_visit_types": true,
+    "visit_composite_key_unique": true,
+    "activity_refs_valid_visit": true,
+    "activity_consume_refs_valid_visit": true,
+    "move_refs_valid_visit": true,
+    "companion_refs_valid_travel": true,
+    "lodge_consume_refs_valid_travel": true,
+    "movement_consume_refs_valid_travel": true,
+    "advance_consume_refs_valid_travel": true
+  },
+  "output_files": [
+    "code/code_a.csv",
+    "code/code_b.csv",
+    "code/sgg_code.csv",
+    "data/jeju_activity.csv",
+    "data/jeju_activity_consume.csv",
+    "data/jeju_advance_consume.csv",
+    "data/jeju_companion.csv",
+    "data/jeju_lodge_consume.csv",
+    "data/jeju_move.csv",
+    "data/jeju_movement_consume.csv",
+    "data/jeju_travel.csv",
+    "data/jeju_traveller.csv",
+    "data/jeju_visit.csv",
+    "reports/preprocessing_counts.csv"
+  ]
+}

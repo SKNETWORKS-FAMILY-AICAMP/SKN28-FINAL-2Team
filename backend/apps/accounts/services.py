@@ -47,6 +47,33 @@ def google_login(token: str):
     return user
 
 
+def get_kakao_access_token(code: str) -> str:
+    data = {
+        "grant_type": "authorization_code",
+        "client_id": settings.KAKAO_REST_API_KEY,
+        "redirect_uri": settings.KAKAO_REDIRECT_URI,
+        "code": code,
+    }
+
+    if settings.KAKAO_CLIENT_SECRET:
+        data["client_secret"] = settings.KAKAO_CLIENT_SECRET
+
+    response = requests.post(
+        "https://kauth.kakao.com/oauth/token",
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+        },
+        data=data,
+    )
+
+    response.raise_for_status()
+
+    token_data = response.json()
+
+    return token_data["access_token"]
+
+
+
 def kakao_login(access_token: str):
 
     response = requests.get(

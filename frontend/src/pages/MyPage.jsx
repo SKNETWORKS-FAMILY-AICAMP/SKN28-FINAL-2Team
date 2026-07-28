@@ -31,19 +31,63 @@ export default function MyPage() {
     setSaved(false)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const accessToken = localStorage.getItem('accessToken')
+
+    if (!accessToken) {
+      alert('로그인 정보가 없습니다. 다시 로그인해주세요.')
+      return
+    }
+
     setSaving(true)
-    // 실제로는 PATCH /api/accounts/me/ 호출 — 아직 연결 전이라 컨텍스트만 갱신
-    setTimeout(() => {
+    setSaved(false)
+
+    try {
+      const response = await fetch(
+        'http://localhost:8000/api/accounts/me/',
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            nickname: form.nickname,
+            phone: form.phone,
+            preferred_style: form.preferredStyle,
+            preferred_budget: form.preferredBudget
+              ? Number(form.preferredBudget)
+              : null,
+          }),
+        },
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        const message =
+          data.detail ||
+          Object.values(data).flat().join('\n') ||
+          '정보 저장에 실패했습니다.'
+
+        throw new Error(message)
+      }
+
       updateProfile({
-        nickname: form.nickname,
-        phone: form.phone,
-        preferredStyle: form.preferredStyle,
-        preferredBudget: form.preferredBudget ? Number(form.preferredBudget) : null,
+        nickname: data.nickname,
+        phone: data.phone,
+        preferredStyle: data.preferred_style,
+        preferredBudget: data.preferred_budget,
+        profileImage: data.profile_image,
       })
-      setSaving(false)
+
       setSaved(true)
-    }, 500)
+    } catch (error) {
+      console.error(error)
+      alert(error.message || '정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

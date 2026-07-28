@@ -6,6 +6,8 @@ from .models import User
 class SocialLoginSerializer(serializers.Serializer):
     token = serializers.CharField()
 
+class KakaoLoginSerializer(serializers.Serializer):
+    code = serializers.CharField()
 
 class TokenPairSerializer(serializers.Serializer):
     """소셜 로그인 성공 시 응답 형태 (문서화 전용)."""
