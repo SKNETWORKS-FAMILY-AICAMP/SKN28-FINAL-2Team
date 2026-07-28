@@ -8,14 +8,14 @@ class SocialLoginSerializer(serializers.Serializer):
 
 
 class TokenPairSerializer(serializers.Serializer):
-    """소셜 로그인 성공 시 응답 형태 (문서화 전용)."""
+    """소셜 로그인 성공 시 응답 형태"""
 
     access = serializers.CharField()
     refresh = serializers.CharField()
 
 
 class ErrorSerializer(serializers.Serializer):
-    """오류 응답 형태 (문서화 전용)."""
+    """오류 응답 형태"""
 
     detail = serializers.CharField()
 
@@ -25,7 +25,7 @@ class LogoutSerializer(serializers.Serializer):
 
 
 class UserMeSerializer(serializers.ModelSerializer):
-    """M001-F-003 사용자 정보 관리: 조회/수정용 시리얼라이저."""
+    """사용자 정보 관리"""
 
     class Meta:
         model = User

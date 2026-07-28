@@ -14,12 +14,23 @@ class BookmarkListCreateAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=BookmarkSerializer(many=True))
+    @extend_schema(
+        tags=["Bookmark"],
+        summary="북마크 목록 조회",
+        responses=BookmarkSerializer(many=True)
+        )
+    
     def get(self, request):
         bookmarks = Bookmark.objects.filter(user=request.user).select_related("package")
         return Response(BookmarkSerializer(bookmarks, many=True).data)
 
-    @extend_schema(request=BookmarkCreateSerializer, responses=BookmarkSerializer)
+    @extend_schema(
+        tags=["Bookmark"],
+        summary="북마크 추가",
+        request=BookmarkCreateSerializer,
+        responses=BookmarkSerializer
+        )
+    
     def post(self, request):
         serializer = BookmarkCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -37,7 +48,11 @@ class BookmarkDetailAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses={204: None})
+    @extend_schema(
+        tags=["Bookmark"],
+        summary="북마크 삭제",
+        responses={204: None}
+        )
     def delete(self, request, pk):
         bookmark = get_object_or_404(Bookmark, pk=pk, user=request.user)
         bookmark.delete()

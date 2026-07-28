@@ -25,14 +25,23 @@ class CartAPIView(APIView):
     
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=CartSerializer)
+    @extend_schema(
+        tags=["Cart"],
+        summary="장바구니 조회",
+        responses=CartSerializer
+        )
     def get(self, request):
         items = CartItem.objects.filter(user=request.user).select_related("package")
         serializer = CartItemSerializer(items, many=True)
         total = sum(item.package.price for item in items)
         return Response({"items": serializer.data, "total_price": total})
 
-    @extend_schema(request=CartItemCreateSerializer, responses=CartItemSerializer)
+    @extend_schema(
+        tags=["Cart"],
+        summary="장바구니 추가",    
+        request=CartItemCreateSerializer,
+        responses=CartItemSerializer
+        )
     def post(self, request):
         serializer = CartItemCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -49,7 +58,11 @@ class CartItemDetailAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses={204: None})
+    @extend_schema(
+        tags=["Cart"],
+        summary="장바구니 삭제",    
+        responses={204: None}
+        )
     def delete(self, request, pk):
         item = get_object_or_404(CartItem, pk=pk, user=request.user)
         item.delete()
@@ -65,6 +78,8 @@ class ReservationListCreateAPIView(ListAPIView):
         return Reservation.objects.filter(user=self.request.user).prefetch_related("items")
 
     @extend_schema(
+        tags=["Reservation"],
+        summary="예약 생성",
         request=ReservationCreateSerializer,
         responses={201: ReservationSerializer, 400: None},
     )
@@ -97,6 +112,7 @@ class ReservationListCreateAPIView(ListAPIView):
         total_price = sum(p.price for p in packages)
 
         reservation = Reservation.objects.create(
+
             user=request.user,
             itinerary=itinerary,
             total_price=total_price,
@@ -117,8 +133,11 @@ class ReservationListCreateAPIView(ListAPIView):
         return Response(ReservationSerializer(reservation).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    tags=["Reservation"],
+    summary="예약 상세 조회",
+)
 class ReservationDetailAPIView(RetrieveAPIView):
-    """예약 상세 조회."""
 
     serializer_class = ReservationSerializer
     permission_classes = [permissions.IsAuthenticated]

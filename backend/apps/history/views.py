@@ -14,12 +14,21 @@ class HistoryListCreateAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=HistorySerializer(many=True))
+    @extend_schema(
+        tags=["History"],
+        summary="여행 기록 조회",
+        responses=HistorySerializer(many=True)
+        )
     def get(self, request):
         histories = History.objects.filter(user=request.user)
         return Response(HistorySerializer(histories, many=True).data)
 
-    @extend_schema(request=HistorySerializer, responses={201: HistorySerializer})
+    @extend_schema(
+        tags=["History"],
+        summary="여행 기록 저장",
+        request=HistorySerializer,
+        responses={201: HistorySerializer}
+        )
     def post(self, request):
         now = timezone.localtime()
         serializer = HistorySerializer(data=request.data)
