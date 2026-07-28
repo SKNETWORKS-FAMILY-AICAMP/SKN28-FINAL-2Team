@@ -6,16 +6,18 @@ from .models import User
 class SocialLoginSerializer(serializers.Serializer):
     token = serializers.CharField()
 
+class KakaoLoginSerializer(serializers.Serializer):
+    code = serializers.CharField()
 
 class TokenPairSerializer(serializers.Serializer):
-    """소셜 로그인 성공 시 응답 형태"""
+    """소셜 로그인 성공 시 응답 형태 (문서화 전용)."""
 
     access = serializers.CharField()
     refresh = serializers.CharField()
 
 
 class ErrorSerializer(serializers.Serializer):
-    """오류 응답 형태"""
+    """오류 응답 형태 (문서화 전용)."""
 
     detail = serializers.CharField()
 
@@ -25,7 +27,7 @@ class LogoutSerializer(serializers.Serializer):
 
 
 class UserMeSerializer(serializers.ModelSerializer):
-    """사용자 정보 관리"""
+    """사용자 정보 관리: 조회/수정용 시리얼라이저."""
 
     class Meta:
         model = User
