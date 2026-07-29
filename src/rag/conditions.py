@@ -21,6 +21,9 @@ CLARIFICATION_QUESTIONS = {
         "어떤 유형의 장소를 선호하시나요? 자연, 역사, 문화, 시장·쇼핑, "
         "레저, 테마파크, 트레일, 축제, 음식·카페, 체험 중에서 알려주세요."
     ),
+    "departure_airport": (
+        "마지막 날 제한시각까지 도착해야 하는 공항은 어디인가요?"
+    ),
 }
 
 
@@ -28,6 +31,7 @@ CLARIFICATION_QUESTIONS = {
 class ConditionResult:
     conditions: TravelConditions
     clarification_questions: tuple[str, ...]
+    optional_questions: tuple[str, ...] = ()
 
     @property
     def ready(self) -> bool:
@@ -38,6 +42,7 @@ class ConditionResult:
             "ready": self.ready,
             "conditions": self.conditions.to_dict(),
             "clarification_questions": list(self.clarification_questions),
+            "optional_questions": list(self.optional_questions),
         }
 
 
@@ -65,11 +70,8 @@ class ConditionExtractionService:
             current_conditions=current.to_dict(),
         )
         merged = _resolve_condition_conflicts(current.merged_with(extracted))
-        questions = tuple(
-            CLARIFICATION_QUESTIONS[field]
-            for field in merged.missing_required_fields()
-        )
-        return ConditionResult(merged, questions)
+        questions = _clarification_questions(merged)
+        return ConditionResult(merged, questions, _optional_questions(merged))
 
     def from_selections(
         self,
@@ -85,17 +87,50 @@ class ConditionExtractionService:
             current = TravelConditions.from_mapping(current_conditions)
         selected = TravelConditions.from_mapping(selected_options)
         merged = _resolve_condition_conflicts(current.merged_with(selected))
-        questions = tuple(
-            CLARIFICATION_QUESTIONS[field]
-            for field in merged.missing_required_fields()
-        )
-        return ConditionResult(merged, questions)
+        questions = _clarification_questions(merged)
+        return ConditionResult(merged, questions, _optional_questions(merged))
+
+
+def _clarification_questions(
+    conditions: TravelConditions,
+) -> tuple[str, ...]:
+    fields = (
+        *conditions.missing_required_fields(),
+        *conditions.missing_conditional_fields(),
+    )
+    return tuple(CLARIFICATION_QUESTIONS[field] for field in fields)
+
+
+def _optional_questions(
+    conditions: TravelConditions,
+) -> tuple[str, ...]:
+    if conditions.preferred_foods:
+        return ()
+    return (
+        "식당 추천에 반영할 원하는 메뉴가 있나요? "
+        "예: 제주 흑돼지, 갈치조림, 해산물. 없으면 '상관없음'이라고 답해주세요.",
+    )
 
 
 def _resolve_condition_conflicts(
     conditions: TravelConditions,
 ) -> TravelConditions:
-    required_keys = {_normalized(value) for value in conditions.must_visit_places}
+    day_required_keys = {
+        _normalized(name)
+        for item in conditions.required_day_itineraries
+        for name in item.place_names
+    }
+    required_keys = {
+        _normalized(value)
+        for value in (
+            *conditions.must_visit_places,
+            *(
+                name
+                for item in conditions.required_day_itineraries
+                for name in item.place_names
+            ),
+        )
+    }
     excluded_place_keys = {
         _normalized(value) for value in conditions.excluded_places
     }
@@ -108,6 +143,11 @@ def _resolve_condition_conflicts(
         if _normalized(value) not in required_keys
     )
     payload = conditions.to_dict()
+    payload["must_visit_places"] = [
+        value
+        for value in conditions.must_visit_places
+        if _normalized(value) not in day_required_keys
+    ]
     payload["excluded_places"] = list(excluded)
     payload["preferred_places"] = [
         value

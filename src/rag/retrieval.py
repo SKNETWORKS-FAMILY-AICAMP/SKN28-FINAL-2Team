@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import math
+import re
 from typing import Any, Mapping, Sequence
 
 from .models import (
@@ -34,6 +35,21 @@ PACE_SLOTS_PER_DAY = {
 SYNTHETIC_FALLBACK_CATEGORIES = ("nature", "culture", "history")
 SYNTHETIC_TARGET_COLLECTIONS = ("attractions",)
 SYNTHETIC_ITINERARY_ROLES = ("visit",)
+MEAL_SLOT_SEQUENCES = {
+    "breakfast": 101,
+    "lunch": 102,
+    "dinner": 103,
+}
+MEAL_STAY_MINUTES = {
+    "breakfast": 50,
+    "lunch": 60,
+    "dinner": 70,
+}
+MEAL_QUERY_LABELS = {
+    "breakfast": "아침식사 식당",
+    "lunch": "점심식사 식당",
+    "dinner": "저녁식사 식당",
+}
 
 
 class SlotRetriever:
@@ -86,9 +102,27 @@ class SlotRetriever:
                 *conditions.excluded_foods,
             )
         }
+        required_keys = {
+            _normalized(value)
+            for value in required_place_names_for_day(conditions, slot.day)
+            if _normalized(value)
+        }
         scored: list[RetrievedPlace] = []
         for place in response.places:
             if place.content_id in reserved:
+                continue
+            if slot.slot_kind == "meal" and not _is_food_or_cafe(place):
+                continue
+            if slot.slot_kind != "meal" and _is_food_or_cafe(place):
+                continue
+            if (
+                slot.slot_kind == "meal"
+                and not _supports_meal_window(
+                    place.opening_hours,
+                    meal_type=slot.meal_type,
+                    stay_minutes=slot.stay_minutes or 60,
+                )
+            ):
                 continue
             if any(
                 key
@@ -110,10 +144,16 @@ class SlotRetriever:
             ):
                 continue
             distance = _slot_distance(slot, place)
+            normalized_title = _normalized(place.title)
+            required_match = any(
+                key in normalized_title or normalized_title in key
+                for key in required_keys
+            )
             if (
                 slot.radius_km is not None
                 and distance is not None
                 and distance > slot.radius_km
+                and not required_match
             ):
                 continue
             score, breakdown = score_slot_candidate(
@@ -251,11 +291,7 @@ def complete_route_slots(
     if anchor_radius_km <= 0:
         raise ValueError("anchor_radius_km must be positive")
 
-    ordered = sorted(slots, key=lambda slot: (slot.day, slot.sequence))
-    by_day = {
-        day: [slot for slot in ordered if slot.day == day][:places_per_day]
-        for day in range(1, duration_days + 1)
-    }
+    raw_ordered = sorted(slots, key=lambda slot: (slot.day, slot.sequence))
     preferred_categories = tuple(
         category
         for category in conditions.preferred_visit_types
@@ -264,7 +300,7 @@ def complete_route_slots(
     historical_categories = tuple(
         dict.fromkeys(
             slot.category
-            for slot in ordered
+            for slot in raw_ordered
             if slot.category not in {"", "unknown", "food_cafe"}
         )
     )
@@ -273,6 +309,14 @@ def complete_route_slots(
         or historical_categories
         or SYNTHETIC_FALLBACK_CATEGORIES
     )
+    ordered = [
+        _retarget_food_slot(slot, categories=categories)
+        for slot in raw_ordered
+    ]
+    by_day = {
+        day: [slot for slot in ordered if slot.day == day][:places_per_day]
+        for day in range(1, duration_days + 1)
+    }
 
     completed: list[SlotRequest] = []
     previous_anchor: SlotRequest | None = None
@@ -332,6 +376,83 @@ def complete_route_slots(
     return tuple(completed)
 
 
+def add_meal_slots(
+    slots: Sequence[SlotRequest],
+    conditions: TravelConditions,
+    *,
+    radius_km: float = 8.0,
+) -> tuple[SlotRequest, ...]:
+    """Add meal retrieval slots while preserving three tourism slots per day."""
+
+    if radius_km <= 0:
+        raise ValueError("radius_km must be positive")
+    duration_days = int(conditions.duration_days or 0)
+    if duration_days <= 0:
+        raise ValueError("duration_days must be positive")
+
+    tourism_slots = [
+        slot for slot in slots if slot.slot_kind != "meal"
+    ]
+    result = list(tourism_slots)
+    for day in range(1, duration_days + 1):
+        day_slots = sorted(
+            (slot for slot in tourism_slots if slot.day == day),
+            key=lambda slot: slot.sequence,
+        )
+        if not day_slots:
+            continue
+        meal_types = (
+            ("breakfast", "lunch", "dinner")
+            if conditions.include_breakfast is True
+            else ("lunch", "dinner")
+        )
+        for meal_type in meal_types:
+            if meal_type == "breakfast":
+                anchor = day_slots[0]
+            elif meal_type == "lunch":
+                anchor = day_slots[min(1, len(day_slots) - 1)]
+            else:
+                anchor = day_slots[-1]
+            result.append(
+                SlotRequest(
+                    day=day,
+                    sequence=MEAL_SLOT_SEQUENCES[meal_type],
+                    role="meal",
+                    category="food_cafe",
+                    target_collections=("restaurants",),
+                    itinerary_roles=("meal", "food"),
+                    stay_minutes=MEAL_STAY_MINUTES[meal_type],
+                    latitude=anchor.latitude,
+                    longitude=anchor.longitude,
+                    radius_km=min(
+                        radius_km,
+                        anchor.radius_km
+                        if anchor.radius_km is not None
+                        else radius_km,
+                    ),
+                    template_source="meal_policy",
+                    route_anchor=anchor.route_anchor,
+                    slot_kind="meal",
+                    meal_type=meal_type,
+                )
+            )
+    return tuple(sorted(result, key=slot_route_order))
+
+
+def slot_route_order(slot: SlotRequest) -> tuple[int, int]:
+    """Return the display/travel order for tourism and meal slots."""
+
+    order = {
+        MEAL_SLOT_SEQUENCES["breakfast"]: 10,
+        1: 20,
+        MEAL_SLOT_SEQUENCES["lunch"]: 30,
+        2: 40,
+        3: 50,
+        MEAL_SLOT_SEQUENCES["dinner"]: 60,
+    }
+    return slot.day, order.get(slot.sequence, 100 + slot.sequence)
+
+
 def _nearest_route_anchor(
     slots: Sequence[SlotRequest],
     *,
@@ -350,6 +471,30 @@ def _nearest_route_anchor(
         and slot.longitude is not None
     ]
     return future[0] if future else previous
+
+
+def _retarget_food_slot(
+    slot: SlotRequest,
+    *,
+    categories: Sequence[str],
+) -> SlotRequest:
+    if (
+        slot.category != "food_cafe"
+        and "restaurants" not in slot.target_collections
+        and not {"meal", "cafe_break", "food"}.intersection(
+            slot.itinerary_roles
+        )
+    ):
+        return slot
+    category = categories[(max(slot.sequence, 1) - 1) % len(categories)]
+    return replace(
+        slot,
+        role="visit",
+        category=category,
+        target_collections=SYNTHETIC_TARGET_COLLECTIONS,
+        itinerary_roles=SYNTHETIC_ITINERARY_ROLES,
+        template_source="aihub_food_slot_retarget",
+    )
 
 
 def select_route_context(
@@ -432,6 +577,24 @@ def build_slot_query(
     slot: SlotRequest,
     conditions: TravelConditions,
 ) -> str:
+    if slot.slot_kind == "meal":
+        parts = [
+            "제주",
+            MEAL_QUERY_LABELS.get(slot.meal_type or "", "식당"),
+            "가까운 식당",
+        ]
+        menu_preferences = [
+            value
+            for value in conditions.preferred_foods
+            if _normalized(value)
+            not in {"상관없음", "아무거나", "없음", "nopreference"}
+        ]
+        if menu_preferences:
+            parts.append("원하는 메뉴 " + ", ".join(menu_preferences))
+        if conditions.excluded_foods:
+            parts.append("제외 음식 " + ", ".join(conditions.excluded_foods))
+        return ". ".join(parts)
+
     parts = [
         "제주",
         CATEGORY_QUERY_LABELS.get(slot.category, slot.category),
@@ -455,8 +618,9 @@ def build_slot_query(
         parts.append("동행 " + conditions.party_type)
     if conditions.pace:
         parts.append("여행 속도 " + conditions.pace)
-    if conditions.must_visit_places:
-        parts.append("필수 " + ", ".join(conditions.must_visit_places))
+    required_places = required_place_names_for_day(conditions, slot.day)
+    if required_places:
+        parts.append("필수 " + ", ".join(required_places))
     if slot.template_source == "synthetic_gap_fill":
         parts.append("AIHub 누락 슬롯 보충 관광지")
     if slot.route_anchor:
@@ -504,12 +668,67 @@ def score_slot_candidate(
         if not place.requires_verification
         else 0.0
     )
+    if slot.slot_kind == "meal":
+        rating = (
+            max(0.0, min(1.0, float(place.rating) / 5.0))
+            if place.rating is not None
+            else 0.5
+        )
+        menu_terms = tuple(
+            value
+            for value in conditions.preferred_foods
+            if _normalized(value)
+            not in {"상관없음", "아무거나", "없음", "nopreference"}
+        )
+        raw_menu_text = " ".join(
+            str(place.raw.get(key) or "")
+            for key in (
+                "search_text",
+                "type_details",
+                "first_menu_raw",
+                "treat_menu_raw",
+            )
+        )
+        menu_text = _normalized(
+            " ".join(
+                (place.title, place.overview, *place.tags, raw_menu_text)
+            )
+        )
+        menu_match = (
+            1.0
+            if menu_terms
+            and any(
+                _normalized(value) in menu_text
+                for value in menu_terms
+                if _normalized(value)
+            )
+            else 0.5
+            if not menu_terms
+            else 0.0
+        )
+        breakdown = {
+            "geographic": round(geographic, 6),
+            "rating": round(rating, 6),
+            "menu_match": round(menu_match, 6),
+            "semantic": round(semantic, 6),
+            "operations": round(operations, 6),
+            "rating_available": 1.0 if place.rating is not None else 0.0,
+        }
+        score = (
+            geographic * 0.45
+            + rating * 0.25
+            + menu_match * 0.15
+            + semantic * 0.10
+            + operations * 0.05
+        )
+        return score, breakdown
+
     normalized_title = _normalized(place.title)
     required = (
         1.0
         if any(
             _normalized(name) in normalized_title
-            for name in conditions.must_visit_places
+            for name in required_place_names_for_day(conditions, slot.day)
             if _normalized(name)
         )
         else 0.0
@@ -548,6 +767,21 @@ def score_slot_candidate(
         + required * 0.25
     )
     return score, breakdown
+
+
+def required_place_names_for_day(
+    conditions: TravelConditions,
+    day: int,
+) -> tuple[str, ...]:
+    day_specific = tuple(
+        name
+        for item in conditions.required_day_itineraries
+        if item.day == day
+        for name in item.place_names
+    )
+    return tuple(
+        dict.fromkeys((*conditions.must_visit_places, *day_specific))
+    )
 
 
 def haversine_km(
@@ -601,6 +835,57 @@ def _parking_available(value: str) -> bool:
     return not any(token in normalized for token in unavailable) and any(
         token in normalized
         for token in ("가능", "있음", "주차장", "parking")
+    )
+
+
+def _is_food_or_cafe(place: RetrievedPlace) -> bool:
+    if place.target_collection == "restaurants":
+        return True
+    if place.itinerary_role in {"meal", "cafe_break", "food"}:
+        return True
+    normalized = _normalized(" ".join(place.tags))
+    return any(
+        token in normalized
+        for token in ("restaurant", "cafe", "음식점", "카페")
+    )
+
+
+def _supports_meal_window(
+    opening_hours: str,
+    *,
+    meal_type: str | None,
+    stay_minutes: int,
+) -> bool:
+    """Reject only explicitly incompatible hours; ambiguous prose is allowed."""
+
+    windows = {
+        "breakfast": (7 * 60 + 30, 9 * 60),
+        "lunch": (12 * 60, 13 * 60),
+        "dinner": (18 * 60, 19 * 60 + 30),
+    }
+    meal_window = windows.get(meal_type or "")
+    if meal_window is None or not opening_hours.strip():
+        return True
+    normalized = opening_hours.replace("~", "-")
+    pattern = re.compile(
+        r"(?<!\d)([01]?\d|2[0-3])\s*:\s*([0-5]\d)\s*"
+        r"-\s*([01]?\d|2[0-3])\s*:\s*([0-5]\d)"
+    )
+    ranges = [
+        (
+            int(match.group(1)) * 60 + int(match.group(2)),
+            int(match.group(3)) * 60 + int(match.group(4)),
+        )
+        for match in pattern.finditer(normalized)
+    ]
+    if not ranges:
+        return True
+    window_start, window_end = meal_window
+    return any(
+        max(opening, window_start) + stay_minutes
+        <= min(closing, window_end)
+        for opening, closing in ranges
+        if closing > opening
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any, Mapping, Sequence
 
 from src.common.env import load_env_file
@@ -9,9 +10,17 @@ from .aihub_adapter import AIHubRouteAdapter, create_aihub_route_adapter
 from .api import create_place_search_service
 from .conditions import ConditionExtractionService
 from .llm import LLMError, OpenAITravelLLM, TravelLLM
-from .models import SlotCandidates, TravelConditions
+from .models import (
+    ItineraryChoice,
+    ItineraryDraft,
+    RetrievedPlace,
+    SlotCandidates,
+    SlotRequest,
+    TravelConditions,
+)
 from .retrieval import (
     SlotRetriever,
+    add_meal_slots,
     complete_route_slots,
     route_slots,
     select_route_context,
@@ -158,6 +167,7 @@ class RagOrchestrator:
                 if slot.template_source == "synthetic_gap_fill"
             ]
         )
+        slots = add_meal_slots(slots, conditions)
 
         retrieved: list[SlotCandidates] = [
             self.slot_retriever.retrieve(slot, conditions) for slot in slots
@@ -250,6 +260,7 @@ class RagOrchestrator:
         return {
             "status": status,
             "conditions": conditions.to_dict(),
+            "optional_questions": list(condition_result.optional_questions),
             "message": (
                 "AIHub 유사 동선 구조에 TourAPI 장소를 배치했습니다."
                 if validation.valid
@@ -264,6 +275,12 @@ class RagOrchestrator:
             "meta": {
                 "input_mode": input_mode,
                 "places_per_day": PLACES_PER_DAY,
+                "tourism_places_per_day": PLACES_PER_DAY,
+                "meal_slots_per_day": (
+                    3 if conditions.include_breakfast is True else 2
+                ),
+                "breakfast_included": conditions.include_breakfast is True,
+                "menu_preferences": list(conditions.preferred_foods),
                 "aihub_used": True,
                 "tourapi_rag_used": True,
                 "llm_itinerary_used": llm_used,
@@ -277,6 +294,388 @@ class RagOrchestrator:
                 "synthesized_slot_count": synthesized_slot_count,
             },
         }
+
+    def revise(
+        self,
+        *,
+        previous_result: Mapping[str, Any],
+        message: str,
+    ) -> dict[str, Any]:
+        """Replace exactly one requested itinerary stop.
+
+        All unaffected TourAPI content IDs stay fixed. Replacement candidates
+        come only from the original slot whitelist and must pass the complete
+        deterministic validator before being returned.
+        """
+
+        edit = _parse_replacement_request(message)
+        if edit is None:
+            return _revision_clarification(
+                previous_result,
+                "수정할 일차와 기존 장소명을 함께 알려주세요. "
+                "예: '2일차의 우도를 다른 장소로 교체해 주세요.'",
+            )
+        day, requested_title = edit
+        itinerary = previous_result.get("itinerary")
+        if not isinstance(itinerary, list) or not itinerary:
+            return _revision_unavailable(
+                previous_result,
+                "수정할 기존 일정이 없습니다.",
+            )
+        matches = [
+            stop
+            for stop in itinerary
+            if isinstance(stop, Mapping)
+            and int(stop.get("day") or 0) == day
+            and _title_matches(
+                str(stop.get("title") or ""),
+                requested_title,
+            )
+        ]
+        if len(matches) != 1:
+            day_titles = [
+                str(stop.get("title") or "")
+                for stop in itinerary
+                if isinstance(stop, Mapping)
+                and int(stop.get("day") or 0) == day
+            ]
+            detail = (
+                f"Day {day}에서 '{requested_title}'을 정확히 한 곳으로 "
+                f"확정하지 못했습니다. 현재 장소: {', '.join(day_titles)}"
+            )
+            return _revision_clarification(previous_result, detail)
+
+        target = matches[0]
+        target_sequence = int(target.get("sequence") or 0)
+        target_content_id = int(target.get("content_id") or 0)
+        slot_candidates = _restore_slot_candidates(
+            previous_result.get("slot_candidates")
+        )
+        target_slot = next(
+            (
+                item
+                for item in slot_candidates
+                if item.slot.day == day
+                and item.slot.sequence == target_sequence
+            ),
+            None,
+        )
+        if target_slot is None:
+            return _revision_unavailable(
+                previous_result,
+                "기존 결과에 해당 슬롯의 TourAPI 화이트리스트가 없습니다.",
+            )
+
+        conditions = _conditions_after_replacement(
+            TravelConditions.from_mapping(previous_result.get("conditions")),
+            day=day,
+            replaced_title=str(target.get("title") or requested_title),
+        )
+        original_choices = _choices_from_itinerary(itinerary)
+        used_ids = {
+            choice.content_id
+            for choice in original_choices
+            if choice.content_id != target_content_id
+        }
+        alternatives = [
+            place
+            for place in target_slot.candidates
+            if place.content_id != target_content_id
+            and place.content_id not in used_ids
+            and not _title_matches(place.title, requested_title)
+        ]
+        attempted_issues: list[dict[str, Any]] = []
+        for alternative in alternatives:
+            replacement = ItineraryChoice(
+                day=day,
+                slot_sequence=target_sequence,
+                content_id=alternative.content_id,
+                stay_minutes=int(target.get("stay_minutes") or 60),
+                reason=(
+                    f"사용자 요청에 따라 {target.get('title')}을(를) "
+                    "같은 슬롯의 검증된 TourAPI 후보로 교체했습니다."
+                ),
+            )
+            choices = tuple(
+                replacement
+                if choice.day == day
+                and choice.slot_sequence == target_sequence
+                else choice
+                for choice in original_choices
+            )
+            draft = ItineraryDraft(choices)
+            validation = validate_and_schedule(
+                draft,
+                slot_candidates,
+                conditions,
+            )
+            if validation.valid:
+                updated = dict(previous_result)
+                updated.update(
+                    {
+                        "status": "completed",
+                        "conditions": conditions.to_dict(),
+                        "message": (
+                            f"Day {day}의 {target.get('title')}만 "
+                            f"{alternative.title}(으)로 교체했습니다."
+                        ),
+                        "draft": draft.to_dict(),
+                        "itinerary": [
+                            stop.to_dict() for stop in validation.schedule
+                        ],
+                        "validation": validation.to_dict(),
+                    }
+                )
+                updated["meta"] = {
+                    **dict(previous_result.get("meta") or {}),
+                    "edit_mode": "targeted_replacement",
+                    "edited_day": day,
+                    "edited_sequence": target_sequence,
+                    "replaced_content_id": target_content_id,
+                    "replacement_content_id": alternative.content_id,
+                    "unchanged_place_count": len(choices) - 1,
+                }
+                return updated
+            attempted_issues.extend(
+                issue.to_dict() for issue in validation.issues
+            )
+
+        unavailable = _revision_unavailable(
+            previous_result,
+            f"Day {day}의 {target.get('title')}을 대체할 검증 통과 후보가 없습니다.",
+        )
+        unavailable["attempted_validation_issues"] = attempted_issues
+        return unavailable
+
+
+def _parse_replacement_request(message: str) -> tuple[int, str] | None:
+    normalized = message.strip()
+    if not normalized:
+        return None
+    pattern = re.compile(
+        r"(?P<day>\d+)\s*일차(?:의|에|에서)?\s*"
+        r"(?P<title>.+?)(?:을|를)\s*"
+        r"(?:다른\s*(?:것|걸|장소)(?:으?로)?\s*)?"
+        r"(?:교체|변경|바꿔|바꾸)",
+    )
+    match = pattern.search(normalized)
+    if match is None:
+        return None
+    day = int(match.group("day"))
+    title = match.group("title").strip(" ,.")
+    if day <= 0 or not title:
+        return None
+    return day, title
+
+
+def _restore_slot_candidates(value: Any) -> tuple[SlotCandidates, ...]:
+    if not isinstance(value, list):
+        return ()
+    restored: list[SlotCandidates] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        raw_slot = item.get("slot")
+        if not isinstance(raw_slot, Mapping):
+            continue
+        try:
+            slot = SlotRequest(
+                day=int(raw_slot.get("day") or 0),
+                sequence=int(raw_slot.get("sequence") or 0),
+                role=str(raw_slot.get("role") or "visit"),
+                category=str(raw_slot.get("category") or "unknown"),
+                target_collections=tuple(
+                    str(entry)
+                    for entry in raw_slot.get("target_collections") or ()
+                ),
+                itinerary_roles=tuple(
+                    str(entry)
+                    for entry in raw_slot.get("itinerary_roles") or ()
+                ),
+                stay_minutes=_optional_int(raw_slot.get("stay_minutes")),
+                latitude=_optional_float(raw_slot.get("latitude")),
+                longitude=_optional_float(raw_slot.get("longitude")),
+                radius_km=_optional_float(raw_slot.get("radius_km")),
+                template_source=str(
+                    raw_slot.get("template_source") or "aihub"
+                ),
+                route_anchor=_optional_text(raw_slot.get("route_anchor")),
+                slot_kind=str(raw_slot.get("slot_kind") or "tourism"),
+                meal_type=_optional_text(raw_slot.get("meal_type")),
+            )
+        except (TypeError, ValueError):
+            continue
+        candidates = tuple(
+            place
+            for raw_place in item.get("candidates") or ()
+            if (place := _restore_place(raw_place)) is not None
+        )
+        restored.append(
+            SlotCandidates(
+                slot=slot,
+                query=str(item.get("query") or ""),
+                candidates=candidates,
+            )
+        )
+    return tuple(restored)
+
+
+def _restore_place(value: Any) -> RetrievedPlace | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return RetrievedPlace(
+            content_id=int(value.get("content_id") or 0),
+            title=str(value.get("title") or ""),
+            latitude=float(value.get("latitude") or 0.0),
+            longitude=float(value.get("longitude") or 0.0),
+            similarity_score=float(value.get("similarity_score") or 0.0),
+            rank=int(value.get("rank") or 0),
+            dataset=str(value.get("dataset") or ""),
+            target_collection=str(value.get("target_collection") or ""),
+            itinerary_role=str(value.get("itinerary_role") or ""),
+            tags=tuple(str(entry) for entry in value.get("tags") or ()),
+            address=str(value.get("address") or ""),
+            opening_hours=str(value.get("opening_hours") or ""),
+            closed_days=str(value.get("closed_days") or ""),
+            parking=str(value.get("parking") or ""),
+            reservation=str(value.get("reservation") or ""),
+            use_fee=str(value.get("use_fee") or ""),
+            rating=_optional_float(value.get("rating")),
+            rating_count=_optional_int(value.get("rating_count")),
+            overview=str(value.get("overview") or ""),
+            route_eligible=bool(value.get("route_eligible", True)),
+            schedule_eligible=bool(value.get("schedule_eligible", True)),
+            requires_verification=bool(
+                value.get("requires_verification", False)
+            ),
+            distance_km=_optional_float(value.get("distance_km")),
+            slot_score=_optional_float(value.get("slot_score")),
+            score_breakdown=dict(value.get("score_breakdown") or {}),
+            raw=dict(value.get("raw") or {}),
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _choices_from_itinerary(
+    itinerary: Sequence[Mapping[str, Any]],
+) -> tuple[ItineraryChoice, ...]:
+    return tuple(
+        ItineraryChoice(
+            day=int(stop.get("day") or 0),
+            slot_sequence=int(stop.get("sequence") or 0),
+            content_id=int(stop.get("content_id") or 0),
+            stay_minutes=int(stop.get("stay_minutes") or 60),
+            reason=str(stop.get("reason") or "기존 일정 선택을 유지합니다."),
+        )
+        for stop in itinerary
+        if isinstance(stop, Mapping)
+    )
+
+
+def _conditions_after_replacement(
+    conditions: TravelConditions,
+    *,
+    day: int,
+    replaced_title: str,
+) -> TravelConditions:
+    replaced_key = _normalized_title(replaced_title)
+    payload = conditions.to_dict()
+    payload["must_visit_places"] = [
+        name
+        for name in conditions.must_visit_places
+        if not _title_keys_match(_normalized_title(name), replaced_key)
+    ]
+    required_by_day: list[dict[str, Any]] = []
+    for requirement in conditions.required_day_itineraries:
+        names = [
+            name
+            for name in requirement.place_names
+            if not (
+                requirement.day == day
+                and _title_keys_match(
+                    _normalized_title(name),
+                    replaced_key,
+                )
+            )
+        ]
+        if names:
+            required_by_day.append(
+                {"day": requirement.day, "place_names": names}
+            )
+    payload["required_day_itineraries"] = required_by_day
+    return TravelConditions.from_mapping(payload)
+
+
+def _revision_clarification(
+    previous_result: Mapping[str, Any],
+    question: str,
+) -> dict[str, Any]:
+    return {
+        "status": "clarification_required",
+        "conditions": dict(previous_result.get("conditions") or {}),
+        "clarification_questions": [question],
+        "itinerary": list(previous_result.get("itinerary") or []),
+        "meta": {
+            **dict(previous_result.get("meta") or {}),
+            "edit_mode": "targeted_replacement",
+            "itinerary_preserved": True,
+        },
+    }
+
+
+def _revision_unavailable(
+    previous_result: Mapping[str, Any],
+    message: str,
+) -> dict[str, Any]:
+    return {
+        **dict(previous_result),
+        "status": "replacement_unavailable",
+        "message": message,
+        "itinerary": list(previous_result.get("itinerary") or []),
+        "meta": {
+            **dict(previous_result.get("meta") or {}),
+            "edit_mode": "targeted_replacement",
+            "itinerary_preserved": True,
+        },
+    }
+
+
+def _title_matches(first: str, second: str) -> bool:
+    return _title_keys_match(
+        _normalized_title(first),
+        _normalized_title(second),
+    )
+
+
+def _title_keys_match(first: str, second: str) -> bool:
+    return bool(first and second and (first in second or second in first))
+
+
+def _normalized_title(value: str) -> str:
+    return "".join(
+        character.lower() for character in value if character.isalnum()
+    )
+
+
+def _optional_text(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        return None if value in (None, "") else int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        return None if value in (None, "") else float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def build_itinerary_prompt_context(
@@ -302,6 +701,8 @@ def build_itinerary_prompt_context(
                 "opening_hours": place.opening_hours,
                 "closed_days": place.closed_days,
                 "parking": place.parking,
+                "rating": place.rating,
+                "rating_count": place.rating_count,
                 "distance_km": place.distance_km,
                 "semantic_similarity": place.similarity_score,
                 "slot_score": place.slot_score,
@@ -316,6 +717,8 @@ def build_itinerary_prompt_context(
                 "slot_sequence": item.slot.sequence,
                 "role": item.slot.role,
                 "category": item.slot.category,
+                "slot_kind": item.slot.slot_kind,
+                "meal_type": item.slot.meal_type,
                 "suggested_stay_minutes": item.slot.stay_minutes,
                 "template_source": item.slot.template_source,
                 "route_anchor": item.slot.route_anchor,
@@ -350,14 +753,43 @@ def build_itinerary_prompt_context(
             "place_source": "TourAPI candidates only",
             "aihub_place_names_allowed": False,
             "one_place_per_slot": True,
-            "places_per_day": PLACES_PER_DAY,
+            "tourism_places_per_day": PLACES_PER_DAY,
+            "meal_slots_per_day": (
+                3 if conditions.include_breakfast is True else 2
+            ),
             "every_slot_required": True,
             "duplicate_content_ids_allowed": False,
             "max_leg_distance_km": max_leg_distance_km(conditions),
+            "schedule_windows": {
+                "breakfast": (
+                    "07:30-09:00"
+                    if conditions.include_breakfast is True
+                    else "not included unless explicitly requested"
+                ),
+                "slot_1": "09:00-12:00",
+                "lunch": "12:00-13:00",
+                "slot_2": "13:00-15:30",
+                "slot_3": "15:30-18:00",
+                "dinner": "18:00-19:30",
+            },
+            "food_and_cafe_as_tourism_places": False,
+            "restaurants_allowed_only_in_meal_slots": True,
+            "restaurant_ranking": [
+                "distance",
+                "verified_rating_when_available",
+                "preferred_menu_match",
+                "opening_hours",
+            ],
+            "unknown_rating_policy": "neutral; never fabricate a rating",
             "route_anchors": {
                 "start_point": conditions.entry_point,
                 "end_point": conditions.exit_point,
                 "accommodation": conditions.accommodation_address,
+            },
+            "conditional_time_constraints": {
+                "trip_start_time": conditions.arrival_time,
+                "departure_airport": conditions.exit_point,
+                "airport_arrival_deadline": conditions.departure_time,
             },
             "route_anchors_are_optional": True,
             "route_anchor_distance_requires_coordinates": True,

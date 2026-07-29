@@ -101,7 +101,14 @@ result = rag.run(
         "start_point": "제주국제공항",
         "end_point": "제주항",
         "required_itinerary": ["성산일출봉", "우도"],
+        "required_day_itineraries": [
+            {"day": 2, "place_names": ["우도"]},
+            {"day": 4, "place_names": ["한라수목원"]},
+        ],
         "accommodation": "서귀포시 중문동 숙소",
+        "trip_start_time": "10:00",
+        "departure_airport": "제주국제공항",
+        "airport_arrival_deadline": "16:00",
     }
 )
 ```
@@ -118,6 +125,23 @@ result = rag.run(
 재질문하지 않습니다. 숙소는 관광지 3곳에 포함하지 않고 일별 동선 참고 지점으로만
 사용합니다.
 
+특정 날짜에 반드시 넣을 장소는 `required_day_itineraries`로 전달합니다. 각 항목은
+`day`와 `place_names`를 가지며, 해당 장소가 다른 날짜에 배치되면 조건 충족으로
+인정하지 않습니다. 간단한 선택형 입력에서는
+`"must_visit_by_day": {"2": ["우도"]}` 형식도 같은 값으로 정규화됩니다.
+
+여행 시간 제약도 선택사항입니다. `trip_start_time`은 첫날 여행 시작시각,
+`departure_airport`는 마지막 도착 공항, `airport_arrival_deadline`은 해당 공항에
+도착해야 하는 제한시각이며 모두 `HH:MM` 형식을 사용합니다. 공항 도착 제한시각만
+입력되고 공항이 누락되면 RAG가 공항을 재질문합니다. 내부 호환 필드는 각각
+`arrival_time`, `exit_point`, `departure_time`입니다.
+
+일반 여행일의 관광지 3곳은 오전 `09:00~12:00`, 오후 `13:00~15:30`,
+늦은 오후 `15:30~18:00` 또는 야간 운영 시 `19:00~20:00`에 분산합니다.
+`12:00~13:00`과 `18:00~19:00`은 식사·휴식 시간으로 비우며 음식점과 카페는
+관광지 3곳에 포함하지 않습니다. 첫날은 `trip_start_time`, 마지막 날은
+`airport_arrival_deadline`과 공항까지의 이동시간을 이 기본 시간대보다 우선합니다.
+
 조건이 부족하면 다음 상태가 반환됩니다.
 
 ```json
@@ -129,6 +153,28 @@ result = rag.run(
 }
 ```
 
+## 기존 일정의 한 장소만 교체
+
+완성된 결과에서 특정 장소만 바꿀 때는 전체 일정을 다시 생성하지 않고
+`revise()`에 이전 결과와 수정 문장을 전달합니다.
+
+```python
+revised = rag.revise(
+    previous_result=result,
+    message="2일차의 우도를 다른 걸로 교체해 주세요.",
+)
+```
+
+`revise()`는 요청한 Day·슬롯의 기존 TourAPI 화이트리스트 차순위 후보만 시험합니다.
+다른 슬롯의 `content_id`는 고정하며, 교체 후보가 전체 운영시간·거리·중복 검증을
+통과할 때만 `completed`를 반환합니다. 대상 장소가 모호하면
+`clarification_required`, 검증을 통과할 대체 후보가 없으면
+`replacement_unavailable`을 반환하고 기존 일정은 그대로 보존합니다.
+
+응답 `meta.edit_mode`는 `targeted_replacement`이며 `edited_day`,
+`edited_sequence`, `replaced_content_id`, `replacement_content_id`,
+`unchanged_place_count`로 변경 범위를 확인할 수 있습니다.
+
 ## 환경변수
 
 - `OPENAI_API_KEY`
@@ -138,3 +184,18 @@ result = rag.run(
   `MYSQL_DATABASE`
 - TourAPI와 AIHub 정형 데이터는 동일한 `MYSQL_DATABASE`를 사용합니다.
 - `CHROMA_MODE`, `CHROMA_PERSIST_DIRECTORY`, `CHROMA_COLLECTION`
+
+## 식사 일정 정책
+
+- 관광지는 기존과 동일하게 하루 3곳을 선택합니다.
+- 점심식사는 오전 관광지와 오후 관광지 사이인 `12:00~13:00`에,
+  저녁식사는 늦은 오후 관광지 뒤인 `18:00~19:30`에 별도 식사 슬롯으로
+  추가합니다. 식당은 관광지 3곳에 포함되지 않습니다.
+- 아침식사는 `include_breakfast=true`이거나 자연어로 명시적으로 요청한
+  경우에만 `07:30~09:00` 식사 슬롯을 추가합니다.
+- 선호 메뉴는 `preferred_foods` 또는 `meal_menu_preferences`로 전달합니다.
+  메뉴가 비어 있어도 일정 생성은 계속하며, 응답의 `optional_questions`에
+  원하는 메뉴 질문을 반환합니다.
+- 식당 후보는 거리 45%, 실제 평점 25%, 메뉴 일치 15%, 벡터 유사도 10%,
+  운영정보 5%를 반영합니다. 실제 평점 필드가 없는 후보는 중립값으로
+  처리하며 사용자에게 평점을 임의로 만들어 보여주지 않습니다.

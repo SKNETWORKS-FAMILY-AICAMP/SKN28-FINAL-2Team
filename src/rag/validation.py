@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Mapping, Sequence
+from typing import Mapping, Sequence
 
 from .models import (
     ItineraryChoice,
@@ -13,11 +13,30 @@ from .models import (
     ValidationIssue,
     ValidationResult,
 )
-from .retrieval import haversine_km
+from .retrieval import (
+    MEAL_SLOT_SEQUENCES,
+    haversine_km,
+    required_place_names_for_day,
+    slot_route_order,
+)
 
 
 DEFAULT_DAY_START = "09:00"
 DEFAULT_DAY_END = "20:00"
+SLOT_TIME_WINDOWS = {
+    MEAL_SLOT_SEQUENCES["breakfast"]: (("07:30", "09:00"),),
+    1: (("09:00", "12:00"),),
+    MEAL_SLOT_SEQUENCES["lunch"]: (("12:00", "13:00"),),
+    2: (("13:00", "15:30"),),
+    3: (("15:30", "18:00"),),
+    MEAL_SLOT_SEQUENCES["dinner"]: (("18:00", "19:30"),),
+}
+KNOWN_ROUTE_ANCHORS = {
+    "제주공항": (33.5104, 126.4913),
+    "제주국제공항": (33.5104, 126.4913),
+    "제주항": (33.5178, 126.5270),
+    "제주항연안여객터미널": (33.5178, 126.5270),
+}
 TRANSPORT_SPEED_KMH = {
     "rental_car": 38.0,
     "own_car": 38.0,
@@ -104,6 +123,29 @@ def validate_and_schedule(
                 )
             )
             continue
+        is_food = _is_food_or_cafe(place)
+        if slot.slot.slot_kind == "meal" and not is_food:
+            issues.append(
+                ValidationIssue(
+                    "meal_slot_requires_restaurant",
+                    f"식사 슬롯에는 검증된 식당만 선택할 수 있습니다: {place.title}",
+                    choice.day,
+                    choice.slot_sequence,
+                    choice.content_id,
+                )
+            )
+            continue
+        if slot.slot.slot_kind != "meal" and is_food:
+            issues.append(
+                ValidationIssue(
+                    "food_or_cafe_not_allowed",
+                    f"관광지 일정에 음식점·카페가 선택됨: {place.title}",
+                    choice.day,
+                    choice.slot_sequence,
+                    choice.content_id,
+                )
+            )
+            continue
         selected[key] = (choice, place)
         used_ids.add(choice.content_id)
 
@@ -132,6 +174,27 @@ def validate_and_schedule(
                     f"필수 장소가 선택되지 않음: {required_name}",
                 )
             )
+    selected_titles_by_day: dict[int, set[str]] = {}
+    for (day, _), (_, place) in selected.items():
+        selected_titles_by_day.setdefault(day, set()).add(
+            _normalized(place.title)
+        )
+    for requirement in conditions.required_day_itineraries:
+        day_titles = selected_titles_by_day.get(requirement.day, set())
+        for required_name in requirement.place_names:
+            normalized = _normalized(required_name)
+            if normalized and not any(
+                normalized in title or title in normalized
+                for title in day_titles
+            ):
+                issues.append(
+                    ValidationIssue(
+                        "missing_required_day_place",
+                        f"Day {requirement.day} 필수 장소가 선택되지 않음: "
+                        f"{required_name}",
+                        day=requirement.day,
+                    )
+                )
 
     schedule, schedule_issues = _schedule_selected(
         selected,
@@ -156,19 +219,23 @@ def deterministic_draft(
 
     used: set[int] = set()
     choices: list[ItineraryChoice] = []
-    required_keys = {
-        _normalized(value) for value in conditions.must_visit_places
-    }
     previous: RetrievedPlace | None = None
     previous_day: int | None = None
     max_leg = _max_leg_distance(conditions)
     for slot_result in sorted(
         slot_candidates,
-        key=lambda item: (item.slot.day, item.slot.sequence),
+        key=lambda item: slot_route_order(item.slot),
     ):
         if previous_day != slot_result.slot.day:
             previous = None
             previous_day = slot_result.slot.day
+        required_keys = {
+            _normalized(value)
+            for value in required_place_names_for_day(
+                conditions,
+                slot_result.slot.day,
+            )
+        }
 
         def rank_key(place: RetrievedPlace) -> tuple[bool, bool, float, float, int]:
             distance = (
@@ -246,11 +313,18 @@ def _schedule_selected(
     max_leg = _max_leg_distance(conditions)
     last_day = conditions.duration_days or max(grouped, default=1)
     for day, items in sorted(grouped.items()):
-        items.sort(key=lambda item: item[0].slot_sequence)
+        items.sort(
+            key=lambda item: _sequence_route_order(item[0].slot_sequence)
+        )
+        effective_day_start = (
+            "07:30"
+            if conditions.include_breakfast is True
+            else day_start
+        )
         current = _time_to_minutes(
             conditions.arrival_time
             if day == 1 and conditions.arrival_time
-            else day_start
+            else effective_day_start
         )
         day_limit = _time_to_minutes(
             conditions.departure_time
@@ -259,15 +333,26 @@ def _schedule_selected(
         )
         previous: RetrievedPlace | None = None
         for choice, place in items:
-            distance = (
-                _distance(previous, place) if previous is not None else None
-            )
+            previous_label: str | None = None
+            if previous is not None:
+                distance = _distance(previous, place)
+                previous_label = previous.title
+            elif day == 1 and conditions.entry_point:
+                origin = _known_anchor_coordinates(conditions.entry_point)
+                distance = (
+                    _distance_from_coordinates(origin, place)
+                    if origin is not None
+                    else None
+                )
+                previous_label = conditions.entry_point
+            else:
+                distance = None
             if distance is not None:
                 if distance > max_leg:
                     issues.append(
                         ValidationIssue(
                             "distance_limit",
-                            f"{previous.title}에서 {place.title}까지 "
+                            f"{previous_label or '이전 지점'}에서 {place.title}까지 "
                             f"{distance:.1f}km로 이동거리 제한 "
                             f"{max_leg:.1f}km를 초과함",
                             choice.day,
@@ -278,25 +363,35 @@ def _schedule_selected(
                 current += max(10, round(distance / speed * 60))
 
             opening_ranges = parse_opening_ranges(place.opening_hours)
-            if opening_ranges:
-                start, close = _matching_opening_window(
-                    current,
-                    choice.stay_minutes,
-                    opening_ranges,
-                )
-                if start is None or close is None:
-                    issues.append(
-                        ValidationIssue(
-                            "outside_opening_hours",
-                            f"{place.title}을 운영시간 안에 배치할 수 없음: "
-                            f"{place.opening_hours}",
-                            choice.day,
-                            choice.slot_sequence,
-                            choice.content_id,
-                        )
+            allowed_windows = _slot_windows(
+                choice.slot_sequence,
+                day_start=(
+                    _minutes_to_time(current)
+                    if choice.slot_sequence == 1
+                    else effective_day_start
+                ),
+                day_end=_minutes_to_time(day_limit),
+            )
+            start = _matching_time_slot(
+                current,
+                choice.stay_minutes,
+                opening_ranges,
+                allowed_windows,
+            )
+            if start is None:
+                issues.append(
+                    ValidationIssue(
+                        "outside_time_slot",
+                        f"{place.title}을 Day {day} #{choice.slot_sequence} "
+                        f"시간대와 운영시간 안에 배치할 수 없음: "
+                        f"{place.opening_hours or '운영시간 미확인'}",
+                        choice.day,
+                        choice.slot_sequence,
+                        choice.content_id,
                     )
-                else:
-                    current = start
+                )
+            else:
+                current = start
 
             end = current + choice.stay_minutes
             if end > day_limit:
@@ -323,10 +418,54 @@ def _schedule_selected(
                         round(distance, 3) if distance is not None else None
                     ),
                     reason=choice.reason,
+                    slot_kind=(
+                        "meal"
+                        if choice.slot_sequence
+                        in MEAL_SLOT_SEQUENCES.values()
+                        else "tourism"
+                    ),
+                    meal_type=_meal_type(choice.slot_sequence),
                 )
             )
             current = end
             previous = place
+        if items and day == last_day and conditions.exit_point:
+            destination = _known_anchor_coordinates(conditions.exit_point)
+            last_choice, last_place = items[-1]
+            distance_to_destination = (
+                _distance_from_coordinates(destination, last_place)
+                if destination is not None
+                else None
+            )
+            if distance_to_destination is not None:
+                if distance_to_destination > max_leg:
+                    issues.append(
+                        ValidationIssue(
+                            "destination_distance_limit",
+                            f"{last_place.title}에서 {conditions.exit_point}까지 "
+                            f"{distance_to_destination:.1f}km로 이동거리 제한 "
+                            f"{max_leg:.1f}km를 초과함",
+                            last_choice.day,
+                            last_choice.slot_sequence,
+                            last_choice.content_id,
+                        )
+                    )
+                arrival = current + max(
+                    10,
+                    round(distance_to_destination / speed * 60),
+                )
+                if arrival > day_limit:
+                    issues.append(
+                        ValidationIssue(
+                            "destination_time_limit",
+                            f"{last_place.title}에서 {conditions.exit_point} "
+                            f"도착시각 {_minutes_to_time(arrival)}이 제한시각 "
+                            f"{_minutes_to_time(day_limit)}을 초과함",
+                            last_choice.day,
+                            last_choice.slot_sequence,
+                            last_choice.content_id,
+                        )
+                    )
     return schedule, issues
 
 
@@ -354,16 +493,66 @@ def parse_opening_ranges(value: str) -> tuple[tuple[int, int], ...]:
     return tuple(dict.fromkeys(ranges))
 
 
-def _matching_opening_window(
+def _matching_time_slot(
     proposed_start: int,
     stay_minutes: int,
-    ranges: Iterable[tuple[int, int]],
-) -> tuple[int | None, int | None]:
-    for opening, closing in ranges:
-        start = max(proposed_start, opening)
-        if start + stay_minutes <= closing:
-            return start, closing
-    return None, None
+    opening_ranges: Sequence[tuple[int, int]],
+    allowed_windows: Sequence[tuple[int, int]],
+) -> int | None:
+    for window_start, window_end in allowed_windows:
+        start = max(proposed_start, window_start)
+        if opening_ranges:
+            for opening, closing in opening_ranges:
+                candidate = max(start, opening)
+                if candidate + stay_minutes <= min(window_end, closing):
+                    return candidate
+        elif start + stay_minutes <= window_end:
+            return start
+    return None
+
+
+def _slot_windows(
+    sequence: int,
+    *,
+    day_start: str,
+    day_end: str,
+) -> tuple[tuple[int, int], ...]:
+    lower = _time_to_minutes(day_start)
+    upper = _time_to_minutes(day_end)
+    configured = SLOT_TIME_WINDOWS.get(
+        sequence,
+        ((day_start, day_end),),
+    )
+    windows: list[tuple[int, int]] = []
+    for start_text, end_text in configured:
+        start = max(lower, _time_to_minutes(start_text))
+        end = min(upper, _time_to_minutes(end_text))
+        if end > start:
+            windows.append((start, end))
+    return tuple(windows)
+
+
+def _sequence_route_order(sequence: int) -> int:
+    order = {
+        MEAL_SLOT_SEQUENCES["breakfast"]: 10,
+        1: 20,
+        MEAL_SLOT_SEQUENCES["lunch"]: 30,
+        2: 40,
+        3: 50,
+        MEAL_SLOT_SEQUENCES["dinner"]: 60,
+    }
+    return order.get(sequence, 100 + sequence)
+
+
+def _meal_type(sequence: int) -> str | None:
+    return next(
+        (
+            meal_type
+            for meal_type, meal_sequence in MEAL_SLOT_SEQUENCES.items()
+            if meal_sequence == sequence
+        ),
+        None,
+    )
 
 
 def _max_leg_distance(conditions: TravelConditions) -> float:
@@ -402,11 +591,47 @@ def _distance(
     )
 
 
+def _distance_from_coordinates(
+    coordinates: tuple[float, float],
+    place: RetrievedPlace,
+) -> float | None:
+    latitude, longitude = coordinates
+    if place.latitude == 0.0 or place.longitude == 0.0:
+        return None
+    return haversine_km(
+        latitude,
+        longitude,
+        place.latitude,
+        place.longitude,
+    )
+
+
+def _known_anchor_coordinates(value: str) -> tuple[float, float] | None:
+    normalized = _normalized(value)
+    for name, coordinates in KNOWN_ROUTE_ANCHORS.items():
+        normalized_name = _normalized(name)
+        if normalized_name in normalized or normalized in normalized_name:
+            return coordinates
+    return None
+
+
 def _is_excluded(title: str, excluded_places: Sequence[str]) -> bool:
     normalized_title = _normalized(title)
     return any(
         value and value in normalized_title
         for value in (_normalized(item) for item in excluded_places)
+    )
+
+
+def _is_food_or_cafe(place: RetrievedPlace) -> bool:
+    if place.target_collection == "restaurants":
+        return True
+    if place.itinerary_role in {"meal", "cafe_break", "food"}:
+        return True
+    normalized = _normalized(" ".join((place.title, *place.tags)))
+    return any(
+        token in normalized
+        for token in ("restaurant", "cafe", "음식점", "카페")
     )
 
 

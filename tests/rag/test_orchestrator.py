@@ -130,19 +130,43 @@ class FakeRouteAdapter:
 
 class FakeSlotRetriever:
     def retrieve(self, slot, conditions):
+        is_meal = slot.slot_kind == "meal"
+        content_id = (
+            900000 + slot.day * 1000 + slot.sequence
+            if is_meal
+            else slot.day * 100 + slot.sequence
+        )
         candidate = RetrievedPlace(
-            content_id=slot.day * 100 + slot.sequence,
-            title="테스트 자연 관광지",
+            content_id=content_id,
+            title=f"Day {slot.day} 장소 {slot.sequence}",
             latitude=33.45,
             longitude=126.50,
             similarity_score=0.9,
             rank=1,
-            target_collection="attractions",
-            itinerary_role="visit",
-            opening_hours="09:00-18:00",
+            target_collection="restaurants" if is_meal else "attractions",
+            itinerary_role="meal" if is_meal else "visit",
+            opening_hours="07:00-22:00" if is_meal else "09:00-18:00",
+            rating=4.6 if is_meal else None,
             slot_score=0.95,
         )
-        return SlotCandidates(slot, "자연 관광지", (candidate,))
+        alternative = RetrievedPlace(
+            content_id=content_id + 500000,
+            title=f"Day {slot.day} 대체 장소 {slot.sequence}",
+            latitude=33.451,
+            longitude=126.501,
+            similarity_score=0.85,
+            rank=2,
+            target_collection="restaurants" if is_meal else "attractions",
+            itinerary_role="meal" if is_meal else "visit",
+            opening_hours="07:00-22:00" if is_meal else "09:00-18:00",
+            rating=4.2 if is_meal else None,
+            slot_score=0.85,
+        )
+        return SlotCandidates(
+            slot,
+            "자연 관광지",
+            (candidate, alternative),
+        )
 
 
 class TwoDayConditionLLM(FakeLLM):
@@ -214,7 +238,7 @@ class OrchestratorTests(unittest.TestCase):
         )
 
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(len(result["itinerary"]), 3)
+        self.assertEqual(len(result["itinerary"]), 5)
         self.assertEqual(llm.extract_calls, 0)
         self.assertEqual(result["meta"]["input_mode"], "frontend_selections")
         self.assertEqual(result["meta"]["places_per_day"], 3)
@@ -238,10 +262,80 @@ class OrchestratorTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["itinerary"][0]["content_id"], 101)
-        self.assertEqual(len(result["itinerary"]), 3)
+        self.assertEqual(len(result["itinerary"]), 5)
         self.assertTrue(result["meta"]["llm_repaired"])
         self.assertEqual(llm.repair_calls, 1)
         self.assertEqual(result["meta"]["aihub_tourapi_mapping"], "ignored")
+
+    def test_replaces_only_the_requested_stop(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+        original = orchestrator.run(
+            selected_options={
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+            }
+        )
+        original_ids = {
+            stop["sequence"]: stop["content_id"]
+            for stop in original["itinerary"]
+        }
+
+        revised = orchestrator.revise(
+            previous_result=original,
+            message="1일차의 Day 1 장소 2를 다른 걸로 교체해 주세요.",
+        )
+        revised_ids = {
+            stop["sequence"]: stop["content_id"]
+            for stop in revised["itinerary"]
+        }
+
+        self.assertEqual(revised["status"], "completed")
+        self.assertEqual(revised_ids[1], original_ids[1])
+        self.assertNotEqual(revised_ids[2], original_ids[2])
+        self.assertEqual(revised_ids[3], original_ids[3])
+        self.assertEqual(revised_ids[102], original_ids[102])
+        self.assertEqual(revised_ids[103], original_ids[103])
+        self.assertEqual(
+            revised["meta"]["edit_mode"],
+            "targeted_replacement",
+        )
+        self.assertEqual(revised["meta"]["edited_day"], 1)
+        self.assertEqual(revised["meta"]["edited_sequence"], 2)
+        self.assertEqual(revised["meta"]["unchanged_place_count"], 4)
+
+    def test_preserves_itinerary_when_replacement_target_is_unknown(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+        original = orchestrator.run(
+            selected_options={
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+            }
+        )
+
+        revised = orchestrator.revise(
+            previous_result=original,
+            message="1일차의 존재하지 않는 장소를 다른 걸로 교체해 주세요.",
+        )
+
+        self.assertEqual(revised["status"], "clarification_required")
+        self.assertEqual(revised["itinerary"], original["itinerary"])
+        self.assertTrue(revised["meta"]["itinerary_preserved"])
 
     def test_fills_aihub_pattern_shorter_than_requested_trip(self) -> None:
         llm = TwoDayConditionLLM()
@@ -255,7 +349,7 @@ class OrchestratorTests(unittest.TestCase):
         result = orchestrator.run(message="혼자 렌터카로 2일 자연 여행")
 
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(len(result["itinerary"]), 6)
+        self.assertEqual(len(result["itinerary"]), 10)
         self.assertEqual(result["meta"]["synthesized_route_days"], [2])
         self.assertEqual(result["meta"]["synthesized_slot_count"], 3)
         self.assertTrue(result["meta"]["tourapi_rag_used"])
@@ -277,7 +371,7 @@ class OrchestratorTests(unittest.TestCase):
         )
 
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(len(result["itinerary"]), 12)
+        self.assertEqual(len(result["itinerary"]), 20)
         self.assertEqual(
             result["meta"]["aihub_original_slot_counts"],
             {1: 3, 2: 3, 3: 3, 4: 0},
@@ -288,6 +382,7 @@ class OrchestratorTests(unittest.TestCase):
             item
             for item in result["slot_candidates"]
             if item["slot"]["day"] == 4
+            and item["slot"]["slot_kind"] == "tourism"
         ]
         self.assertEqual(len(day_four_slots), 3)
         self.assertTrue(

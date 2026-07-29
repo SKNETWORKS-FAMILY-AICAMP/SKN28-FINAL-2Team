@@ -6,12 +6,16 @@ from src.rag.models import (
     PlaceSearchFilters,
     PlaceSearchResponse,
     RetrievedPlace,
+    SlotRequest,
     TravelConditions,
 )
 from src.rag.retrieval import (
     SlotRetriever,
+    add_meal_slots,
+    build_slot_query,
     complete_route_slots,
     route_slots,
+    score_slot_candidate,
     select_route_context,
 )
 
@@ -51,6 +55,169 @@ class FakePlaceService:
 
 
 class SlotRetrievalTests(unittest.TestCase):
+    def test_adds_lunch_and_dinner_and_opt_in_breakfast(self) -> None:
+        tourism = tuple(
+            SlotRequest(
+                day=1,
+                sequence=sequence,
+                role="visit",
+                category="nature",
+                target_collections=("attractions",),
+                itinerary_roles=("visit",),
+                stay_minutes=60,
+                latitude=33.45 + sequence / 1000,
+                longitude=126.50,
+                radius_km=8.0,
+            )
+            for sequence in range(1, 4)
+        )
+        base = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+            }
+        )
+
+        without_breakfast = add_meal_slots(tourism, base)
+        with_breakfast = add_meal_slots(
+            tourism,
+            TravelConditions.from_mapping(
+                {**base.to_dict(), "include_breakfast": True}
+            ),
+        )
+
+        self.assertEqual(
+            [slot.meal_type for slot in without_breakfast if slot.slot_kind == "meal"],
+            ["lunch", "dinner"],
+        )
+        self.assertEqual(
+            [slot.meal_type for slot in with_breakfast if slot.slot_kind == "meal"],
+            ["breakfast", "lunch", "dinner"],
+        )
+        self.assertEqual(
+            len([slot for slot in with_breakfast if slot.slot_kind == "tourism"]),
+            3,
+        )
+
+    def test_meal_score_prioritizes_distance_rating_and_menu(self) -> None:
+        slot = SlotRequest(
+            day=1,
+            sequence=102,
+            role="meal",
+            category="food_cafe",
+            target_collections=("restaurants",),
+            itinerary_roles=("meal",),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+            slot_kind="meal",
+            meal_type="lunch",
+        )
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+                "preferred_foods": ["갈치조림"],
+            }
+        )
+        preferred = RetrievedPlace(
+            content_id=10,
+            title="제주 갈치조림",
+            latitude=33.45,
+            longitude=126.50,
+            similarity_score=0.8,
+            rank=1,
+            target_collection="restaurants",
+            itinerary_role="meal",
+            tags=("갈치조림",),
+            opening_hours="10:00-21:00",
+            rating=4.7,
+        )
+        weak = RetrievedPlace(
+            content_id=11,
+            title="먼 식당",
+            latitude=33.45,
+            longitude=126.50,
+            similarity_score=0.8,
+            rank=2,
+            target_collection="restaurants",
+            itinerary_role="meal",
+            opening_hours="10:00-21:00",
+        )
+
+        strong_score, breakdown = score_slot_candidate(
+            preferred, slot, conditions, distance_km=0.5
+        )
+        weak_score, weak_breakdown = score_slot_candidate(
+            weak, slot, conditions, distance_km=7.5
+        )
+
+        self.assertGreater(strong_score, weak_score)
+        self.assertEqual(breakdown["rating_available"], 1.0)
+        self.assertEqual(weak_breakdown["rating_available"], 0.0)
+
+    def test_filters_restaurant_closed_before_dinner(self) -> None:
+        slot = SlotRequest(
+            day=1,
+            sequence=103,
+            role="meal",
+            category="food_cafe",
+            target_collections=("restaurants",),
+            itinerary_roles=("meal",),
+            stay_minutes=70,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+            slot_kind="meal",
+            meal_type="dinner",
+        )
+        restaurants = [
+            RetrievedPlace(
+                content_id=20,
+                title="오후 영업 식당",
+                latitude=33.45,
+                longitude=126.50,
+                similarity_score=0.95,
+                rank=1,
+                target_collection="restaurants",
+                itinerary_role="meal",
+                opening_hours="09:00-18:00",
+            ),
+            RetrievedPlace(
+                content_id=21,
+                title="저녁 영업 식당",
+                latitude=33.451,
+                longitude=126.501,
+                similarity_score=0.8,
+                rank=2,
+                target_collection="restaurants",
+                itinerary_role="meal",
+                opening_hours="09:00-22:00",
+            ),
+        ]
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+            }
+        )
+
+        result = SlotRetriever(
+            FakePlaceService(restaurants)
+        ).retrieve(slot, conditions)
+
+        self.assertEqual(
+            [candidate.content_id for candidate in result.candidates],
+            [21],
+        )
+
     def test_selects_complete_pattern_and_caps_it_to_pace_budget(self) -> None:
         def pattern(reference_id: str, counts: tuple[int, ...]):
             return {
@@ -270,6 +437,137 @@ class SlotRetrievalTests(unittest.TestCase):
         self.assertEqual(day_four[-1].route_anchor, "제주국제공항")
         self.assertEqual(day_four[-1].target_collections, ("attractions",))
         self.assertEqual(day_four[-1].itinerary_roles, ("visit",))
+
+    def test_retargets_aihub_food_slot_to_tourist_attraction(self) -> None:
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["culture"],
+            }
+        )
+        food_slot = SlotRequest(
+            day=1,
+            sequence=1,
+            role="food",
+            category="food_cafe",
+            target_collections=("restaurants",),
+            itinerary_roles=("meal", "cafe_break"),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+        )
+
+        completed = complete_route_slots(
+            (food_slot,),
+            conditions,
+            places_per_day=1,
+            anchor_radius_km=20.0,
+        )
+
+        self.assertEqual(completed[0].target_collections, ("attractions",))
+        self.assertEqual(completed[0].itinerary_roles, ("visit",))
+        self.assertEqual(completed[0].category, "culture")
+        self.assertEqual(
+            completed[0].template_source,
+            "aihub_food_slot_retarget",
+        )
+
+    def test_adds_only_matching_day_required_places_to_query(self) -> None:
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 3,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+                "required_day_itineraries": [
+                    {"day": 2, "place_names": ["우도"]},
+                    {"day": 3, "place_names": ["한라수목원"]},
+                ],
+            }
+        )
+        slot = SlotRequest(
+            day=2,
+            sequence=1,
+            role="visit",
+            category="nature",
+            target_collections=("attractions",),
+            itinerary_roles=("visit",),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+        )
+
+        query = build_slot_query(slot, conditions)
+
+        self.assertIn("우도", query)
+        self.assertNotIn("한라수목원", query)
+
+    def test_keeps_required_day_place_outside_aihub_radius(self) -> None:
+        context = {
+            "reference_trip_patterns": [
+                {
+                    "days": [
+                        {
+                            "day": 1,
+                            "region": {
+                                "center": {
+                                    "latitude": 33.45,
+                                    "longitude": 126.50,
+                                },
+                                "vector_search_radius_km": 5.0,
+                            },
+                            "slots": [
+                                {
+                                    "sequence": 1,
+                                    "role": "visit",
+                                    "category": "nature",
+                                    "target_collections": ["attractions"],
+                                    "itinerary_roles": ["visit"],
+                                    "stay_minutes": 60,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+        slot = route_slots(context, duration_days=1)[0]
+        service = FakePlaceService(
+            [
+                RetrievedPlace(
+                    content_id=700,
+                    title="우도",
+                    latitude=33.50,
+                    longitude=126.95,
+                    similarity_score=0.99,
+                    rank=1,
+                    target_collection="attractions",
+                    itinerary_role="visit",
+                    tags=("nature",),
+                    opening_hours="09:00-18:00",
+                )
+            ]
+        )
+        retriever = SlotRetriever(service)
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+                "required_day_itineraries": [
+                    {"day": 1, "place_names": ["우도"]},
+                ],
+            }
+        )
+
+        result = retriever.retrieve(slot, conditions)
+
+        self.assertEqual([place.title for place in result.candidates], ["우도"])
 
 
 if __name__ == "__main__":

@@ -23,6 +23,34 @@ class FakeConditionLLM:
 
 
 class ConditionExtractionTests(unittest.TestCase):
+    def test_menu_question_is_optional_and_disappears_after_selection(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(TravelConditions())
+        )
+        base = {
+            "duration_days": 1,
+            "party_type": "solo",
+            "local_transport": "rental_car",
+            "preferred_visit_types": ["nature"],
+        }
+
+        no_menu = service.from_selections(selected_options=base)
+        with_menu = service.from_selections(
+            selected_options={**base, "preferred_foods": ["흑돼지"]}
+        )
+
+        self.assertTrue(no_menu.ready)
+        self.assertEqual(len(no_menu.optional_questions), 1)
+        self.assertIn("메뉴", no_menu.optional_questions[0])
+        self.assertEqual(with_menu.optional_questions, ())
+
+    def test_breakfast_is_opt_in_condition(self) -> None:
+        conditions = TravelConditions.from_mapping(
+            {"include_breakfast": True}
+        )
+
+        self.assertTrue(conditions.include_breakfast)
+
     def test_frontend_selections_bypass_condition_llm(self) -> None:
         llm = FakeConditionLLM(TravelConditions())
         service = ConditionExtractionService(llm)
@@ -92,6 +120,132 @@ class ConditionExtractionTests(unittest.TestCase):
         self.assertIsNone(result.conditions.exit_point)
         self.assertIsNone(result.conditions.accommodation_address)
         self.assertEqual(result.conditions.must_visit_places, ())
+
+    def test_accepts_optional_trip_start_and_airport_deadline(self) -> None:
+        llm = FakeConditionLLM(TravelConditions())
+        service = ConditionExtractionService(llm)
+
+        result = service.from_selections(
+            selected_options={
+                "duration_days": 3,
+                "party_type": "non_family_two",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+                "trip_start_time": "10:00",
+                "departure_airport": "제주국제공항",
+                "airport_arrival_deadline": "16:00",
+            }
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.conditions.arrival_time, "10:00")
+        self.assertEqual(result.conditions.exit_point, "제주국제공항")
+        self.assertEqual(result.conditions.departure_time, "16:00")
+
+    def test_asks_airport_only_when_deadline_has_no_airport(self) -> None:
+        llm = FakeConditionLLM(TravelConditions())
+        service = ConditionExtractionService(llm)
+
+        result = service.from_selections(
+            selected_options={
+                "duration_days": 3,
+                "party_type": "solo",
+                "local_transport": "public_transit",
+                "preferred_visit_types": ["history"],
+                "airport_arrival_deadline": "17:00",
+            }
+        )
+
+        self.assertFalse(result.ready)
+        self.assertEqual(
+            result.conditions.missing_conditional_fields(),
+            ("departure_airport",),
+        )
+        self.assertEqual(len(result.clarification_questions), 1)
+        self.assertIn("공항", result.clarification_questions[0])
+
+    def test_rejects_invalid_optional_time_format(self) -> None:
+        with self.assertRaisesRegex(ValueError, "HH:MM"):
+            TravelConditions.from_mapping(
+                {
+                    "trip_start_time": "오전 10시",
+                }
+            )
+
+    def test_accepts_and_merges_required_itineraries_by_day(self) -> None:
+        llm = FakeConditionLLM(
+            TravelConditions.from_mapping(
+                {
+                    "required_day_itineraries": [
+                        {"day": 2, "place_names": ["성산일출봉"]},
+                        {"day": 3, "place_names": ["한라수목원"]},
+                    ]
+                }
+            )
+        )
+        service = ConditionExtractionService(llm)
+
+        result = service.extract(
+            message="2일차에 성산일출봉도 추가해 주세요",
+            current_conditions={
+                "duration_days": 3,
+                "party_type": "non_family_two",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+                "must_visit_by_day": {"2": ["우도"]},
+            },
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(
+            result.conditions.to_dict()["required_day_itineraries"],
+            [
+                {
+                    "day": 2,
+                    "place_names": ["우도", "성산일출봉"],
+                },
+                {"day": 3, "place_names": ["한라수목원"]},
+            ],
+        )
+        self.assertEqual(result.conditions.must_visit_places, ())
+
+    def test_removes_day_specific_place_from_global_must_visit(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(
+                TravelConditions.from_mapping(
+                    {
+                        "duration_days": 2,
+                        "party_type": "solo",
+                        "local_transport": "rental_car",
+                        "preferred_visit_types": ["nature"],
+                        "must_visit_places": ["우도"],
+                        "required_day_itineraries": [
+                            {"day": 2, "place_names": ["우도"]},
+                        ],
+                    }
+                )
+            )
+        )
+
+        result = service.extract(message="2일차 우도 필수")
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.conditions.must_visit_places, ())
+        self.assertEqual(
+            result.conditions.required_day_itineraries[0].place_names,
+            ("우도",),
+        )
+
+    def test_rejects_required_day_after_trip_duration(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exceeds duration_days"):
+            TravelConditions.from_mapping(
+                {
+                    "duration_days": 2,
+                    "required_day_itineraries": [
+                        {"day": 3, "place_names": ["우도"]},
+                    ],
+                }
+            )
 
     def test_returns_questions_for_missing_aihub_fields(self) -> None:
         service = ConditionExtractionService(

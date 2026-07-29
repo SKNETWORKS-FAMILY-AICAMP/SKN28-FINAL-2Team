@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import re
 from typing import Any, Mapping, Sequence
 
 
@@ -61,12 +62,106 @@ def _optional_text(value: Any) -> str | None:
     return text or None
 
 
+def _optional_time(value: Any, *, field_name: str) -> str | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+    if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", text):
+        raise ValueError(f"{field_name} must use HH:MM format")
+    return text
+
+
 def _optional_bool(value: Any) -> bool | None:
     if value is None:
         return None
     if isinstance(value, bool):
         return value
     raise ValueError("expected a boolean or null")
+
+
+@dataclass(frozen=True)
+class RequiredDayItinerary:
+    day: int
+    place_names: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "day": self.day,
+            "place_names": list(self.place_names),
+        }
+
+
+def _required_day_itineraries(
+    value: Any,
+) -> tuple[RequiredDayItinerary, ...]:
+    if value in (None, "", (), []):
+        return ()
+    raw_items: list[Mapping[str, Any]] = []
+    if isinstance(value, Mapping):
+        raw_items = [
+            {"day": day, "place_names": places}
+            for day, places in value.items()
+        ]
+    elif isinstance(value, Sequence) and not isinstance(value, str):
+        for item in value:
+            if not isinstance(item, Mapping):
+                raise ValueError(
+                    "required_day_itineraries items must be objects"
+                )
+            raw_items.append(item)
+    else:
+        raise ValueError(
+            "required_day_itineraries must be a mapping or a list"
+        )
+
+    grouped: dict[int, list[str]] = {}
+    for item in raw_items:
+        day = int(item.get("day") or 0)
+        if not 1 <= day <= 30:
+            raise ValueError(
+                "required_day_itineraries day must be between 1 and 30"
+            )
+        names = _strings(
+            item.get("place_names")
+            or item.get("places")
+            or item.get("must_visit_places")
+        )
+        if not names:
+            raise ValueError(
+                "required_day_itineraries place_names must not be empty"
+            )
+        grouped.setdefault(day, [])
+        grouped[day].extend(names)
+    return tuple(
+        RequiredDayItinerary(
+            day=day,
+            place_names=tuple(dict.fromkeys(grouped[day])),
+        )
+        for day in sorted(grouped)
+    )
+
+
+def _merge_required_day_itineraries(
+    current: Any,
+    incoming: Any,
+) -> list[dict[str, Any]]:
+    merged = _required_day_itineraries(
+        [
+            *(
+                current
+                if isinstance(current, Sequence)
+                and not isinstance(current, str)
+                else []
+            ),
+            *(
+                incoming
+                if isinstance(incoming, Sequence)
+                and not isinstance(incoming, str)
+                else []
+            ),
+        ]
+    )
+    return [item.to_dict() for item in merged]
 
 
 @dataclass(frozen=True)
@@ -88,8 +183,10 @@ class TravelConditions:
     accommodation_address: str | None = None
     preferred_places: tuple[str, ...] = ()
     preferred_foods: tuple[str, ...] = ()
+    include_breakfast: bool | None = None
     travel_styles: tuple[str, ...] = ()
     must_visit_places: tuple[str, ...] = ()
+    required_day_itineraries: tuple[RequiredDayItinerary, ...] = ()
     excluded_places: tuple[str, ...] = ()
     excluded_foods: tuple[str, ...] = ()
     avoid_long_distance: bool | None = None
@@ -137,6 +234,16 @@ class TravelConditions:
             raise ValueError(
                 f"invalid indoor_preference: {indoor_preference}"
             )
+        required_day_itineraries = _required_day_itineraries(
+            raw.get("required_day_itineraries")
+            or raw.get("must_visit_by_day")
+        )
+        if duration is not None and any(
+            item.day > duration for item in required_day_itineraries
+        ):
+            raise ValueError(
+                "required day itinerary exceeds duration_days"
+            )
 
         return cls(
             region=_optional_text(raw.get("region")),
@@ -149,23 +256,37 @@ class TravelConditions:
             companion_count=companion_count,
             purpose_codes=_strings(raw.get("purpose_codes")),
             pace=pace,
-            arrival_time=_optional_text(raw.get("arrival_time")),
-            departure_time=_optional_text(raw.get("departure_time")),
+            arrival_time=_optional_time(
+                raw.get("arrival_time") or raw.get("trip_start_time"),
+                field_name="trip_start_time",
+            ),
+            departure_time=_optional_time(
+                raw.get("departure_time")
+                or raw.get("airport_arrival_deadline"),
+                field_name="airport_arrival_deadline",
+            ),
             entry_point=_optional_text(
                 raw.get("entry_point") or raw.get("start_point")
             ),
             exit_point=_optional_text(
-                raw.get("exit_point") or raw.get("end_point")
+                raw.get("exit_point")
+                or raw.get("end_point")
+                or raw.get("departure_airport")
             ),
             accommodation_address=_optional_text(
                 raw.get("accommodation_address") or raw.get("accommodation")
             ),
             preferred_places=_strings(raw.get("preferred_places")),
-            preferred_foods=_strings(raw.get("preferred_foods")),
+            preferred_foods=_strings(
+                raw.get("preferred_foods")
+                or raw.get("meal_menu_preferences")
+            ),
+            include_breakfast=_optional_bool(raw.get("include_breakfast")),
             travel_styles=_strings(raw.get("travel_styles")),
             must_visit_places=_strings(
                 raw.get("must_visit_places") or raw.get("required_itinerary")
             ),
+            required_day_itineraries=required_day_itineraries,
             excluded_places=_strings(raw.get("excluded_places")),
             excluded_foods=_strings(raw.get("excluded_foods")),
             avoid_long_distance=_optional_bool(raw.get("avoid_long_distance")),
@@ -196,7 +317,13 @@ class TravelConditions:
             "explicit_fields",
         }
         for key, value in incoming.items():
-            if key in list_fields:
+            if key == "required_day_itineraries":
+                if value:
+                    current[key] = _merge_required_day_itineraries(
+                        current.get(key) or [],
+                        value,
+                    )
+            elif key in list_fields:
                 if value:
                     current[key] = list(
                         dict.fromkeys([*(current.get(key) or []), *value])
@@ -217,11 +344,20 @@ class TravelConditions:
             missing.append("preferred_visit_types")
         return tuple(missing)
 
+    def missing_conditional_fields(self) -> tuple[str, ...]:
+        missing: list[str] = []
+        if self.departure_time is not None and self.exit_point is None:
+            missing.append("departure_airport")
+        return tuple(missing)
+
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         for key, value in tuple(payload.items()):
             if isinstance(value, tuple):
                 payload[key] = list(value)
+        payload["required_day_itineraries"] = [
+            item.to_dict() for item in self.required_day_itineraries
+        ]
         return payload
 
     def to_aihub_dict(self) -> dict[str, Any]:
@@ -268,6 +404,8 @@ class RetrievedPlace:
     parking: str = ""
     reservation: str = ""
     use_fee: str = ""
+    rating: float | None = None
+    rating_count: int | None = None
     overview: str = ""
     route_eligible: bool = True
     schedule_eligible: bool = True
@@ -315,6 +453,8 @@ class SlotRequest:
     radius_km: float | None
     template_source: str = "aihub"
     route_anchor: str | None = None
+    slot_kind: str = "tourism"
+    meal_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -383,6 +523,8 @@ class ScheduledStop:
     distance_from_previous_km: float | None
     reason: str
     source: str = "TourAPI"
+    slot_kind: str = "tourism"
+    meal_type: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

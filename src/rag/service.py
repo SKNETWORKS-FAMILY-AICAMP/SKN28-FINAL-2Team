@@ -260,6 +260,24 @@ def _retrieved_place(
             row.get("reservation") or metadata.get("reservation_raw") or ""
         ),
         use_fee=str(row.get("use_fee") or metadata.get("use_fee_raw") or ""),
+        rating=_float(
+            row.get("rating")
+            or row.get("google_rating")
+            or row.get("average_rating")
+            or metadata.get("rating")
+        ),
+        rating_count=(
+            int(rating_count)
+            if (
+                rating_count := _float(
+                    row.get("rating_count")
+                    or row.get("user_ratings_total")
+                    or metadata.get("rating_count")
+                )
+            )
+            is not None
+            else None
+        ),
         overview=str(row.get("overview") or document or ""),
         route_eligible=bool(row.get("route_eligible", True)),
         schedule_eligible=bool(row.get("schedule_eligible", True)),
