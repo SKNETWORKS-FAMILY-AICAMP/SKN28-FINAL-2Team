@@ -1,4 +1,8 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createReservation,
+  getReservations,
+} from '../api/reservationApi'
 
 const ReservationContext = createContext(null)
 
@@ -6,23 +10,42 @@ const ReservationContext = createContext(null)
 export function ReservationProvider({ children }) {
   const [reservations, setReservations] = useState([])
 
-  const addReservation = (items, paymentMethod) => {
-    const totalPrice = items.reduce((sum, item) => sum + item.price, 0)
-    const reservation = {
-      id: Date.now(),
-      items,
-      totalPrice,
-      paymentMethod: paymentMethod || '신용카드 (**** **** **** 1234)',
-      status: 'confirmed',
-      statusDisplay: '확정',
-      createdAt: new Date().toISOString(),
+  const loadReservations = async () => {
+    try {
+      const data = await getReservations()
+
+      setReservations(
+        Array.isArray(data) ? data : data.results || []
+      )
+    } catch (error) {
+      console.error('예약 목록 조회 실패:', error)
     }
+  }
+
+  useEffect(() => {
+    loadReservations()
+  }, [])
+
+  const addReservation = async (items, paymentMethod) => {
+    const packageIds = items.map((item) => item.packageId)
+
+    const reservation = await createReservation(
+      packageIds,
+      paymentMethod || '신용카드 (**** **** **** 1234)'
+    )
+
     setReservations((prev) => [reservation, ...prev])
+
     return reservation
   }
 
   return (
-    <ReservationContext.Provider value={{ reservations, addReservation }}>
+    <ReservationContext.Provider
+      value={{
+        reservations,
+        addReservation,
+      }}
+    >
       {children}
     </ReservationContext.Provider>
   )
