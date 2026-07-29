@@ -1,14 +1,47 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import styles from './review/review.module.css'
 import cx from '../utils/cx.js'
 import AppHeader from './review/AppHeader.jsx'
 import { DayNav, DayColumns, useDayNav } from './review/ItineraryOverview.jsx'
 import TripSummary from './review/TripSummary.jsx'
+import { useEffect, useState } from "react";
+import { getItinerary } from "../api/itinerary";
+
 
 export default function ReviewPage() {
-  const { activeDay, selectDay, dayRefs } = useDayNav()
-  const navigate = useNavigate()
+  const { id } = useParams();
 
+  const { activeDay, selectDay, dayRefs } = useDayNav();
+  const navigate = useNavigate();
+
+  const [itinerary, setItinerary] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const data = await getItinerary(id);
+      setItinerary(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [id]);
+
+
+  if (loading) {
+    return <div>일정을 불러오는 중...</div>;
+  }
+
+if (!itinerary) {
+    return <div>일정을 찾을 수 없습니다.</div>;
+  }
+  console.log(itinerary);
+console.log(itinerary.days);
   return (
     <div className={styles.page}>
       <AppHeader />
@@ -21,13 +54,13 @@ export default function ReviewPage() {
         </div>
 
         <div className={styles.shell}>
-          <DayNav activeDay={activeDay} onSelect={selectDay} />
+          <DayNav days={itinerary.days} activeDay={activeDay} onSelect={selectDay}/>
 
           <div className={styles.mainCard}>
             <div className={styles.topRow}>
               <div>
-                <h2>제주 2박 3일 힐링 여행</h2>
-                <div className={styles.sub}>부모님과 함께</div>
+                <h2>{itinerary.title}</h2>
+                <div className={styles.sub}> {itinerary.subtitle} </div>
               </div>
               <div className={styles.actionRow}>
                 <button className={cx(styles.btn, styles.ghost, styles.sm)}>📤 공유하기</button>
@@ -39,15 +72,14 @@ export default function ReviewPage() {
             </div>
 
             <div className={styles.metaRow}>
-              <div className={styles.metaItem}>📅 2박 3일</div>
-              <div className={styles.metaItem}>👥 2명</div>
-              <div className={styles.metaItem}>🍃 힐링 여행</div>
-              <div className={styles.metaItem}>💰 1인당 50만원</div>
-            </div>
-
+              <div className={styles.metaItem}>📅 {itinerary.durationLabel} </div>
+              <div className={styles.metaItem}>👥 {itinerary.companionCount}명</div>
+              <div className={styles.metaItem}>🍃 {itinerary.style}  </div>
+              <div className={styles.metaItem}>💰 1인당 {(itinerary.budgetPerPerson ?? 0).toLocaleString()}원 </div>
+              </div>
             <div className={styles.grid}>
-              <DayColumns dayRefs={dayRefs} />
-              <TripSummary />
+              <DayColumns days={itinerary.days} dayRefs={dayRefs}/>
+              <TripSummary itinerary={itinerary} />
             </div>
           </div>
         </div>

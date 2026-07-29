@@ -44,10 +44,12 @@ class TouristSpotViewSet(viewsets.ReadOnlyModelViewSet):
         qs = super().get_queryset()
         tag = self.request.query_params.get("tag")
         keyword = self.request.query_params.get("q")
+
         if tag:
             qs = qs.filter(tags__icontains=tag)
         if keyword:
             qs = qs.filter(name__icontains=keyword)
+
         return qs
 
 
@@ -203,8 +205,10 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Itinerary.objects.none()
-        return Itinerary.objects.filter(user=self.request.user).prefetch_related("days__items")
 
+        return Itinerary.objects.filter(
+            user=self.request.user
+        ).prefetch_related("days__items")
     @extend_schema(
         tags=["Itinerary"],
         summary="여행 경로 조회",

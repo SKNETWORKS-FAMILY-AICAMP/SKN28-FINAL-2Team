@@ -8,7 +8,11 @@ import { useItineraries } from '../context/ItineraryContext.jsx'
 const won = (n) => n.toLocaleString('ko-KR') + '원'
 
 export default function MyItinerariesPage() {
-  const { itineraries } = useItineraries()
+  const { itineraries, loading } = useItineraries()
+
+  if (loading) {
+    return <div>일정을 불러오는 중...</div>
+  }
 
   return (
     <div className={styles.page}>
@@ -34,7 +38,7 @@ export default function MyItinerariesPage() {
             </div>
           ) : (
             itineraries.map((it) => (
-              <Link to="/review" className={styles.listItem} key={it.id}>
+              <Link to={`/review/${it.id}`} className={styles.listItem} key={it.id}>
                 <div className={styles.listThumb}>🌴</div>
                 <div className={styles.listInfo}>
                   <h5>{it.title}</h5>
