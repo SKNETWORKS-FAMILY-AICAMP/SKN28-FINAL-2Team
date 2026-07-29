@@ -39,13 +39,13 @@ export default function MyReservationsPage() {
                 <div className={styles.listInfo}>
                   <h5>예약 #{r.id.toString().slice(-6)}</h5>
                   <p>
-                    {r.items.map((i) => i.name).join(', ')} · {r.paymentMethod}
+                    {r.items.map((i) => i.name).join(', ')} · {r.payment_method}
                   </p>
-                  <span className={cx(styles.badge, styles.badgeConfirmed)}>{r.statusDisplay}</span>
+                  <span className={cx(styles.badge, styles.badgeConfirmed)}>{r.status_display}</span>
                 </div>
                 <div className={styles.listMeta}>
-                  <div className={styles.price}>{won(r.totalPrice)}</div>
-                  <div className={styles.sub}>{new Date(r.createdAt).toLocaleDateString('ko-KR')}</div>
+                  <div className={styles.price}>{won(r.total_price)}</div>
+                  <div className={styles.sub}>{new Date(r.created_at).toLocaleDateString('ko-KR')}</div>
                 </div>
               </div>
             ))
