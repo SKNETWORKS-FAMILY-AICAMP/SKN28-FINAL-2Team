@@ -25,7 +25,15 @@ export default function AccountMenu() {
   return (
     <div className={styles.wrap}>
       <button className={styles.avatarBtn} onClick={() => setOpen((v) => !v)} aria-label="계정 메뉴">
-        {user.profileImage ? <img src={user.profileImage} alt="" /> : '🙂'}
+        {user.profileImage ? (
+          <img
+            src={user.profileImage}
+            alt="프로필"
+            className={styles.avatarImg}
+          />
+        ) : (
+          '🙂'
+        )}
       </button>
 
       {open && (
