@@ -154,6 +154,25 @@ class PlaceSearchService:
     ) -> list[dict[str, Any]]:
         return self.mysql_repository.get_places_by_ids(content_ids)
 
+    def get_retrieved_places_by_ids(
+        self,
+        content_ids: Sequence[int],
+    ) -> tuple[RetrievedPlace, ...]:
+        """Hydrate exact TourAPI IDs without relying on vector recall."""
+
+        rows = self.mysql_repository.get_places_by_ids(content_ids)
+        return tuple(
+            _retrieved_place(
+                row,
+                {},
+                document=str(row.get("search_text") or ""),
+                rank=index,
+                similarity=1.0,
+                aihub_evidence=None,
+            )
+            for index, row in enumerate(rows, start=1)
+        )
+
 
 def _first_result(value: Any) -> list[Any]:
     if not isinstance(value, list) or not value:

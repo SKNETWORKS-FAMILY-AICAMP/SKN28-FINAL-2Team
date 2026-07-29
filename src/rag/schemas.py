@@ -110,6 +110,10 @@ CONDITION_OUTPUT_SCHEMA = {
         },
         "travel_styles": {"type": "array", "items": {"type": "string"}},
         "must_visit_places": {"type": "array", "items": {"type": "string"}},
+        "must_visit_content_ids": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 1},
+        },
         "required_day_itineraries": {
             "type": "array",
             "items": {
@@ -125,8 +129,12 @@ CONDITION_OUTPUT_SCHEMA = {
                         "type": "array",
                         "items": {"type": "string"},
                     },
+                    "content_ids": {
+                        "type": "array",
+                        "items": {"type": "integer", "minimum": 1},
+                    },
                 },
-                "required": ["day", "place_names"],
+                "required": ["day", "place_names", "content_ids"],
             },
         },
         "excluded_places": {"type": "array", "items": {"type": "string"}},
@@ -171,6 +179,7 @@ CONDITION_OUTPUT_SCHEMA = {
         "skipped_meals",
         "travel_styles",
         "must_visit_places",
+        "must_visit_content_ids",
         "required_day_itineraries",
         "excluded_places",
         "excluded_foods",

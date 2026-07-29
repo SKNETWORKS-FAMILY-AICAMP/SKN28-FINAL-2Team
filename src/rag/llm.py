@@ -87,7 +87,12 @@ class OpenAITravelLLM:
             schema=CONDITION_OUTPUT_SCHEMA,
             max_output_tokens=2400,
         )
-        return TravelConditions.from_mapping(parsed)
+        try:
+            return TravelConditions.from_mapping(parsed)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise LLMError(
+                f"LLM condition output failed domain validation: {exc}"
+            ) from exc
 
     def generate_itinerary(self, context: Mapping[str, Any]) -> ItineraryDraft:
         payload = {
@@ -101,7 +106,12 @@ class OpenAITravelLLM:
             schema=ITINERARY_OUTPUT_SCHEMA,
             max_output_tokens=3500,
         )
-        return ItineraryDraft.from_mapping(parsed)
+        try:
+            return ItineraryDraft.from_mapping(parsed)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise LLMError(
+                f"LLM itinerary output failed domain validation: {exc}"
+            ) from exc
 
     def repair_itinerary(
         self,
@@ -124,7 +134,12 @@ class OpenAITravelLLM:
             schema=ITINERARY_OUTPUT_SCHEMA,
             max_output_tokens=3500,
         )
-        return ItineraryDraft.from_mapping(parsed)
+        try:
+            return ItineraryDraft.from_mapping(parsed)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise LLMError(
+                f"LLM repair output failed domain validation: {exc}"
+            ) from exc
 
     def _structured_response(
         self,

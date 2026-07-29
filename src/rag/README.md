@@ -50,16 +50,70 @@ TourAPI MySQL·ChromaDB에서 검색해 배치하는 1차 RAG 체인입니다.
      검색합니다.
    - 실제 상세정보는 MySQL에서 다시 조회합니다.
    - 의미 유사도, 거리, 카테고리, 운영정보를 합산해 슬롯 후보를 정렬합니다.
+   - 필수 장소는 이름 비교뿐 아니라 `must_visit_content_ids`와
+     일자별 `required_day_itineraries[].content_ids`를 받아 MySQL에서
+     정확한 TourAPI ID를 조회해 후보 화이트리스트에 넣습니다.
+   - 관광지 후보 조합을 먼저 확정한 다음, 점심·저녁 슬롯을 실제 선택
+     관광지 좌표로 다시 앵커링하여 주변 식당을 2차 검색합니다.
    - 하루 슬롯은 relaxed 3개, balanced 4개, packed 5개를 상한으로 하며
      AIHub 방문 순서를 유지한 채 균등하게 압축합니다.
 4. `validation.py`
    - 슬롯별 TourAPI ID 화이트리스트, 중복, 필수·제외 장소, 운영시간,
      일자별 이동거리와 도착·출발 제한시간을 검증합니다.
+   - `start_date`가 있으면 실제 여행 날짜의 요일과 `closed_days`를
+     대조하며, 숙소 좌표가 있으면 매일 숙소 출발·복귀 구간도 검증합니다.
+   - 카카오·구글 실도로 이동시간, Google Places의 영업 상태·특별
+     운영시간·접근성, 버전 관리되는 임시휴무 예외 파일을 검증에 사용합니다.
+   - 좌표·운영시간·실제 도로 경로가 확인되지 않은 값은 조용히 통과시키지
+     않고 `validation.warnings`와 `ready_for_booking=false`로 표시합니다.
 5. `orchestrator.py`
    - 전체 단계를 연결합니다.
    - LLM 초안이 검증에 실패하면 오류 목록으로 한 번 자동 수정합니다.
-   - 재실패 또는 LLM 장애 시 슬롯별 최고 점수 후보를 선택하는 결정론적
-     폴백으로 전환합니다.
+   - 재실패 또는 LLM 장애 시 하루 전체 후보 조합의 점수·거리·중복을 함께
+     최적화하는 결정론적 폴백으로 전환합니다.
+
+## P0/P1 안전성 정책
+
+- `.env`에 `KAKAO_REST_API_KEY`와 `KAKAO_MOBILITY_ENABLED=true`가 있으면
+  카카오모빌리티 자동차 길찾기를 우선 사용합니다. Google Routes 키가
+  있으면 두 번째 공급자로 사용하고, 모두 실패했을 때만
+  `haversine_estimate`, `route_verified=false`로 명시합니다.
+- 실제 도로 API, 좌표, 운영시간 중 하나라도 확인되지 않으면 결과는
+  반드시 **AI 추천 일정 초안**으로 취급합니다.
+- `ValidationPolicy`에서 미확인 좌표·운영시간·도로 경로·숙소 앵커를
+  경고가 아닌 차단 오류로 승격할 수 있습니다.
+- 접근성은 TourAPI 정형 상세정보와 Google Places
+  `accessibilityOptions`를 합쳐 검증합니다. 명시적 불충족은 차단하고,
+  정보 부재는 `validation.warnings`에 표시합니다.
+- `pace`를 명시하면 `relaxed=3`, `balanced=4`, `packed=5`개의 관광지
+  슬롯을 만들고 점심·저녁 슬롯은 별도로 배치합니다. 미지정 시 기존
+  호환값인 관광지 3개를 사용합니다.
+
+## 외부 공급자와 운영 예외 설정
+
+`.env.example`의 다음 값을 사용합니다.
+
+- `KAKAO_REST_API_KEY`, `KAKAO_MOBILITY_ENABLED`: 카카오 자동차 길찾기
+- `GOOGLE_ROUTES_API_KEY`: 카카오 실패 또는 대중교통 요청 시 사용할
+  Google Routes
+- `GOOGLE_PLACES_API_KEY`: 영업 상태, 날짜별 운영시간, 접근성, 주차 정보
+- `RAG_OPERATING_EXCEPTIONS_PATH`: 임시휴무·특별 운영시간 수동 보정 JSON
+
+수동 보정 형식은
+`src/rag/config/operating_exceptions.example.json`을 복사해 사용합니다.
+공휴일인데 외부 공급자에서 해당 날짜의 특별 운영시간을 확인하지 못하면
+`holiday_hours_unverified` 경고를 반환합니다.
+
+실제 외부 서비스 E2E는 기본 테스트에서 비용과 네트워크 의존성을 만들지
+않도록 opt-in입니다.
+
+```powershell
+$env:RUN_RAG_LIVE_E2E="1"
+python -m pytest tests/rag/test_live_e2e.py -q
+
+$env:RUN_RAG_FULL_LIVE_E2E="1"
+python -m pytest tests/rag/test_live_e2e.py -q
+```
 
 ## 데이터 원칙
 
@@ -130,6 +184,9 @@ result = rag.run(
             {"day": 4, "place_names": ["한라수목원"]},
         ],
         "accommodation": "서귀포시 중문동 숙소",
+        # 지오코딩이 끝난 경우 함께 전달하면 숙소 출발·복귀를 검증합니다.
+        "accommodation_latitude": 33.2490,
+        "accommodation_longitude": 126.4100,
         "trip_start_time": "10:00",
         "departure_airport": "제주국제공항",
         "airport_arrival_deadline": "16:00",
@@ -138,8 +195,9 @@ result = rag.run(
 ```
 
 프론트엔드는 최소한 `duration_days`, `party_type`, `local_transport`,
-`preferred_visit_types`를 전달해야 합니다. 결과 일정은 매일 정확히 3개 장소로
-구성되며 `itinerary`의 `start_time`, `end_time`으로 시간표를 표시할 수 있습니다.
+`preferred_visit_types`를 전달해야 합니다. 결과의 관광지 수는 기본 3개이며
+`pace`를 명시하면 3~5개로 바뀝니다. `itinerary`의 `start_time`,
+`end_time`으로 시간표를 표시할 수 있습니다.
 추가 대화로 선택값을 변경할 때는 `selected_options`와 `message`를 함께 전달합니다.
 
 선택형 입력은 `start_point`(시작 지점), `end_point`(종료 지점),
@@ -198,6 +256,18 @@ revised = rag.revise(
 응답 `meta.edit_mode`는 `targeted_replacement`이며 `edited_day`,
 `edited_sequence`, `replaced_content_id`, `replacement_content_id`,
 `unchanged_place_count`로 변경 범위를 확인할 수 있습니다.
+
+전체 일정을 다시 만들 때도 같은 메서드를 사용합니다.
+
+```python
+regenerated = rag.revise(
+    previous_result=result,
+    message="일정이 마음에 들지 않으니 처음부터 다시 생성해 주세요.",
+)
+```
+
+이 경우 기존 여행 조건은 유지하되 기존 TourAPI ID를 가능한 한 제외하고
+새 조합을 만들며 `meta.edit_mode=full_regeneration`을 반환합니다.
 
 ## 환경변수
 

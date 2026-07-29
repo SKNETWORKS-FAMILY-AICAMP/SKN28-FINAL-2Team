@@ -134,6 +134,7 @@ class ValidationTests(unittest.TestCase):
 
         self.assertTrue(result.valid)
         self.assertIn("자연 선호", result.schedule[0].reason)
+        self.assertIn("제주 숲길:", result.schedule[0].reason)
         self.assertEqual(
             result.schedule[0].description,
             "제주의 숲을 따라 걷는 자연 관광지입니다.",

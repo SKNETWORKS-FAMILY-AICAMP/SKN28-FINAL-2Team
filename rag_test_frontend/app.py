@@ -552,7 +552,7 @@ def _render_itinerary(result: Mapping[str, Any]) -> None:
         st.markdown("#### 생성 일정")
     st.caption(
         "굵은 글씨는 시간과 장소, 초록 표시는 관광지·식사 유형입니다. "
-        "아래 설명에는 선택 근거와 이전 장소로부터의 직선거리가 표시됩니다."
+        "아래에 장소 소개, 선택 이유와 이전 장소로부터의 이동거리가 표시됩니다."
     )
     days = sorted({int(item.get("day") or 0) for item in itinerary})
     tabs = st.tabs([f"Day {day}" for day in days])
@@ -579,7 +579,13 @@ def _render_itinerary(result: Mapping[str, Any]) -> None:
                     st.caption(f"선택 이유: {selection_reason}")
                 distance = item.get("distance_from_previous_km")
                 if isinstance(distance, (int, float)):
-                    st.caption(f"이전 장소에서 직선거리 {distance:.1f}km")
+                    route_verified = bool(item.get("route_verified"))
+                    distance_label = (
+                        "도로 이동거리" if route_verified else "추정 이동거리"
+                    )
+                    st.caption(
+                        f"이전 장소에서 {distance_label} {distance:.1f}km"
+                    )
                 st.divider()
 
 

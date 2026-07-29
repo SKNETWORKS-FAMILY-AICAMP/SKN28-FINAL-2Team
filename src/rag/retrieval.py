@@ -107,8 +107,24 @@ class SlotRetriever:
             for value in required_place_names_for_day(conditions, slot.day)
             if _normalized(value)
         }
+        required_content_ids = set(
+            required_content_ids_for_day(conditions, slot.day)
+        )
+        response_places = list(response.places)
+        missing_required_ids = required_content_ids - {
+            place.content_id for place in response_places
+        }
+        if missing_required_ids and hasattr(
+            self.place_service,
+            "get_retrieved_places_by_ids",
+        ):
+            response_places.extend(
+                self.place_service.get_retrieved_places_by_ids(
+                    sorted(missing_required_ids)
+                )
+            )
         scored: list[RetrievedPlace] = []
-        for place in response.places:
+        for place in response_places:
             if place.content_id in reserved:
                 continue
             if slot.slot_kind == "meal" and not _is_food_or_cafe(place):
@@ -148,7 +164,7 @@ class SlotRetriever:
             required_match = any(
                 key in normalized_title or normalized_title in key
                 for key in required_keys
-            )
+            ) or place.content_id in required_content_ids
             if (
                 slot.radius_km is not None
                 and distance is not None
@@ -750,7 +766,10 @@ def score_slot_candidate(
     normalized_title = _normalized(place.title)
     required = (
         1.0
-        if any(
+        if place.content_id in set(
+            required_content_ids_for_day(conditions, slot.day)
+        )
+        or any(
             _normalized(name) in normalized_title
             for name in required_place_names_for_day(conditions, slot.day)
             if _normalized(name)
@@ -805,6 +824,21 @@ def required_place_names_for_day(
     )
     return tuple(
         dict.fromkeys((*conditions.must_visit_places, *day_specific))
+    )
+
+
+def required_content_ids_for_day(
+    conditions: TravelConditions,
+    day: int,
+) -> tuple[int, ...]:
+    day_specific = tuple(
+        content_id
+        for item in conditions.required_day_itineraries
+        if item.day == day
+        for content_id in item.content_ids
+    )
+    return tuple(
+        dict.fromkeys((*conditions.must_visit_content_ids, *day_specific))
     )
 
 

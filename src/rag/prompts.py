@@ -2,8 +2,8 @@ from __future__ import annotations
 
 
 CONDITION_PROMPT_VERSION = "condition-v5"
-ITINERARY_PROMPT_VERSION = "itinerary-v6"
-REPAIR_PROMPT_VERSION = "repair-v6"
+ITINERARY_PROMPT_VERSION = "itinerary-v7"
+REPAIR_PROMPT_VERSION = "repair-v7"
 
 
 CONDITION_EXTRACTION_SYSTEM_PROMPT = """
@@ -70,6 +70,9 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = """
 - 특정 일차에 반드시 방문할 장소를 지정했다면 required_day_itineraries에
   {"day": 일차, "place_names": [장소명]} 형태로 기록합니다. 일차가 지정되지 않은
   필수 장소만 must_visit_places에 넣습니다.
+- 프론트엔드가 검증한 TourAPI content_id는 must_visit_content_ids 또는
+  required_day_itineraries[].content_ids에 그대로 보존합니다. ID를 추측하거나
+  새로 만들지 않습니다.
 - entry_point, exit_point, accommodation_address, must_visit_places는 모두
   선택 조건입니다. 언급하지 않았다는 이유로 값을 추측하거나 재질문하지 않습니다.
 - 여행 시작 시각과 공항 도착 제한도 선택 조건입니다. 다만 departure_time이
@@ -102,9 +105,10 @@ TourAPI 후보 목록에서만 선택하세요.
 7. AIHub는 권역, 슬롯 순서, 슬롯 유형, 체류시간의 참고 자료일 뿐입니다.
 8. 운영시간·요금·주차 정보를 추측하지 않습니다.
 9. stay_minutes는 슬롯 권장값과 TourAPI 장소 성격을 참고하되 20~360분입니다.
-10. reason은 사용자의 선호·필수 조건, 거리, 운영정보 중 실제 후보 데이터에서
-    확인되는 근거를 사용하여 한 문장으로 작성합니다. 단순히 "검색 점수가
-    높아서" 또는 "AIHub 슬롯이라서"라고만 작성하지 않습니다.
+10. reason은 반드시 선택한 실제 장소명을 포함하고, 그 장소의 특징과 사용자의
+    선호·필수 조건, 거리, 운영정보 중 확인되는 근거를 사용하여 한 문장으로
+    작성합니다. "검색 점수가 높아서", "AIHub 슬롯이라서", "권역·유형이
+    맞아서"처럼 어느 장소에도 적용될 수 있는 문장만 작성하지 않습니다.
 11. 슬롯 번호는 입력에 제공된 day와 slot_sequence를 그대로 사용합니다.
 12. 후보 좌표를 이용해 같은 날 연속 장소의 거리를 최소화하고
     policy.max_leg_distance_km를 넘지 않는 조합을 우선합니다.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from datetime import date
 import re
 from typing import Any, Mapping, Sequence
 
@@ -52,6 +53,23 @@ def _strings(value: Any) -> tuple[str, ...]:
     )
 
 
+def _ints(value: Any) -> tuple[int, ...]:
+    if value in (None, "", (), []):
+        return ()
+    if isinstance(value, int):
+        values: Sequence[Any] = (value,)
+    elif isinstance(value, Sequence) and not isinstance(value, str):
+        values = value
+    else:
+        raise ValueError("expected an integer or a list of integers")
+    result = tuple(
+        dict.fromkeys(int(item) for item in values if item not in (None, ""))
+    )
+    if any(item <= 0 for item in result):
+        raise ValueError("content IDs must be positive")
+    return result
+
+
 def _optional_int(value: Any) -> int | None:
     return None if value in (None, "") else int(value)
 
@@ -84,16 +102,29 @@ def _optional_bool(value: Any) -> bool | None:
     raise ValueError("expected a boolean or null")
 
 
+def _parse_iso_date(value: str | None, *, field_name: str) -> date | None:
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format") from exc
+
+
 @dataclass(frozen=True)
 class RequiredDayItinerary:
     day: int
-    place_names: tuple[str, ...]
+    place_names: tuple[str, ...] = ()
+    content_ids: tuple[int, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "day": self.day,
             "place_names": list(self.place_names),
         }
+        if self.content_ids:
+            payload["content_ids"] = list(self.content_ids)
+        return payload
 
 
 def _required_day_itineraries(
@@ -120,6 +151,7 @@ def _required_day_itineraries(
         )
 
     grouped: dict[int, list[str]] = {}
+    grouped_ids: dict[int, list[int]] = {}
     for item in raw_items:
         day = int(item.get("day") or 0)
         if not 1 <= day <= 30:
@@ -131,18 +163,25 @@ def _required_day_itineraries(
             or item.get("places")
             or item.get("must_visit_places")
         )
-        if not names:
+        content_ids = _ints(
+            item.get("content_ids")
+            or item.get("tourapi_content_ids")
+        )
+        if not names and not content_ids:
             raise ValueError(
-                "required_day_itineraries place_names must not be empty"
+                "required_day_itineraries needs place_names or content_ids"
             )
         grouped.setdefault(day, [])
         grouped[day].extend(names)
+        grouped_ids.setdefault(day, [])
+        grouped_ids[day].extend(content_ids)
     return tuple(
         RequiredDayItinerary(
             day=day,
-            place_names=tuple(dict.fromkeys(grouped[day])),
+            place_names=tuple(dict.fromkeys(grouped.get(day, ()))),
+            content_ids=tuple(dict.fromkeys(grouped_ids.get(day, ()))),
         )
-        for day in sorted(grouped)
+        for day in sorted(set(grouped) | set(grouped_ids))
     )
 
 
@@ -237,6 +276,12 @@ class TravelConditions:
     entry_point: str | None = None
     exit_point: str | None = None
     accommodation_address: str | None = None
+    entry_latitude: float | None = None
+    entry_longitude: float | None = None
+    exit_latitude: float | None = None
+    exit_longitude: float | None = None
+    accommodation_latitude: float | None = None
+    accommodation_longitude: float | None = None
     preferred_places: tuple[str, ...] = ()
     preferred_foods: tuple[str, ...] = ()
     include_breakfast: bool | None = None
@@ -244,6 +289,7 @@ class TravelConditions:
     skipped_meals: tuple[SkippedMeal, ...] = ()
     travel_styles: tuple[str, ...] = ()
     must_visit_places: tuple[str, ...] = ()
+    must_visit_content_ids: tuple[int, ...] = ()
     required_day_itineraries: tuple[RequiredDayItinerary, ...] = ()
     excluded_places: tuple[str, ...] = ()
     excluded_foods: tuple[str, ...] = ()
@@ -317,11 +363,30 @@ class TravelConditions:
             item.day > duration for item in skipped_meals
         ):
             raise ValueError("skipped meal exceeds duration_days")
+        start_date = _optional_text(raw.get("start_date"))
+        end_date = _optional_text(raw.get("end_date"))
+        parsed_start = _parse_iso_date(start_date, field_name="start_date")
+        parsed_end = _parse_iso_date(end_date, field_name="end_date")
+        if (
+            parsed_start is not None
+            and parsed_end is not None
+            and parsed_end < parsed_start
+        ):
+            raise ValueError("end_date must not be before start_date")
+        if (
+            parsed_start is not None
+            and parsed_end is not None
+            and duration is not None
+            and (parsed_end - parsed_start).days + 1 != duration
+        ):
+            raise ValueError(
+                "duration_days does not match start_date and end_date"
+            )
 
         return cls(
             region=_optional_text(raw.get("region")),
-            start_date=_optional_text(raw.get("start_date")),
-            end_date=_optional_text(raw.get("end_date")),
+            start_date=start_date,
+            end_date=end_date,
             duration_days=duration,
             party_type=party,
             local_transport=transport,
@@ -349,6 +414,16 @@ class TravelConditions:
             accommodation_address=_optional_text(
                 raw.get("accommodation_address") or raw.get("accommodation")
             ),
+            entry_latitude=_optional_float(raw.get("entry_latitude")),
+            entry_longitude=_optional_float(raw.get("entry_longitude")),
+            exit_latitude=_optional_float(raw.get("exit_latitude")),
+            exit_longitude=_optional_float(raw.get("exit_longitude")),
+            accommodation_latitude=_optional_float(
+                raw.get("accommodation_latitude")
+            ),
+            accommodation_longitude=_optional_float(
+                raw.get("accommodation_longitude")
+            ),
             preferred_places=_strings(raw.get("preferred_places")),
             preferred_foods=_strings(
                 raw.get("preferred_foods")
@@ -360,6 +435,10 @@ class TravelConditions:
             travel_styles=_strings(raw.get("travel_styles")),
             must_visit_places=_strings(
                 raw.get("must_visit_places") or raw.get("required_itinerary")
+            ),
+            must_visit_content_ids=_ints(
+                raw.get("must_visit_content_ids")
+                or raw.get("required_tourapi_content_ids")
             ),
             required_day_itineraries=required_day_itineraries,
             excluded_places=_strings(raw.get("excluded_places")),
@@ -385,6 +464,7 @@ class TravelConditions:
             "preferred_foods",
             "travel_styles",
             "must_visit_places",
+            "must_visit_content_ids",
             "excluded_places",
             "excluded_foods",
             "opening_hours_constraints",
@@ -606,6 +686,9 @@ class ScheduledStop:
     stay_minutes: int
     distance_from_previous_km: float | None
     reason: str
+    travel_minutes_from_previous: int | None = None
+    route_source: str | None = None
+    route_verified: bool = False
     description: str = ""
     source: str = "TourAPI"
     slot_kind: str = "tourism"
@@ -634,10 +717,13 @@ class ValidationResult:
     valid: bool
     issues: tuple[ValidationIssue, ...]
     schedule: tuple[ScheduledStop, ...] = ()
+    warnings: tuple[ValidationIssue, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "valid": self.valid,
+            "ready_for_booking": self.valid and not self.warnings,
             "issues": [issue.to_dict() for issue in self.issues],
+            "warnings": [warning.to_dict() for warning in self.warnings],
             "schedule": [stop.to_dict() for stop in self.schedule],
         }

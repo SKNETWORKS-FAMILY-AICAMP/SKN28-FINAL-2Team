@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
+import logging
 import re
 from typing import Any, Mapping, Sequence
 
@@ -18,21 +20,34 @@ from .models import (
     SlotRequest,
     TravelConditions,
 )
+from .operations import (
+    HolidayCalendar,
+    PlaceOperationalFactsProvider,
+    create_operational_services_from_env,
+)
 from .retrieval import (
     SlotRetriever,
     add_meal_slots,
     complete_route_slots,
+    PACE_SLOTS_PER_DAY,
     route_slots,
     select_route_context,
     tourapi_only_slots,
 )
+from .routing import (
+    HaversineRouteMetricsProvider,
+    RouteMetricsProvider,
+    create_route_metrics_provider_from_env,
+)
 from .validation import (
+    ValidationPolicy,
     deterministic_draft,
     max_leg_distance_km,
     validate_and_schedule,
 )
 
 PLACES_PER_DAY = 3
+LOGGER = logging.getLogger(__name__)
 
 
 class RagOrchestrator:
@@ -45,6 +60,10 @@ class RagOrchestrator:
         route_adapter: AIHubRouteAdapter,
         slot_retriever: SlotRetriever,
         llm: TravelLLM,
+        route_provider: RouteMetricsProvider | None = None,
+        validation_policy: ValidationPolicy | None = None,
+        operational_provider: PlaceOperationalFactsProvider | None = None,
+        holiday_calendar: HolidayCalendar | None = None,
         repair_attempts: int = 1,
     ) -> None:
         if repair_attempts < 0:
@@ -53,6 +72,10 @@ class RagOrchestrator:
         self.route_adapter = route_adapter
         self.slot_retriever = slot_retriever
         self.llm = llm
+        self.route_provider = route_provider or HaversineRouteMetricsProvider()
+        self.validation_policy = validation_policy or ValidationPolicy()
+        self.operational_provider = operational_provider
+        self.holiday_calendar = holiday_calendar
         self.repair_attempts = repair_attempts
 
     def run(
@@ -62,6 +85,7 @@ class RagOrchestrator:
         history: Sequence[Mapping[str, str]] = (),
         current_conditions: Mapping[str, Any] | TravelConditions | None = None,
         selected_options: Mapping[str, Any] | None = None,
+        avoid_content_ids: Sequence[int] = (),
     ) -> dict[str, Any]:
         input_mode = (
             "frontend_selections"
@@ -101,6 +125,10 @@ class RagOrchestrator:
             }
 
         conditions = condition_result.conditions
+        places_per_day = PACE_SLOTS_PER_DAY.get(
+            conditions.pace or "",
+            PLACES_PER_DAY,
+        )
         route_context = self.route_adapter.build_route_context(conditions)
         patterns = route_context.get("reference_trip_patterns")
         requested_days = int(conditions.duration_days or 0)
@@ -112,12 +140,12 @@ class RagOrchestrator:
                 duration_days=requested_days,
                 pace=conditions.pace,
                 max_leg_distance_km=max_leg_distance_km(conditions),
-                places_per_day=PLACES_PER_DAY,
+                places_per_day=places_per_day,
             )
             slots = route_slots(
                 route_context,
                 duration_days=requested_days,
-                max_slots_per_day=PLACES_PER_DAY,
+                max_slots_per_day=places_per_day,
             )
             if not slots:
                 route_strategy = "tourapi_only_fallback"
@@ -134,19 +162,19 @@ class RagOrchestrator:
         synthesized_days = [
             day
             for day, count in original_slot_counts.items()
-            if count != PLACES_PER_DAY
+            if count != places_per_day
         ]
         if route_strategy == "tourapi_only_fallback":
             slots = tourapi_only_slots(
                 conditions,
-                places_per_day=PLACES_PER_DAY,
+                places_per_day=places_per_day,
                 radius_km=max_leg_distance_km(conditions),
             )
         else:
             slots = complete_route_slots(
                 slots,
                 conditions,
-                places_per_day=PLACES_PER_DAY,
+                places_per_day=places_per_day,
                 anchor_radius_km=max_leg_distance_km(conditions),
             )
         synthesized_slot_count = len(
@@ -159,9 +187,66 @@ class RagOrchestrator:
         )
         slots = add_meal_slots(slots, conditions)
 
-        retrieved: list[SlotCandidates] = [
-            self.slot_retriever.retrieve(slot, conditions) for slot in slots
+        tourism_slots = [
+            slot for slot in slots if slot.slot_kind != "meal"
         ]
+        meal_slots = [
+            slot for slot in slots if slot.slot_kind == "meal"
+        ]
+        tourism_retrieved = [
+            self.slot_retriever.retrieve(slot, conditions)
+            for slot in tourism_slots
+        ]
+        avoided_ids = {int(value) for value in avoid_content_ids}
+        tourism_retrieved = _filter_avoided_candidates(
+            tourism_retrieved,
+            avoided_ids,
+        )
+        tourism_draft = deterministic_draft(
+            tourism_retrieved,
+            conditions,
+        )
+        selected_tourism = _selected_places_by_slot(
+            tourism_draft,
+            tourism_retrieved,
+        )
+        locked_tourism = [
+            replace(
+                item,
+                candidates=(
+                    (selected_tourism[key],)
+                    if (
+                        key := (item.slot.day, item.slot.sequence)
+                    ) in selected_tourism
+                    else item.candidates
+                ),
+            )
+            for item in tourism_retrieved
+        ]
+        anchored_meal_slots = [
+            _anchor_meal_slot_to_selected_tourism(
+                slot,
+                selected_tourism,
+                places_per_day=places_per_day,
+            )
+            for slot in meal_slots
+        ]
+        meal_retrieved = [
+            self.slot_retriever.retrieve(slot, conditions)
+            for slot in anchored_meal_slots
+        ]
+        meal_retrieved = _filter_avoided_candidates(
+            meal_retrieved,
+            avoided_ids,
+        )
+        retrieved: list[SlotCandidates] = sorted(
+            [*locked_tourism, *meal_retrieved],
+            key=lambda item: (item.slot.day, item.slot.sequence),
+        )
+        revision_retrieved: list[SlotCandidates] = sorted(
+            [*tourism_retrieved, *meal_retrieved],
+            key=lambda item: (item.slot.day, item.slot.sequence),
+        )
         empty_items = [
             item for item in retrieved if not item.candidates
         ]
@@ -232,6 +317,10 @@ class RagOrchestrator:
                 draft,
                 retrieved,
                 conditions,
+                route_provider=self.route_provider,
+                policy=self.validation_policy,
+                operational_provider=self.operational_provider,
+                holiday_calendar=self.holiday_calendar,
             )
             attempts = 0
             while not validation.valid and attempts < self.repair_attempts:
@@ -249,13 +338,25 @@ class RagOrchestrator:
                     draft,
                     retrieved,
                     conditions,
+                    route_provider=self.route_provider,
+                    policy=self.validation_policy,
+                    operational_provider=self.operational_provider,
+                    holiday_calendar=self.holiday_calendar,
                 )
-        except (LLMError, ValueError, KeyError, TypeError):
+        except LLMError:
+            LOGGER.warning(
+                "LLM itinerary generation failed; using deterministic optimizer",
+                exc_info=True,
+            )
             draft = deterministic_draft(retrieved, conditions)
             validation = validate_and_schedule(
                 draft,
                 retrieved,
                 conditions,
+                route_provider=self.route_provider,
+                policy=self.validation_policy,
+                operational_provider=self.operational_provider,
+                holiday_calendar=self.holiday_calendar,
             )
             fallback_used = True
 
@@ -266,6 +367,10 @@ class RagOrchestrator:
                 fallback_draft,
                 retrieved,
                 conditions,
+                route_provider=self.route_provider,
+                policy=self.validation_policy,
+                operational_provider=self.operational_provider,
+                holiday_calendar=self.holiday_calendar,
             )
             fallback_used = True
             if fallback_validation.valid:
@@ -273,15 +378,23 @@ class RagOrchestrator:
                 validation = fallback_validation
 
         status = "completed" if validation.valid else "validation_failed"
+        ready_for_booking = validation.valid and not validation.warnings
+        recommendation_label = (
+            "검증 완료 일정"
+            if ready_for_booking
+            else "AI 추천 일정 초안"
+        )
         return {
             "status": status,
             "conditions": conditions.to_dict(),
             "optional_questions": list(condition_result.optional_questions),
             "message": (
                 (
-                    "AIHub 유사 동선이 없어 TourAPI 장소만으로 일정을 생성했습니다."
+                    f"{recommendation_label}입니다. AIHub 유사 동선이 없어 "
+                    "TourAPI 장소만으로 생성했습니다."
                     if route_strategy == "tourapi_only_fallback"
-                    else "AIHub 유사 동선 구조에 TourAPI 장소를 배치했습니다."
+                    else f"{recommendation_label}입니다. AIHub 유사 동선 구조에 "
+                    "TourAPI 장소를 배치했습니다."
                 )
                 if validation.valid
                 else "TourAPI 후보 일정이 운영시간·거리 검증을 통과하지 못했습니다."
@@ -289,13 +402,16 @@ class RagOrchestrator:
             "reference_trip": _selected_pattern_summary(route_context),
             "aihub_route_context": _safe_route_context(route_context),
             "slot_candidates": [item.to_dict() for item in retrieved],
+            "revision_slot_candidates": [
+                item.to_dict() for item in revision_retrieved
+            ],
             "draft": draft.to_dict(),
             "itinerary": [stop.to_dict() for stop in validation.schedule],
             "validation": validation.to_dict(),
             "meta": {
                 "input_mode": input_mode,
-                "places_per_day": PLACES_PER_DAY,
-                "tourism_places_per_day": PLACES_PER_DAY,
+                "places_per_day": places_per_day,
+                "tourism_places_per_day": places_per_day,
                 "meal_slots_per_day": (
                     3 if conditions.include_breakfast is True else 2
                 ),
@@ -314,6 +430,18 @@ class RagOrchestrator:
                 "aihub_original_slot_counts": original_slot_counts,
                 "synthesized_route_days": synthesized_days,
                 "synthesized_slot_count": synthesized_slot_count,
+                "avoided_previous_content_ids": sorted(avoided_ids),
+                "ready_for_booking": ready_for_booking,
+                "recommendation_label": recommendation_label,
+                "verification_warning_count": len(validation.warnings),
+                "meal_search_strategy": (
+                    "after_tourism_selection_radius_search"
+                ),
+                "route_metrics_provider": (
+                    validation.schedule[0].route_source
+                    if validation.schedule
+                    else None
+                ),
             },
         }
 
@@ -329,6 +457,37 @@ class RagOrchestrator:
         come only from the original slot whitelist and must pass the complete
         deterministic validator before being returned.
         """
+
+        if _is_full_regeneration_request(message):
+            previous_conditions = previous_result.get("conditions")
+            if not isinstance(previous_conditions, Mapping):
+                return _revision_clarification(
+                    previous_result,
+                    "기존 여행 조건을 확인할 수 없어 다시 생성할 수 없습니다.",
+                )
+            previous_ids = [
+                int(item["content_id"])
+                for item in previous_result.get("itinerary", ())
+                if isinstance(item, Mapping) and item.get("content_id") is not None
+            ]
+            regenerated = self.run(
+                selected_options=dict(previous_conditions),
+                avoid_content_ids=previous_ids,
+            )
+            meta = dict(regenerated.get("meta") or {})
+            meta.update(
+                {
+                    "edit_mode": "full_regeneration",
+                    "previous_place_count": len(previous_ids),
+                }
+            )
+            regenerated["meta"] = meta
+            if regenerated.get("status") == "completed":
+                regenerated["message"] = (
+                    "기존 여행 조건은 유지하고 이전 장소를 가능한 한 피해서 "
+                    "일정을 처음부터 다시 생성했습니다."
+                )
+            return regenerated
 
         edit = _parse_replacement_request(message)
         if edit is None:
@@ -371,7 +530,8 @@ class RagOrchestrator:
         target_sequence = int(target.get("sequence") or 0)
         target_content_id = int(target.get("content_id") or 0)
         slot_candidates = _restore_slot_candidates(
-            previous_result.get("slot_candidates")
+            previous_result.get("revision_slot_candidates")
+            or previous_result.get("slot_candidates")
         )
         target_slot = next(
             (
@@ -430,6 +590,10 @@ class RagOrchestrator:
                 draft,
                 slot_candidates,
                 conditions,
+                route_provider=self.route_provider,
+                policy=self.validation_policy,
+                operational_provider=self.operational_provider,
+                holiday_calendar=self.holiday_calendar,
             )
             if validation.valid:
                 updated = dict(previous_result)
@@ -604,6 +768,91 @@ def _parse_replacement_request(message: str) -> tuple[int, str] | None:
     if day <= 0 or not title:
         return None
     return day, title
+
+
+def _is_full_regeneration_request(message: str) -> bool:
+    normalized = re.sub(r"\s+", "", message).lower()
+    regeneration_terms = (
+        "처음부터다시",
+        "전체일정다시",
+        "일정을다시짜",
+        "새일정으로",
+        "전부다시",
+        "전체재생성",
+    )
+    return any(term in normalized for term in regeneration_terms)
+
+
+def _selected_places_by_slot(
+    draft: ItineraryDraft,
+    retrieved: Sequence[SlotCandidates],
+) -> dict[tuple[int, int], RetrievedPlace]:
+    candidates = {
+        (item.slot.day, item.slot.sequence, place.content_id): place
+        for item in retrieved
+        for place in item.candidates
+    }
+    return {
+        (choice.day, choice.slot_sequence): place
+        for choice in draft.choices
+        if (
+            place := candidates.get(
+                (choice.day, choice.slot_sequence, choice.content_id)
+            )
+        )
+        is not None
+    }
+
+
+def _filter_avoided_candidates(
+    retrieved: Sequence[SlotCandidates],
+    avoided_ids: set[int],
+) -> list[SlotCandidates]:
+    """Prefer a new candidate while preserving a slot that has no alternative."""
+
+    if not avoided_ids:
+        return list(retrieved)
+    return [
+        replace(
+            item,
+            candidates=(
+                filtered
+                if (
+                    filtered := tuple(
+                        place
+                        for place in item.candidates
+                        if place.content_id not in avoided_ids
+                    )
+                )
+                else item.candidates
+            ),
+        )
+        for item in retrieved
+    ]
+
+
+def _anchor_meal_slot_to_selected_tourism(
+    slot: SlotRequest,
+    selected: Mapping[tuple[int, int], RetrievedPlace],
+    *,
+    places_per_day: int,
+) -> SlotRequest:
+    if slot.meal_type == "breakfast":
+        tourism_sequence = 1
+    elif slot.meal_type == "lunch":
+        tourism_sequence = max(1, round(places_per_day * 0.4))
+    else:
+        tourism_sequence = places_per_day
+    anchor = selected.get((slot.day, tourism_sequence))
+    if anchor is None:
+        return slot
+    return replace(
+        slot,
+        latitude=anchor.latitude or slot.latitude,
+        longitude=anchor.longitude or slot.longitude,
+        route_anchor=anchor.title,
+        template_source="meal_after_tourism_selection",
+    )
 
 
 def _restore_slot_candidates(value: Any) -> tuple[SlotCandidates, ...]:
@@ -906,7 +1155,10 @@ def build_itinerary_prompt_context(
             "place_source": "TourAPI candidates only",
             "aihub_place_names_allowed": False,
             "one_place_per_slot": True,
-            "tourism_places_per_day": PLACES_PER_DAY,
+            "tourism_places_per_day": PACE_SLOTS_PER_DAY.get(
+                conditions.pace or "",
+                PLACES_PER_DAY,
+            ),
             "meal_slots_per_day": (
                 3 if conditions.include_breakfast is True else 2
             ),
@@ -954,6 +1206,10 @@ def create_rag_orchestrator(
     *,
     project_root: str | Path | None = None,
     env_file: str | Path | None = None,
+    route_provider: RouteMetricsProvider | None = None,
+    validation_policy: ValidationPolicy | None = None,
+    operational_provider: PlaceOperationalFactsProvider | None = None,
+    holiday_calendar: HolidayCalendar | None = None,
 ) -> RagOrchestrator:
     root = Path(project_root or Path.cwd())
     resolved_env = Path(env_file) if env_file else root / ".env"
@@ -969,11 +1225,24 @@ def create_rag_orchestrator(
         project_root=root,
         env_file=resolved_env,
     )
+    configured_operational, configured_holiday_calendar = (
+        create_operational_services_from_env(project_root=root)
+    )
     return RagOrchestrator(
         condition_service=condition_service,
         route_adapter=route_adapter,
         slot_retriever=SlotRetriever(place_service),
         llm=llm,
+        route_provider=(
+            route_provider or create_route_metrics_provider_from_env()
+        ),
+        validation_policy=validation_policy,
+        operational_provider=(
+            operational_provider or configured_operational
+        ),
+        holiday_calendar=(
+            holiday_calendar or configured_holiday_calendar
+        ),
     )
 
 
