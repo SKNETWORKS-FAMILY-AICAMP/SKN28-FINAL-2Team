@@ -1,22 +1,94 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+
+import { createBookmark, deleteBookmark, getBookmarks } from '../api/bookmarkApi'
+import { useAuth } from './AuthContext'
 
 const BookmarkContext = createContext(null)
 
-// 백엔드 POST /api/bookmarks/ (담기) · DELETE /api/bookmarks/{id}/ (해제) 와 같은 동작을
-// 앱 전역 상태로 흉내낸다. 아직 API 연결 전이라 새로고침하면 초기화된다.
 export function BookmarkProvider({ children }) {
-  const [bookmarkedIds, setBookmarkedIds] = useState(new Set())
+  const { isLoggedIn, loading: authLoading } = useAuth()
 
-  const toggle = (packageId) => {
-    setBookmarkedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(packageId)) {
-        next.delete(packageId)
-      } else {
-        next.add(packageId)
+  const [bookmarkedIds, setBookmarkedIds] = useState(new Set())
+  const [bookmarkIdByPackageId, setBookmarkIdByPackageId] = useState({})
+
+  useEffect(() => {
+    const loadBookmarks = async () => {
+      if (authLoading) return
+
+      if (!isLoggedIn) {
+        setBookmarkedIds(new Set())
+        setBookmarkIdByPackageId({})
+        return
       }
-      return next
-    })
+
+      try {
+        const bookmarks = await getBookmarks()
+        const nextIds = new Set()
+        const nextBookmarkMap = {}
+
+        bookmarks.forEach((bookmark) => {
+          const packageId =
+            typeof bookmark.package === 'object'
+              ? bookmark.package.id
+              : bookmark.package
+
+          nextIds.add(packageId)
+          nextBookmarkMap[packageId] = bookmark.id
+        })
+
+        setBookmarkedIds(nextIds)
+        setBookmarkIdByPackageId(nextBookmarkMap)
+      } catch (error) {
+        console.error('북마크 목록 조회 실패:', error)
+      }
+    }
+
+    loadBookmarks()
+  }, [isLoggedIn, authLoading])
+
+  const toggle = async (packageId) => {
+    if (!isLoggedIn) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    try {
+      if (bookmarkedIds.has(packageId)) {
+        const bookmarkId = bookmarkIdByPackageId[packageId]
+
+        if (!bookmarkId) return
+
+        await deleteBookmark(bookmarkId)
+
+        setBookmarkedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(packageId)
+          return next
+        })
+
+        setBookmarkIdByPackageId((prev) => {
+          const next = { ...prev }
+          delete next[packageId]
+          return next
+        })
+      } else {
+        const bookmark = await createBookmark(packageId)
+
+        setBookmarkedIds((prev) => {
+          const next = new Set(prev)
+          next.add(packageId)
+          return next
+        })
+
+        setBookmarkIdByPackageId((prev) => ({
+          ...prev,
+          [packageId]: bookmark.id,
+        }))
+      }
+    } catch (error) {
+      console.error('북마크 변경 실패:', error)
+      alert(error.message)
+    }
   }
 
   const isBookmarked = (packageId) => bookmarkedIds.has(packageId)
