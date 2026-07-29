@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styles from './account/account.module.css'
 import cx from '../utils/cx.js'
 import AccountHeader from './account/AccountHeader.jsx'
@@ -17,6 +18,7 @@ const PROVIDER_LABEL = { google: 'Google 계정', kakao: 'Kakao 계정' }
 
 export default function MyPage() {
   const { user, updateProfile } = useAuth()
+  const navigate = useNavigate()
   const [form, setForm] = useState({
     nickname: user.nickname,
     phone: user.phone || '',
@@ -82,6 +84,10 @@ export default function MyPage() {
       })
 
       setSaved(true)
+
+      setTimeout(() => {
+        navigate('/')
+      }, 1000)
     } catch (error) {
       console.error(error)
       alert(error.message || '정보 저장에 실패했습니다.')
