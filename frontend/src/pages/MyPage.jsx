@@ -110,11 +110,22 @@ export default function MyPage() {
 
         <div className={styles.card}>
           <div className={styles.avatarRow}>
-            <div className={styles.avatarBig}>🙂</div>
+            <div className={styles.avatarBig}>
+              {user.profileImage ? (
+                <img
+                  src={user.profileImage}
+                  alt="프로필"
+                  className={styles.avatarImage}
+                />
+              ) : (
+                "🙂"
+              )}
+            </div>
+
             <div>
               <h3>{user.nickname}</h3>
               <p>{user.email}</p>
-              <span className={styles.providerBadge}>{PROVIDER_LABEL[user.provider]}로 로그인됨</span>
+              <span className={styles.providerBadge}>{PROVIDER_LABEL[user.provider]}으로 로그인됨</span>
             </div>
           </div>
 
