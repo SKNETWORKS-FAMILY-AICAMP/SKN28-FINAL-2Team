@@ -128,6 +128,15 @@ class FakeRouteAdapter:
         return ROUTE_CONTEXT
 
 
+class NoReferenceRouteAdapter:
+    def build_route_context(self, conditions):
+        return {
+            "user_constraints": conditions.to_dict(),
+            "reference_trip_patterns": [],
+            "context_policy": {},
+        }
+
+
 class FakeSlotRetriever:
     def retrieve(self, slot, conditions):
         is_meal = slot.slot_kind == "meal"
@@ -167,6 +176,13 @@ class FakeSlotRetriever:
             "자연 관광지",
             (candidate, alternative),
         )
+
+
+class MissingLunchSlotRetriever(FakeSlotRetriever):
+    def retrieve(self, slot, conditions):
+        if slot.slot_kind == "meal" and slot.meal_type == "lunch":
+            return SlotCandidates(slot, "점심 식당", ())
+        return super().retrieve(slot, conditions)
 
 
 class TwoDayConditionLLM(FakeLLM):
@@ -216,6 +232,50 @@ class ThreeDayRouteAdapter:
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_asks_user_when_meal_candidates_are_unavailable(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=MissingLunchSlotRetriever(),
+            llm=llm,
+        )
+
+        result = orchestrator.run(
+            selected_options={
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+            }
+        )
+
+        self.assertEqual(result["status"], "clarification_required")
+        self.assertEqual(
+            result["clarification_kind"],
+            "meal_candidate_unavailable",
+        )
+        self.assertEqual(result["missing_slots"], ["Day 1 #102"])
+        self.assertIn("점심", result["clarification_questions"][0])
+        self.assertEqual(
+            result["clarification_options"][0]["selected_options"],
+            {"meal_search_radius_km": 12},
+        )
+        skip_option = next(
+            option
+            for option in result["clarification_options"]
+            if option["value"] == "skip_unavailable_meals"
+        )
+        self.assertEqual(
+            skip_option["selected_options"],
+            {
+                "skipped_meals": [
+                    {"day": 1, "meal_type": "lunch"},
+                ]
+            },
+        )
+        self.assertEqual(result["itinerary"], [])
+
     def test_builds_schedule_directly_from_frontend_selections(self) -> None:
         llm = FakeLLM()
         orchestrator = RagOrchestrator(
@@ -242,11 +302,55 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(llm.extract_calls, 0)
         self.assertEqual(result["meta"]["input_mode"], "frontend_selections")
         self.assertEqual(result["meta"]["places_per_day"], 3)
+        self.assertEqual(result["meta"]["route_strategy"], "aihub_pattern")
+        self.assertIsNone(result["meta"]["aihub_fallback_reason"])
         self.assertEqual(result["conditions"]["entry_point"], "제주국제공항")
         self.assertEqual(result["conditions"]["exit_point"], "제주항")
         self.assertEqual(
             result["conditions"]["accommodation_address"],
             "제주시 숙소",
+        )
+
+    def test_uses_tourapi_only_when_aihub_has_no_reference_route(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=NoReferenceRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+
+        result = orchestrator.run(
+            selected_options={
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+            }
+        )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertFalse(result["meta"]["aihub_used"])
+        self.assertTrue(result["meta"]["tourapi_rag_used"])
+        self.assertEqual(
+            result["meta"]["route_strategy"],
+            "tourapi_only_fallback",
+        )
+        self.assertEqual(
+            result["meta"]["aihub_fallback_reason"],
+            "no_reference_pattern",
+        )
+        tourism_slots = [
+            item["slot"]
+            for item in result["slot_candidates"]
+            if item["slot"]["slot_kind"] == "tourism"
+        ]
+        self.assertEqual(len(tourism_slots), 3)
+        self.assertTrue(
+            all(
+                slot["template_source"] == "tourapi_only_fallback"
+                for slot in tourism_slots
+            )
         )
 
     def test_repairs_invalid_llm_id_and_completes(self) -> None:

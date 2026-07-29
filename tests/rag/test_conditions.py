@@ -51,6 +51,49 @@ class ConditionExtractionTests(unittest.TestCase):
 
         self.assertTrue(conditions.include_breakfast)
 
+    def test_accepts_selected_meal_search_radius(self) -> None:
+        conditions = TravelConditions.from_mapping(
+            {"meal_search_radius_km": 12}
+        )
+
+        self.assertEqual(conditions.meal_search_radius_km, 12)
+
+        with self.assertRaisesRegex(ValueError, "between 1 and 30"):
+            TravelConditions.from_mapping(
+                {"meal_search_radius_km": 50}
+            )
+
+    def test_accepts_and_merges_skipped_meal_slots(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(TravelConditions())
+        )
+        current = {
+            "duration_days": 2,
+            "party_type": "solo",
+            "local_transport": "rental_car",
+            "preferred_visit_types": ["nature"],
+            "skipped_meals": [
+                {"day": 1, "meal_type": "dinner"},
+            ],
+        }
+
+        result = service.from_selections(
+            selected_options={
+                "skipped_meals": [
+                    {"day": 2, "meal_type": "lunch"},
+                ]
+            },
+            current_conditions=current,
+        )
+
+        self.assertEqual(
+            result.conditions.to_dict()["skipped_meals"],
+            [
+                {"day": 1, "meal_type": "dinner"},
+                {"day": 2, "meal_type": "lunch"},
+            ],
+        )
+
     def test_frontend_selections_bypass_condition_llm(self) -> None:
         llm = FakeConditionLLM(TravelConditions())
         service = ConditionExtractionService(llm)

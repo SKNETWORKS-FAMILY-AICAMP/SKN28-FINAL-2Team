@@ -23,6 +23,18 @@ from .retrieval import (
 
 DEFAULT_DAY_START = "09:00"
 DEFAULT_DAY_END = "20:00"
+VISIT_TYPE_LABELS = {
+    "nature": "자연",
+    "history": "역사",
+    "culture": "문화",
+    "market_shopping": "시장·쇼핑",
+    "leisure": "레저",
+    "theme_park": "테마파크",
+    "trail": "트레일",
+    "festival": "축제",
+    "food_cafe": "음식",
+    "experience": "체험",
+}
 SLOT_TIME_WINDOWS = {
     MEAL_SLOT_SEQUENCES["breakfast"]: (("07:30", "09:00"),),
     1: (("09:00", "12:00"),),
@@ -222,10 +234,11 @@ def deterministic_draft(
     previous: RetrievedPlace | None = None
     previous_day: int | None = None
     max_leg = _max_leg_distance(conditions)
-    for slot_result in sorted(
+    ordered_results = sorted(
         slot_candidates,
         key=lambda item: slot_route_order(item.slot),
-    ):
+    )
+    for slot_index, slot_result in enumerate(ordered_results):
         if previous_day != slot_result.slot.day:
             previous = None
             previous_day = slot_result.slot.day
@@ -256,18 +269,28 @@ def deterministic_draft(
             slot_result.candidates,
             key=rank_key,
         )
+        eligible = [
+            item
+            for item in ranked
+            if item.content_id not in used
+            and not _is_excluded(
+                item.title,
+                conditions.excluded_places,
+            )
+        ]
         place = next(
             (
                 item
-                for item in ranked
-                if item.content_id not in used
-                and not _is_excluded(
-                    item.title,
-                    conditions.excluded_places,
+                for item in eligible
+                if _remaining_slots_have_unique_assignment(
+                    ordered_results[slot_index + 1 :],
+                    blocked_ids={*used, item.content_id},
                 )
             ),
             None,
         )
+        if place is None and eligible:
+            place = eligible[0]
         if place is None:
             continue
         used.add(place.content_id)
@@ -281,13 +304,38 @@ def deterministic_draft(
                     max(slot_result.slot.stay_minutes or 60, 20),
                     360,
                 ),
-                reason=(
-                    "AIHub 동선 슬롯의 권역·유형과 TourAPI 검색 점수를 "
-                    "기준으로 선택했습니다."
+                reason=_deterministic_selection_reason(
+                    place,
+                    conditions,
+                    required_keys=required_keys,
                 ),
             )
         )
     return ItineraryDraft(tuple(choices))
+
+
+def _remaining_slots_have_unique_assignment(
+    slots: Sequence[SlotCandidates],
+    *,
+    blocked_ids: set[int],
+) -> bool:
+    """Check whether future slots can still receive distinct TourAPI IDs."""
+
+    matched_slot_by_content_id: dict[int, int] = {}
+
+    def assign(slot_index: int, seen: set[int]) -> bool:
+        for place in slots[slot_index].candidates:
+            content_id = place.content_id
+            if content_id in blocked_ids or content_id in seen:
+                continue
+            seen.add(content_id)
+            previous_slot = matched_slot_by_content_id.get(content_id)
+            if previous_slot is None or assign(previous_slot, seen):
+                matched_slot_by_content_id[content_id] = slot_index
+                return True
+        return False
+
+    return all(assign(index, set()) for index in range(len(slots)))
 
 
 def _schedule_selected(
@@ -418,6 +466,7 @@ def _schedule_selected(
                         round(distance, 3) if distance is not None else None
                     ),
                     reason=choice.reason,
+                    description=_summarize_place(place),
                     slot_kind=(
                         "meal"
                         if choice.slot_sequence
@@ -467,6 +516,63 @@ def _schedule_selected(
                         )
                     )
     return schedule, issues
+
+
+def _summarize_place(place: RetrievedPlace, *, max_length: int = 180) -> str:
+    """Return a factual one-to-two sentence TourAPI summary."""
+
+    overview = re.sub(r"\s+", " ", place.overview or "").strip()
+    if overview:
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?])\s+", overview)
+            if sentence.strip()
+        ]
+        summary = " ".join(sentences[:2]) if sentences else overview
+    elif place.address:
+        summary = f"{place.address}에 위치한 {place.title}입니다."
+    else:
+        summary = f"TourAPI에 등록된 제주 장소인 {place.title}입니다."
+
+    if len(summary) <= max_length:
+        return summary
+    shortened = summary[: max_length - 1].rsplit(" ", 1)[0].rstrip(" ,.")
+    return (shortened or summary[: max_length - 1]).rstrip() + "…"
+
+
+def _deterministic_selection_reason(
+    place: RetrievedPlace,
+    conditions: TravelConditions,
+    *,
+    required_keys: set[str],
+) -> str:
+    """Explain the fallback choice using only verified scoring inputs."""
+
+    title = _normalized(place.title)
+    if any(key and key in title for key in required_keys):
+        return "사용자가 지정한 필수 방문 장소이므로 우선 배치했습니다."
+
+    factors: list[str] = []
+    if place.target_collection == "restaurants":
+        if conditions.preferred_foods:
+            factors.append("선호 메뉴")
+        if place.rating is not None:
+            factors.append(f"평점 {place.rating:.1f}")
+    elif conditions.preferred_visit_types:
+        labels = [
+            VISIT_TYPE_LABELS.get(value, value)
+            for value in conditions.preferred_visit_types[:2]
+        ]
+        factors.append("·".join(labels) + " 선호")
+    if place.distance_km is not None:
+        factors.append(f"검색 기준 위치에서 {place.distance_km:.1f}km")
+    if conditions.parking_required is True and place.parking:
+        factors.append("주차 조건")
+    if place.opening_hours:
+        factors.append("운영시간 정보")
+    if not factors:
+        factors.append("TourAPI 자연어 유사도와 동선 적합도")
+    return "다음 조건을 반영해 선택했습니다: " + ", ".join(factors[:3]) + "."
 
 
 def parse_opening_ranges(value: str) -> tuple[tuple[int, int], ...]:

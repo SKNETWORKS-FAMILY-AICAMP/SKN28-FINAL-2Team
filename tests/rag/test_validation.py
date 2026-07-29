@@ -10,7 +10,11 @@ from src.rag.models import (
     SlotRequest,
     TravelConditions,
 )
-from src.rag.validation import parse_opening_ranges, validate_and_schedule
+from src.rag.validation import (
+    deterministic_draft,
+    parse_opening_ranges,
+    validate_and_schedule,
+)
 
 
 def slot_result(
@@ -27,6 +31,7 @@ def slot_result(
     slot_kind: str = "tourism",
     meal_type: str | None = None,
     stay_minutes: int = 60,
+    overview: str = "",
 ) -> SlotCandidates:
     slot = SlotRequest(
         day=day,
@@ -52,6 +57,7 @@ def slot_result(
         target_collection=target_collection,
         itinerary_role=itinerary_role,
         opening_hours=opening_hours,
+        overview=overview,
         slot_score=0.9,
     )
     return SlotCandidates(slot, "자연 관광지", (candidate,))
@@ -72,7 +78,19 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(parse_opening_ranges("매일 09:00~18:00"), ((540, 1080),))
 
     def test_accepts_whitelisted_place_and_builds_schedule(self) -> None:
-        slots = [slot_result(day=1, sequence=1, content_id=101, title="숲")]
+        slots = [
+            slot_result(
+                day=1,
+                sequence=1,
+                content_id=101,
+                title="숲",
+                overview=(
+                    "제주의 자연을 가까이에서 만날 수 있는 숲길입니다. "
+                    "완만한 산책 구간이 마련되어 있습니다. "
+                    "이 문장은 두 문장 제한으로 제외됩니다."
+                ),
+            )
+        ]
         draft = ItineraryDraft(
             (
                 ItineraryChoice(
@@ -90,6 +108,89 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(result.valid)
         self.assertEqual(result.schedule[0].start_time, "09:00")
         self.assertEqual(result.schedule[0].end_time, "10:00")
+        payload = result.schedule[0].to_dict()
+        self.assertEqual(
+            payload["description"],
+            (
+                "제주의 자연을 가까이에서 만날 수 있는 숲길입니다. "
+                "완만한 산책 구간이 마련되어 있습니다."
+            ),
+        )
+        self.assertEqual(payload["selection_reason"], payload["reason"])
+
+    def test_deterministic_choice_explains_user_condition(self) -> None:
+        slots = [
+            slot_result(
+                day=1,
+                sequence=1,
+                content_id=201,
+                title="제주 숲길",
+                overview="제주의 숲을 따라 걷는 자연 관광지입니다.",
+            )
+        ]
+
+        draft = deterministic_draft(slots, self.conditions)
+        result = validate_and_schedule(draft, slots, self.conditions)
+
+        self.assertTrue(result.valid)
+        self.assertIn("자연 선호", result.schedule[0].reason)
+        self.assertEqual(
+            result.schedule[0].description,
+            "제주의 숲을 따라 걷는 자연 관광지입니다.",
+        )
+
+    def test_deterministic_draft_reserves_scarce_future_candidate(self) -> None:
+        shared = RetrievedPlace(
+            content_id=701,
+            title="공통 후보",
+            latitude=33.45,
+            longitude=126.50,
+            similarity_score=0.95,
+            rank=1,
+            target_collection="attractions",
+            itinerary_role="visit",
+            opening_hours="09:00-18:00",
+            slot_score=0.95,
+        )
+        alternative = RetrievedPlace(
+            content_id=702,
+            title="첫 슬롯 대체 후보",
+            latitude=33.451,
+            longitude=126.501,
+            similarity_score=0.8,
+            rank=2,
+            target_collection="attractions",
+            itinerary_role="visit",
+            opening_hours="09:00-18:00",
+            slot_score=0.8,
+        )
+        first = slot_result(
+            day=1,
+            sequence=1,
+            content_id=701,
+            title="공통 후보",
+        )
+        first = SlotCandidates(
+            first.slot,
+            first.query,
+            (shared, alternative),
+        )
+        second = slot_result(
+            day=1,
+            sequence=2,
+            content_id=701,
+            title="공통 후보",
+        )
+
+        draft = deterministic_draft(
+            (first, second),
+            self.conditions,
+        )
+
+        self.assertEqual(
+            [choice.content_id for choice in draft.choices],
+            [702, 701],
+        )
 
     def test_rejects_non_whitelisted_id(self) -> None:
         slots = [slot_result(day=1, sequence=1, content_id=101, title="숲")]

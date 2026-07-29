@@ -24,6 +24,7 @@ from .retrieval import (
     complete_route_slots,
     route_slots,
     select_route_context,
+    tourapi_only_slots,
 )
 from .validation import (
     deterministic_draft,
@@ -101,50 +102,31 @@ class RagOrchestrator:
 
         conditions = condition_result.conditions
         route_context = self.route_adapter.build_route_context(conditions)
-        route_context = select_route_context(
-            route_context,
-            duration_days=int(conditions.duration_days or 0),
-            pace=conditions.pace,
-            max_leg_distance_km=max_leg_distance_km(conditions),
-            places_per_day=PLACES_PER_DAY,
-        )
         patterns = route_context.get("reference_trip_patterns")
-        if not isinstance(patterns, list) or not patterns:
-            return {
-                "status": "no_reference_pattern",
-                "conditions": conditions.to_dict(),
-                "message": "사용자 조건과 비교할 AIHub 여행 동선을 찾지 못했습니다.",
-                "aihub_route_context": route_context,
-                "slot_candidates": [],
-                "itinerary": [],
-                "meta": {
-                    "aihub_used": False,
-                    "tourapi_rag_used": False,
-                    "llm_itinerary_used": False,
-                },
-            }
-
-        slots = route_slots(
-            route_context,
-            duration_days=int(conditions.duration_days or 0),
-            max_slots_per_day=PLACES_PER_DAY,
-        )
-        if not slots:
-            return {
-                "status": "no_route_slots",
-                "conditions": conditions.to_dict(),
-                "message": "AIHub 유사 여행에서 사용할 수 있는 동선 슬롯이 없습니다.",
-                "aihub_route_context": route_context,
-                "slot_candidates": [],
-                "itinerary": [],
-                "meta": {
-                    "aihub_used": True,
-                    "tourapi_rag_used": False,
-                    "llm_itinerary_used": False,
-                },
-            }
-
         requested_days = int(conditions.duration_days or 0)
+        route_strategy = "aihub_pattern"
+        aihub_fallback_reason: str | None = None
+        if isinstance(patterns, list) and patterns:
+            route_context = select_route_context(
+                route_context,
+                duration_days=requested_days,
+                pace=conditions.pace,
+                max_leg_distance_km=max_leg_distance_km(conditions),
+                places_per_day=PLACES_PER_DAY,
+            )
+            slots = route_slots(
+                route_context,
+                duration_days=requested_days,
+                max_slots_per_day=PLACES_PER_DAY,
+            )
+            if not slots:
+                route_strategy = "tourapi_only_fallback"
+                aihub_fallback_reason = "no_route_slots"
+        else:
+            slots = ()
+            route_strategy = "tourapi_only_fallback"
+            aihub_fallback_reason = "no_reference_pattern"
+
         original_slot_counts = {
             day: len([slot for slot in slots if slot.day == day])
             for day in range(1, requested_days + 1)
@@ -154,17 +136,25 @@ class RagOrchestrator:
             for day, count in original_slot_counts.items()
             if count != PLACES_PER_DAY
         ]
-        slots = complete_route_slots(
-            slots,
-            conditions,
-            places_per_day=PLACES_PER_DAY,
-            anchor_radius_km=max_leg_distance_km(conditions),
-        )
+        if route_strategy == "tourapi_only_fallback":
+            slots = tourapi_only_slots(
+                conditions,
+                places_per_day=PLACES_PER_DAY,
+                radius_km=max_leg_distance_km(conditions),
+            )
+        else:
+            slots = complete_route_slots(
+                slots,
+                conditions,
+                places_per_day=PLACES_PER_DAY,
+                anchor_radius_km=max_leg_distance_km(conditions),
+            )
         synthesized_slot_count = len(
             [
                 slot
                 for slot in slots
-                if slot.template_source == "synthetic_gap_fill"
+                if slot.template_source
+                in {"synthetic_gap_fill", "tourapi_only_fallback"}
             ]
         )
         slots = add_meal_slots(slots, conditions)
@@ -172,27 +162,53 @@ class RagOrchestrator:
         retrieved: list[SlotCandidates] = [
             self.slot_retriever.retrieve(slot, conditions) for slot in slots
         ]
+        empty_items = [
+            item for item in retrieved if not item.candidates
+        ]
         empty_slots = [
             f"Day {item.slot.day} #{item.slot.sequence}"
-            for item in retrieved
-            if not item.candidates
+            for item in empty_items
         ]
         if empty_slots:
+            if empty_items and all(
+                item.slot.slot_kind == "meal" for item in empty_items
+            ):
+                return _meal_retrieval_clarification(
+                    conditions=conditions,
+                    empty_items=empty_items,
+                    route_context=route_context,
+                    retrieved=retrieved,
+                    original_slot_counts=original_slot_counts,
+                    synthesized_days=synthesized_days,
+                    synthesized_slot_count=synthesized_slot_count,
+                    input_mode=input_mode,
+                    route_strategy=route_strategy,
+                    aihub_fallback_reason=aihub_fallback_reason,
+                )
             return {
                 "status": "retrieval_incomplete",
                 "conditions": conditions.to_dict(),
                 "message": (
-                    "일부 AIHub 동선 슬롯에 배치할 검증된 TourAPI 후보가 "
-                    "없습니다."
+                    (
+                        "AIHub 동선이 없어 생성한 TourAPI 단독 슬롯 중 일부에 "
+                        "검증된 후보가 없습니다."
+                    )
+                    if route_strategy == "tourapi_only_fallback"
+                    else (
+                        "일부 AIHub 동선 슬롯에 배치할 검증된 TourAPI 후보가 "
+                        "없습니다."
+                    )
                 ),
                 "missing_slots": empty_slots,
                 "aihub_route_context": _safe_route_context(route_context),
                 "slot_candidates": [item.to_dict() for item in retrieved],
                 "itinerary": [],
                 "meta": {
-                    "aihub_used": True,
+                    "aihub_used": route_strategy == "aihub_pattern",
                     "tourapi_rag_used": True,
                     "llm_itinerary_used": False,
+                    "route_strategy": route_strategy,
+                    "aihub_fallback_reason": aihub_fallback_reason,
                     "aihub_original_slot_counts": original_slot_counts,
                     "synthesized_route_days": synthesized_days,
                     "synthesized_slot_count": synthesized_slot_count,
@@ -262,7 +278,11 @@ class RagOrchestrator:
             "conditions": conditions.to_dict(),
             "optional_questions": list(condition_result.optional_questions),
             "message": (
-                "AIHub 유사 동선 구조에 TourAPI 장소를 배치했습니다."
+                (
+                    "AIHub 유사 동선이 없어 TourAPI 장소만으로 일정을 생성했습니다."
+                    if route_strategy == "tourapi_only_fallback"
+                    else "AIHub 유사 동선 구조에 TourAPI 장소를 배치했습니다."
+                )
                 if validation.valid
                 else "TourAPI 후보 일정이 운영시간·거리 검증을 통과하지 못했습니다."
             ),
@@ -281,9 +301,11 @@ class RagOrchestrator:
                 ),
                 "breakfast_included": conditions.include_breakfast is True,
                 "menu_preferences": list(conditions.preferred_foods),
-                "aihub_used": True,
+                "aihub_used": route_strategy == "aihub_pattern",
                 "tourapi_rag_used": True,
                 "llm_itinerary_used": llm_used,
+                "route_strategy": route_strategy,
+                "aihub_fallback_reason": aihub_fallback_reason,
                 "llm_repaired": repaired,
                 "deterministic_fallback_used": fallback_used,
                 "validation_messages_before_fallback": validation_messages,
@@ -446,6 +468,122 @@ class RagOrchestrator:
         )
         unavailable["attempted_validation_issues"] = attempted_issues
         return unavailable
+
+
+def _meal_retrieval_clarification(
+    *,
+    conditions: TravelConditions,
+    empty_items: Sequence[SlotCandidates],
+    route_context: Mapping[str, Any],
+    retrieved: Sequence[SlotCandidates],
+    original_slot_counts: Mapping[int, int],
+    synthesized_days: Sequence[int],
+    synthesized_slot_count: int,
+    input_mode: str,
+    route_strategy: str,
+    aihub_fallback_reason: str | None,
+) -> dict[str, Any]:
+    meal_labels = {
+        "breakfast": "아침",
+        "lunch": "점심",
+        "dinner": "저녁",
+    }
+    current_radius = float(conditions.meal_search_radius_km or 8.0)
+    missing_details = [
+        {
+            "day": item.slot.day,
+            "meal_type": item.slot.meal_type,
+            "meal_label": meal_labels.get(
+                item.slot.meal_type or "",
+                "식사",
+            ),
+            "search_radius_km": item.slot.radius_km,
+        }
+        for item in empty_items
+    ]
+    missing_text = ", ".join(
+        f"{detail['day']}일차 {detail['meal_label']}"
+        for detail in missing_details
+    )
+    suggested_radii = [
+        radius for radius in (12, 20, 30) if radius > current_radius
+    ][:2]
+    options = [
+        {
+            "value": f"expand_meal_radius_{radius}",
+            "label": f"{radius}km까지 검색",
+            "description": (
+                f"식당 검색 반경을 {radius}km로 넓혀 다시 검색합니다."
+            ),
+            "selected_options": {
+                "meal_search_radius_km": radius,
+            },
+        }
+        for radius in suggested_radii
+    ]
+    options.append(
+        {
+            "value": "skip_unavailable_meals",
+            "label": "해당 식사 일정 제외",
+            "description": (
+                "찾지 못한 식사 슬롯만 일정에서 제외하고 관광 일정을 계속합니다."
+            ),
+            "selected_options": {
+                "skipped_meals": [
+                    {
+                        "day": detail["day"],
+                        "meal_type": detail["meal_type"],
+                    }
+                    for detail in missing_details
+                ],
+            },
+        }
+    )
+    options.append(
+        {
+            "value": "enter_meal_preference",
+            "label": "메뉴·지역 직접 입력",
+            "description": (
+                "원하는 음식이나 식사할 지역을 자연어로 입력합니다."
+            ),
+            "selected_options": {},
+        }
+    )
+    question = (
+        f"{missing_text} 식당을 현재 검색 반경 "
+        f"{current_radius:g}km 안에서 찾지 못했습니다. "
+        "검색 반경을 넓힐까요, 해당 식사 일정을 제외할까요, "
+        "아니면 원하는 메뉴·지역을 직접 입력하시겠습니까?"
+    )
+    return {
+        "status": "clarification_required",
+        "ready": False,
+        "clarification_kind": "meal_candidate_unavailable",
+        "conditions": conditions.to_dict(),
+        "message": question,
+        "clarification_questions": [question],
+        "clarification_options": options,
+        "missing_meal_slots": missing_details,
+        "missing_slots": [
+            f"Day {item.slot.day} #{item.slot.sequence}"
+            for item in empty_items
+        ],
+        "aihub_route_context": _safe_route_context(route_context),
+        "slot_candidates": [item.to_dict() for item in retrieved],
+        "itinerary": [],
+        "meta": {
+            "input_mode": input_mode,
+            "aihub_used": route_strategy == "aihub_pattern",
+            "tourapi_rag_used": True,
+            "llm_itinerary_used": False,
+            "route_strategy": route_strategy,
+            "aihub_fallback_reason": aihub_fallback_reason,
+            "aihub_original_slot_counts": dict(original_slot_counts),
+            "synthesized_route_days": list(synthesized_days),
+            "synthesized_slot_count": synthesized_slot_count,
+            "meal_search_radius_km": current_radius,
+        },
+    }
 
 
 def _parse_replacement_request(message: str) -> tuple[int, str] | None:
@@ -686,6 +824,11 @@ def build_itinerary_prompt_context(
     frontend_selections: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     pattern = _selected_pattern(route_context)
+    route_strategy = (
+        "aihub_pattern"
+        if pattern
+        else "tourapi_only_fallback"
+    )
     slots_payload: list[dict[str, Any]] = []
     for item in slot_candidates:
         candidates = [
@@ -744,12 +887,22 @@ def build_itinerary_prompt_context(
         "aihub_reference_pattern": pattern,
         "slots": slots_payload,
         "policy": {
-            "source_priority": [
-                "user_conditions",
-                "tourapi_verified_facts",
-                "distance_and_opening_hours",
-                "aihub_route_pattern",
-            ],
+            "source_priority": (
+                [
+                    "user_conditions",
+                    "tourapi_verified_facts",
+                    "distance_and_opening_hours",
+                    "aihub_route_pattern",
+                ]
+                if pattern
+                else [
+                    "user_conditions",
+                    "tourapi_verified_facts",
+                    "distance_and_opening_hours",
+                ]
+            ),
+            "route_strategy": route_strategy,
+            "aihub_route_pattern_available": bool(pattern),
             "place_source": "TourAPI candidates only",
             "aihub_place_names_allowed": False,
             "one_place_per_slot": True,

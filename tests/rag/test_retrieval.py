@@ -84,7 +84,11 @@ class SlotRetrievalTests(unittest.TestCase):
         with_breakfast = add_meal_slots(
             tourism,
             TravelConditions.from_mapping(
-                {**base.to_dict(), "include_breakfast": True}
+                {
+                    **base.to_dict(),
+                    "include_breakfast": True,
+                    "meal_search_radius_km": 12,
+                }
             ),
         )
 
@@ -99,6 +103,33 @@ class SlotRetrievalTests(unittest.TestCase):
         self.assertEqual(
             len([slot for slot in with_breakfast if slot.slot_kind == "tourism"]),
             3,
+        )
+        self.assertTrue(
+            all(
+                slot.radius_km == 12
+                for slot in with_breakfast
+                if slot.slot_kind == "meal"
+            )
+        )
+
+        skip_lunch = add_meal_slots(
+            tourism,
+            TravelConditions.from_mapping(
+                {
+                    **base.to_dict(),
+                    "skipped_meals": [
+                        {"day": 1, "meal_type": "lunch"},
+                    ],
+                }
+            ),
+        )
+        self.assertEqual(
+            [
+                slot.meal_type
+                for slot in skip_lunch
+                if slot.slot_kind == "meal"
+            ],
+            ["dinner"],
         )
 
     def test_meal_score_prioritizes_distance_rating_and_menu(self) -> None:

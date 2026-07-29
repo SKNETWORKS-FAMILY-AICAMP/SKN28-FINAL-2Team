@@ -1,0 +1,338 @@
+{
+  "schema_version": "1.0",
+  "package_id": "VIRTUAL-JEJU-2N3D-001",
+  "is_virtual": true,
+  "title": "제주 2박 3일 부모님 동반 힐링 여행",
+  "summary": "제주의 숲과 해안 풍경, 문화 공간을 여유롭게 둘러보는 시연용 가상 패키지입니다.",
+  "duration": {
+    "nights": 2,
+    "days": 3
+  },
+  "target": {
+    "party_type": "with_parents",
+    "min_people": 2,
+    "max_people": 4
+  },
+  "themes": [
+    "nature",
+    "culture",
+    "relaxed"
+  ],
+  "transport": "rental_car",
+  "accommodation": {
+    "product_id": "VIRTUAL-STAY-001",
+    "name": "제주시 가상 숙소",
+    "nights": 2,
+    "price_status": "virtual_estimate"
+  },
+  "pricing": {
+    "currency": "KRW",
+    "price_basis": "per_person",
+    "total_amount": 438700,
+    "status": "virtual_estimate",
+    "breakdown": {
+      "accommodation": 159000,
+      "transportation": 89700,
+      "activities": 70000,
+      "meals": 90000,
+      "other": 30000
+    }
+  },
+  "includes": [
+    "가상 숙소 2박",
+    "가상 렌터카 이용료",
+    "일부 가상 액티비티 이용료"
+  ],
+  "excludes": [
+    "제주 왕복 항공권",
+    "개인 경비",
+    "표시되지 않은 식사"
+  ],
+  "days": [
+    {
+      "day": 1,
+      "date": null,
+      "title": "제주시 숲과 문화 코스",
+      "route_summary": "제주국제공항 → 관광지 → 점심 → 관광지 → 관광지 → 저녁",
+      "items": [
+        {
+          "display_order": 1,
+          "source_sequence": 1,
+          "tourapi_content_id": 100001,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "한라수목원",
+          "start_time": "09:00",
+          "end_time": "10:30",
+          "stay_minutes": 90,
+          "description": "제주 자생식물과 아열대식물을 관찰할 수 있는 도심 속 수목원입니다. 가볍게 산책하며 쉬기 좋은 장소입니다.",
+          "selection_reason": "부모님 동반과 자연 선호, 짧은 이동거리를 반영해 선택했습니다.",
+          "estimated_price": {
+            "amount": 0,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 2,
+          "source_sequence": 102,
+          "tourapi_content_id": 100002,
+          "item_type": "meal",
+          "meal_type": "lunch",
+          "title": "제주시 가상 향토식당",
+          "start_time": "12:00",
+          "end_time": "13:00",
+          "stay_minutes": 60,
+          "description": "제주 향토 메뉴를 제공하는 것으로 설정한 가상 식당 항목입니다.",
+          "selection_reason": "오전 동선과의 거리와 점심 운영시간을 반영해 선택했습니다.",
+          "estimated_price": {
+            "amount": 18000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 3,
+          "source_sequence": 2,
+          "tourapi_content_id": 100003,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주 문화 관광지 예시",
+          "start_time": "13:30",
+          "end_time": "15:00",
+          "stay_minutes": 90,
+          "description": "제주의 생활문화와 지역 이야기를 살펴보는 관광지 예시입니다.",
+          "selection_reason": "문화 선호와 오후 동선의 연속성을 반영해 선택했습니다.",
+          "estimated_price": {
+            "amount": 10000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 4,
+          "source_sequence": 3,
+          "tourapi_content_id": 100004,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주 해안 관광지 예시",
+          "start_time": "15:30",
+          "end_time": "17:00",
+          "stay_minutes": 90,
+          "description": "제주의 해안 풍경을 여유롭게 감상할 수 있는 관광지 예시입니다.",
+          "selection_reason": "자연 선호와 저녁 식사 전 이동거리를 반영해 선택했습니다.",
+          "estimated_price": {
+            "amount": 0,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 5,
+          "source_sequence": 103,
+          "tourapi_content_id": 100005,
+          "item_type": "meal",
+          "meal_type": "dinner",
+          "title": "제주시 가상 저녁식당",
+          "start_time": "18:00",
+          "end_time": "19:10",
+          "stay_minutes": 70,
+          "description": "제주 지역 메뉴를 저녁에 제공하는 것으로 설정한 가상 식당 항목입니다.",
+          "selection_reason": "마지막 관광지와 숙소 사이의 거리와 저녁 운영시간을 반영했습니다.",
+          "estimated_price": {
+            "amount": 22000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "date": null,
+      "title": "동부 자연과 체험 코스",
+      "route_summary": "관광지 → 점심 → 관광지 → 관광지 → 저녁",
+      "items": [
+        {
+          "display_order": 1,
+          "source_sequence": 1,
+          "tourapi_content_id": 200001,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주 동부 자연 관광지 예시",
+          "start_time": "09:00",
+          "end_time": "10:30",
+          "stay_minutes": 90,
+          "description": "제주 동부의 자연환경을 둘러볼 수 있는 관광지 예시입니다.",
+          "selection_reason": "자연 선호와 하루 첫 동선의 접근성을 반영했습니다.",
+          "estimated_price": {
+            "amount": 0,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 2,
+          "source_sequence": 102,
+          "tourapi_content_id": 200002,
+          "item_type": "meal",
+          "meal_type": "lunch",
+          "title": "동부 가상 점심식당",
+          "start_time": "12:00",
+          "end_time": "13:00",
+          "stay_minutes": 60,
+          "description": "동부 관광 동선에서 이용하는 것으로 설정한 가상 식당 항목입니다.",
+          "selection_reason": "오전 관광지와 오후 관광지 사이의 거리와 운영시간을 반영했습니다.",
+          "estimated_price": {
+            "amount": 18000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 3,
+          "source_sequence": 2,
+          "tourapi_content_id": 200003,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주 동부 체험 관광지 예시",
+          "start_time": "13:30",
+          "end_time": "15:00",
+          "stay_minutes": 90,
+          "description": "제주의 지역문화를 체험하는 프로그램이 있는 것으로 구성한 관광지 예시입니다.",
+          "selection_reason": "체험과 문화 선호를 반영해 선택했습니다.",
+          "estimated_price": {
+            "amount": 30000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 4,
+          "source_sequence": 3,
+          "tourapi_content_id": 200004,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주 동부 해안 관광지 예시",
+          "start_time": "15:30",
+          "end_time": "17:00",
+          "stay_minutes": 90,
+          "description": "동부 해안의 풍경을 감상하는 일정으로 구성한 관광지 예시입니다.",
+          "selection_reason": "자연 선호와 한 방향으로 흐르는 동선을 반영했습니다.",
+          "estimated_price": {
+            "amount": 0,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 5,
+          "source_sequence": 103,
+          "tourapi_content_id": 200005,
+          "item_type": "meal",
+          "meal_type": "dinner",
+          "title": "동부 가상 저녁식당",
+          "start_time": "18:00",
+          "end_time": "19:10",
+          "stay_minutes": 70,
+          "description": "동부 관광 일정 뒤에 이용하는 것으로 설정한 가상 식당 항목입니다.",
+          "selection_reason": "마지막 관광지와 숙소 복귀 동선을 반영했습니다.",
+          "estimated_price": {
+            "amount": 22000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "date": null,
+      "title": "공항 방향 마무리 코스",
+      "route_summary": "관광지 → 점심 → 관광지 → 관광지 → 제주국제공항",
+      "items": [
+        {
+          "display_order": 1,
+          "source_sequence": 1,
+          "tourapi_content_id": 300001,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주시 자연 관광지 예시",
+          "start_time": "09:00",
+          "end_time": "10:30",
+          "stay_minutes": 90,
+          "description": "제주시 권역에서 가볍게 자연을 감상하는 관광지 예시입니다.",
+          "selection_reason": "마지막 날 이동 부담과 자연 선호를 반영했습니다.",
+          "estimated_price": {
+            "amount": 0,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 2,
+          "source_sequence": 102,
+          "tourapi_content_id": 300002,
+          "item_type": "meal",
+          "meal_type": "lunch",
+          "title": "공항 권역 가상 점심식당",
+          "start_time": "12:00",
+          "end_time": "13:00",
+          "stay_minutes": 60,
+          "description": "공항 이동 방향에서 이용하는 것으로 설정한 가상 식당 항목입니다.",
+          "selection_reason": "공항 방향 동선과 점심 운영시간을 반영했습니다.",
+          "estimated_price": {
+            "amount": 16000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 3,
+          "source_sequence": 2,
+          "tourapi_content_id": 300003,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "제주시 문화 관광지 예시",
+          "start_time": "13:30",
+          "end_time": "14:40",
+          "stay_minutes": 70,
+          "description": "공항 이동 전에 제주 문화를 살펴볼 수 있도록 구성한 관광지 예시입니다.",
+          "selection_reason": "문화 선호와 공항 도착 제한시각을 반영했습니다.",
+          "estimated_price": {
+            "amount": 10000,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        },
+        {
+          "display_order": 4,
+          "source_sequence": 3,
+          "tourapi_content_id": 300004,
+          "item_type": "tourism",
+          "meal_type": null,
+          "title": "공항 인근 관광지 예시",
+          "start_time": "15:10",
+          "end_time": "16:10",
+          "stay_minutes": 60,
+          "description": "공항으로 이동하기 전 짧게 방문하는 것으로 구성한 관광지 예시입니다.",
+          "selection_reason": "공항까지의 거리와 도착 제한시각을 우선 반영했습니다.",
+          "estimated_price": {
+            "amount": 0,
+            "currency": "KRW",
+            "status": "virtual_estimate"
+          }
+        }
+      ]
+    }
+  ],
+  "source": {
+    "generator": "src.rag",
+    "rag_status": "completed",
+    "validation_valid": true,
+    "route_strategy": "aihub_pattern",
+    "place_source": "TourAPI",
+    "generated_at": null
+  },
+  "disclaimer": "실제 판매·예약 상품이 아닌 화면 및 추천 기능 시연용 가상 패키지입니다. 표시 가격과 포함 사항은 예시입니다."
+}

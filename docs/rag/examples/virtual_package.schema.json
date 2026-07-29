@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/virtual-package-1.0.json",
+  "title": "Virtual Jeju Travel Package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "is_virtual",
+    "title",
+    "summary",
+    "duration",
+    "target",
+    "themes",
+    "transport",
+    "accommodation",
+    "pricing",
+    "includes",
+    "excludes",
+    "days",
+    "source",
+    "disclaimer"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "package_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "is_virtual": {
+      "const": true
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "duration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nights", "days"],
+      "properties": {
+        "nights": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 29
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["party_type", "min_people", "max_people"],
+      "properties": {
+        "party_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "min_people": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_people": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "themes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "transport": {
+      "type": "string",
+      "minLength": 1
+    },
+    "accommodation": {
+      "type": "object"
+    },
+    "pricing": {
+      "$ref": "#/$defs/pricing"
+    },
+    "includes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "excludes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "days": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/day"
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generator",
+        "rag_status",
+        "validation_valid",
+        "route_strategy",
+        "place_source",
+        "generated_at"
+      ],
+      "properties": {
+        "generator": {
+          "const": "src.rag"
+        },
+        "rag_status": {
+          "const": "completed"
+        },
+        "validation_valid": {
+          "const": true
+        },
+        "route_strategy": {
+          "enum": ["aihub_pattern", "tourapi_only_fallback"]
+        },
+        "place_source": {
+          "const": "TourAPI"
+        },
+        "generated_at": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "disclaimer": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency", "status"],
+      "properties": {
+        "amount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "const": "KRW"
+        },
+        "status": {
+          "const": "virtual_estimate"
+        }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "price_basis",
+        "total_amount",
+        "status",
+        "breakdown"
+      ],
+      "properties": {
+        "currency": {
+          "const": "KRW"
+        },
+        "price_basis": {
+          "enum": ["per_person", "per_group"]
+        },
+        "total_amount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "const": "virtual_estimate"
+        },
+        "breakdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "accommodation",
+            "transportation",
+            "activities",
+            "meals",
+            "other"
+          ],
+          "properties": {
+            "accommodation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "transportation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "activities": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "meals": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "other": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "day": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "day",
+        "date",
+        "title",
+        "route_summary",
+        "items"
+      ],
+      "properties": {
+        "day": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "date": {
+          "type": ["string", "null"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "route_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display_order",
+        "source_sequence",
+        "tourapi_content_id",
+        "item_type",
+        "meal_type",
+        "title",
+        "start_time",
+        "end_time",
+        "stay_minutes",
+        "description",
+        "selection_reason",
+        "estimated_price"
+      ],
+      "properties": {
+        "display_order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tourapi_content_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "item_type": {
+          "enum": ["tourism", "meal"]
+        },
+        "meal_type": {
+          "type": ["string", "null"],
+          "enum": ["breakfast", "lunch", "dinner", null]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_time": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "end_time": {
+          "type": "string",
+          "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "stay_minutes": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 360
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "selection_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "estimated_price": {
+          "$ref": "#/$defs/money"
+        }
+      }
+    }
+  }
+}

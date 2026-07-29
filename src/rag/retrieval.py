@@ -376,6 +376,26 @@ def complete_route_slots(
     return tuple(completed)
 
 
+def tourapi_only_slots(
+    conditions: TravelConditions,
+    *,
+    places_per_day: int,
+    radius_km: float,
+) -> tuple[SlotRequest, ...]:
+    """Create broad TourAPI slots when AIHub has no usable route at all."""
+
+    generated = complete_route_slots(
+        (),
+        conditions,
+        places_per_day=places_per_day,
+        anchor_radius_km=radius_km,
+    )
+    return tuple(
+        replace(slot, template_source="tourapi_only_fallback")
+        for slot in generated
+    )
+
+
 def add_meal_slots(
     slots: Sequence[SlotRequest],
     conditions: TravelConditions,
@@ -384,7 +404,8 @@ def add_meal_slots(
 ) -> tuple[SlotRequest, ...]:
     """Add meal retrieval slots while preserving three tourism slots per day."""
 
-    if radius_km <= 0:
+    resolved_radius_km = conditions.meal_search_radius_km or radius_km
+    if resolved_radius_km <= 0:
         raise ValueError("radius_km must be positive")
     duration_days = int(conditions.duration_days or 0)
     if duration_days <= 0:
@@ -393,6 +414,9 @@ def add_meal_slots(
     tourism_slots = [
         slot for slot in slots if slot.slot_kind != "meal"
     ]
+    skipped_meals = {
+        (item.day, item.meal_type) for item in conditions.skipped_meals
+    }
     result = list(tourism_slots)
     for day in range(1, duration_days + 1):
         day_slots = sorted(
@@ -407,6 +431,8 @@ def add_meal_slots(
             else ("lunch", "dinner")
         )
         for meal_type in meal_types:
+            if (day, meal_type) in skipped_meals:
+                continue
             if meal_type == "breakfast":
                 anchor = day_slots[0]
             elif meal_type == "lunch":
@@ -424,12 +450,7 @@ def add_meal_slots(
                     stay_minutes=MEAL_STAY_MINUTES[meal_type],
                     latitude=anchor.latitude,
                     longitude=anchor.longitude,
-                    radius_km=min(
-                        radius_km,
-                        anchor.radius_km
-                        if anchor.radius_km is not None
-                        else radius_km,
-                    ),
+                    radius_km=resolved_radius_km,
                     template_source="meal_policy",
                     route_anchor=anchor.route_anchor,
                     slot_kind="meal",
@@ -621,7 +642,10 @@ def build_slot_query(
     required_places = required_place_names_for_day(conditions, slot.day)
     if required_places:
         parts.append("필수 " + ", ".join(required_places))
-    if slot.template_source == "synthetic_gap_fill":
+    if slot.template_source in {
+        "synthetic_gap_fill",
+        "tourapi_only_fallback",
+    }:
         parts.append("AIHub 누락 슬롯 보충 관광지")
     if slot.route_anchor:
         parts.append("동선 종료 지점 " + slot.route_anchor)

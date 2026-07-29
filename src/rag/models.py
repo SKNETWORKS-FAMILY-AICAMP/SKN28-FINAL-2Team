@@ -35,6 +35,7 @@ VISIT_PREFERENCES = frozenset(
     }
 )
 PACES = frozenset({"relaxed", "balanced", "packed"})
+MEAL_TYPES = frozenset({"breakfast", "lunch", "dinner"})
 
 
 def _strings(value: Any) -> tuple[str, ...]:
@@ -53,6 +54,10 @@ def _strings(value: Any) -> tuple[str, ...]:
 
 def _optional_int(value: Any) -> int | None:
     return None if value in (None, "") else int(value)
+
+
+def _optional_float(value: Any) -> float | None:
+    return None if value in (None, "") else float(value)
 
 
 def _optional_text(value: Any) -> str | None:
@@ -165,6 +170,57 @@ def _merge_required_day_itineraries(
 
 
 @dataclass(frozen=True)
+class SkippedMeal:
+    day: int
+    meal_type: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "day": self.day,
+            "meal_type": self.meal_type,
+        }
+
+
+def _skipped_meals(value: Any) -> tuple[SkippedMeal, ...]:
+    if value in (None, "", (), []):
+        return ()
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError("skipped_meals must be a list")
+    result: list[SkippedMeal] = []
+    seen: set[tuple[int, str]] = set()
+    for item in value:
+        if not isinstance(item, Mapping):
+            raise ValueError("skipped_meals items must be objects")
+        day = int(item.get("day") or 0)
+        meal_type = str(item.get("meal_type") or "").strip()
+        if not 1 <= day <= 30:
+            raise ValueError("skipped_meals day must be between 1 and 30")
+        if meal_type not in MEAL_TYPES:
+            raise ValueError(f"invalid skipped meal_type: {meal_type}")
+        key = (day, meal_type)
+        if key not in seen:
+            result.append(SkippedMeal(day=day, meal_type=meal_type))
+            seen.add(key)
+    return tuple(sorted(result, key=lambda item: (item.day, item.meal_type)))
+
+
+def _merge_skipped_meals(current: Any, incoming: Any) -> list[dict[str, Any]]:
+    values = [
+        *(
+            current
+            if isinstance(current, Sequence) and not isinstance(current, str)
+            else []
+        ),
+        *(
+            incoming
+            if isinstance(incoming, Sequence) and not isinstance(incoming, str)
+            else []
+        ),
+    ]
+    return [item.to_dict() for item in _skipped_meals(values)]
+
+
+@dataclass(frozen=True)
 class TravelConditions:
     region: str | None = None
     start_date: str | None = None
@@ -184,6 +240,8 @@ class TravelConditions:
     preferred_places: tuple[str, ...] = ()
     preferred_foods: tuple[str, ...] = ()
     include_breakfast: bool | None = None
+    meal_search_radius_km: float | None = None
+    skipped_meals: tuple[SkippedMeal, ...] = ()
     travel_styles: tuple[str, ...] = ()
     must_visit_places: tuple[str, ...] = ()
     required_day_itineraries: tuple[RequiredDayItinerary, ...] = ()
@@ -225,10 +283,18 @@ class TravelConditions:
 
         companion_count = _optional_int(raw.get("companion_count"))
         budget = _optional_int(raw.get("budget_per_person"))
+        meal_search_radius = _optional_float(
+            raw.get("meal_search_radius_km")
+            or raw.get("restaurant_search_radius_km")
+        )
         if companion_count is not None and companion_count < 0:
             raise ValueError("companion_count must be zero or greater")
         if budget is not None and budget < 0:
             raise ValueError("budget_per_person must be zero or greater")
+        if meal_search_radius is not None and not 1 <= meal_search_radius <= 30:
+            raise ValueError(
+                "meal_search_radius_km must be between 1 and 30"
+            )
         indoor_preference = _optional_text(raw.get("indoor_preference"))
         if indoor_preference not in (None, "indoor", "outdoor", "either"):
             raise ValueError(
@@ -238,12 +304,19 @@ class TravelConditions:
             raw.get("required_day_itineraries")
             or raw.get("must_visit_by_day")
         )
+        skipped_meals = _skipped_meals(
+            raw.get("skipped_meals") or raw.get("excluded_meal_slots")
+        )
         if duration is not None and any(
             item.day > duration for item in required_day_itineraries
         ):
             raise ValueError(
                 "required day itinerary exceeds duration_days"
             )
+        if duration is not None and any(
+            item.day > duration for item in skipped_meals
+        ):
+            raise ValueError("skipped meal exceeds duration_days")
 
         return cls(
             region=_optional_text(raw.get("region")),
@@ -282,6 +355,8 @@ class TravelConditions:
                 or raw.get("meal_menu_preferences")
             ),
             include_breakfast=_optional_bool(raw.get("include_breakfast")),
+            meal_search_radius_km=meal_search_radius,
+            skipped_meals=skipped_meals,
             travel_styles=_strings(raw.get("travel_styles")),
             must_visit_places=_strings(
                 raw.get("must_visit_places") or raw.get("required_itinerary")
@@ -323,6 +398,12 @@ class TravelConditions:
                         current.get(key) or [],
                         value,
                     )
+            elif key == "skipped_meals":
+                if value:
+                    current[key] = _merge_skipped_meals(
+                        current.get(key) or [],
+                        value,
+                    )
             elif key in list_fields:
                 if value:
                     current[key] = list(
@@ -357,6 +438,9 @@ class TravelConditions:
                 payload[key] = list(value)
         payload["required_day_itineraries"] = [
             item.to_dict() for item in self.required_day_itineraries
+        ]
+        payload["skipped_meals"] = [
+            item.to_dict() for item in self.skipped_meals
         ]
         return payload
 
@@ -522,12 +606,15 @@ class ScheduledStop:
     stay_minutes: int
     distance_from_previous_km: float | None
     reason: str
+    description: str = ""
     source: str = "TourAPI"
     slot_kind: str = "tourism"
     meal_type: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["selection_reason"] = self.reason
+        return payload
 
 
 @dataclass(frozen=True)

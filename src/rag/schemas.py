@@ -84,6 +84,30 @@ CONDITION_OUTPUT_SCHEMA = {
         "preferred_places": {"type": "array", "items": {"type": "string"}},
         "preferred_foods": {"type": "array", "items": {"type": "string"}},
         "include_breakfast": {"type": ["boolean", "null"]},
+        "meal_search_radius_km": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 30,
+        },
+        "skipped_meals": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "day": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 30,
+                    },
+                    "meal_type": {
+                        "type": "string",
+                        "enum": ["breakfast", "lunch", "dinner"],
+                    },
+                },
+                "required": ["day", "meal_type"],
+            },
+        },
         "travel_styles": {"type": "array", "items": {"type": "string"}},
         "must_visit_places": {"type": "array", "items": {"type": "string"}},
         "required_day_itineraries": {
@@ -143,6 +167,8 @@ CONDITION_OUTPUT_SCHEMA = {
         "preferred_places",
         "preferred_foods",
         "include_breakfast",
+        "meal_search_radius_km",
+        "skipped_meals",
         "travel_styles",
         "must_visit_places",
         "required_day_itineraries",

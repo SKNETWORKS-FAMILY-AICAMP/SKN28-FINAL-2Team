@@ -2,8 +2,8 @@ from __future__ import annotations
 
 
 CONDITION_PROMPT_VERSION = "condition-v5"
-ITINERARY_PROMPT_VERSION = "itinerary-v5"
-REPAIR_PROMPT_VERSION = "repair-v5"
+ITINERARY_PROMPT_VERSION = "itinerary-v6"
+REPAIR_PROMPT_VERSION = "repair-v6"
 
 
 CONDITION_EXTRACTION_SYSTEM_PROMPT = """
@@ -44,6 +44,15 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = """
   기록합니다. 언급이 없으면 null이며 아침식사를 자동 추가하지 않습니다.
 - 선호 메뉴나 음식 종류는 preferred_foods에 기록합니다. '아무거나',
   '상관없음'도 사용자의 명시적 메뉴 무관 조건으로 그대로 기록합니다.
+- 사용자가 식당 검색 반경을 직접 선택하거나 "12km로 넓혀 달라"고 요청하면
+  meal_search_radius_km에 1~30 사이의 km 숫자를 기록합니다.
+- 직전 질문에서 특정 식당 검색 반경으로 넓힐지 물었고 사용자가 긍정했다면,
+  최근 대화의 질문에 제시된 반경을 meal_search_radius_km에 기록합니다.
+- 사용자가 특정 일차의 아침·점심·저녁 식사 일정을 빼 달라고 요청하면
+  skipped_meals에 {"day": 일차, "meal_type": breakfast/lunch/dinner}로 기록합니다.
+- 직전 질문에서 식당을 찾지 못한 일차와 식사 유형을 명시했고 사용자가
+  "그냥 식사 장소를 빼 주세요"라고 답하면, 최근 대화의 해당 일차·식사 유형을
+  skipped_meals에 기록합니다. 다른 날짜의 식사까지 임의로 제외하지 않습니다.
 - 긴 이동을 피한다면 avoid_long_distance=true로 기록합니다.
 - 운영시간 조건은 opening_hours_constraints에 사용자 표현을 보존합니다.
 - 주차가 필수라면 parking_required=true, 실내·실외 선호는
@@ -93,7 +102,9 @@ TourAPI 후보 목록에서만 선택하세요.
 7. AIHub는 권역, 슬롯 순서, 슬롯 유형, 체류시간의 참고 자료일 뿐입니다.
 8. 운영시간·요금·주차 정보를 추측하지 않습니다.
 9. stay_minutes는 슬롯 권장값과 TourAPI 장소 성격을 참고하되 20~360분입니다.
-10. reason은 선택 근거를 과장 없이 한 문장으로 작성합니다.
+10. reason은 사용자의 선호·필수 조건, 거리, 운영정보 중 실제 후보 데이터에서
+    확인되는 근거를 사용하여 한 문장으로 작성합니다. 단순히 "검색 점수가
+    높아서" 또는 "AIHub 슬롯이라서"라고만 작성하지 않습니다.
 11. 슬롯 번호는 입력에 제공된 day와 slot_sequence를 그대로 사용합니다.
 12. 후보 좌표를 이용해 같은 날 연속 장소의 거리를 최소화하고
     policy.max_leg_distance_km를 넘지 않는 조합을 우선합니다.

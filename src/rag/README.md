@@ -4,6 +4,30 @@
 > not be connected to or imported from `backend/` until the user explicitly
 > authorizes backend integration. See `BOUNDARY.md`.
 
+## AIHub 동선 부재 시 제한적 폴백
+
+기본 경로는 항상 `AIHub 유사 동선 → TourAPI 장소 배치`입니다. AIHub 조회
+결과에 `reference_trip_patterns`가 없거나 선택된 패턴에 사용할 수 있는 동선
+슬롯이 전혀 없을 때만 `TourAPI 단독 폴백`을 사용합니다.
+
+TourAPI 단독 폴백은 사용자 선호 유형으로 매일 관광지 슬롯 3개를 만들고,
+TourAPI 후보를 검색한 뒤 거리·운영시간·중복·필수 장소 검증을 동일하게
+적용합니다. 이때 AIHub의 방문 순서나 체류시간을 사용했다고 표시하지
+않습니다. 반대로 AIHub 동선이 존재하고 일부 슬롯의 TourAPI 후보만 부족한
+`retrieval_incomplete` 상태에서는 단독 폴백으로 전환하지 않습니다.
+
+응답 `meta.route_strategy`는 `aihub_pattern` 또는
+`tourapi_only_fallback`이며, 폴백 사유는
+`meta.aihub_fallback_reason`에서 확인할 수 있습니다.
+
+## 장소 소개와 선택 이유
+
+최종 `itinerary`의 각 항목은 TourAPI `overview`를 최대 두 문장으로 줄인
+`description`과 사용자 조건·거리·운영정보를 근거로 한
+`selection_reason`을 제공합니다. 기존 호환성을 위해 같은 선택 이유를
+`reason`에도 유지합니다. 소개 원문이 없으면 주소 등 확인 가능한 정보만
+사용하며 임의의 설명을 생성하지 않습니다.
+
 이 패키지는 AIHub 과거 여행에서 추상 동선 템플릿만 가져오고, 실제 일정 장소는
 TourAPI MySQL·ChromaDB에서 검색해 배치하는 1차 RAG 체인입니다.
 
@@ -199,3 +223,51 @@ revised = rag.revise(
 - 식당 후보는 거리 45%, 실제 평점 25%, 메뉴 일치 15%, 벡터 유사도 10%,
   운영정보 5%를 반영합니다. 실제 평점 필드가 없는 후보는 중립값으로
   처리하며 사용자에게 평점을 임의로 만들어 보여주지 않습니다.
+
+식사 슬롯 후보가 없으면 오류로 끝내지 않고 다음 계약을 반환합니다.
+
+```json
+{
+  "status": "clarification_required",
+  "clarification_kind": "meal_candidate_unavailable",
+  "clarification_questions": ["2일차 점심 식당을 찾지 못했습니다..."],
+  "clarification_options": [
+    {
+      "label": "12km까지 검색",
+      "selected_options": {"meal_search_radius_km": 12}
+    },
+    {
+      "label": "해당 식사 일정 제외",
+      "selected_options": {
+        "skipped_meals": [{"day": 2, "meal_type": "lunch"}]
+      }
+    }
+  ]
+}
+```
+
+프론트엔드에서 선택한 버튼 값은 이전 조건과 함께 다시 전달합니다.
+
+```python
+retry = rag.run(
+    selected_options={"meal_search_radius_km": 12},
+    current_conditions=result["conditions"],
+)
+```
+
+사용자가 자연어로 답하거나 이후 일정을 수정할 때는 이전 조건과 대화
+이력을 보존하여 전달합니다.
+
+```python
+retry = rag.run(
+    message="12km까지 넓혀서 다시 찾아주세요.",
+    current_conditions=result["conditions"],
+    history=[
+        {"role": "assistant", "content": result["message"]},
+    ],
+)
+```
+
+직전 질문이 `2일차 점심` 후보 부족에 관한 내용이었다면 “그냥 식사 장소를
+빼 주세요”라는 답변은 `2일차 점심`만 제외합니다. 다른 일차의 점심·저녁과
+하루 관광지 3곳은 유지됩니다.
