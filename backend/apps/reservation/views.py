@@ -144,3 +144,37 @@ class ReservationDetailAPIView(RetrieveAPIView):
 
     def get_queryset(self):
         return Reservation.objects.filter(user=self.request.user).prefetch_related("items")
+
+
+class ReservationCancelAPIView(APIView):
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        tags=["Reservation"],
+        summary="예약 취소",
+        responses={
+            200: ReservationSerializer,
+            400: None,
+        },
+    )
+    def patch(self, request, pk):
+        reservation = get_object_or_404(
+            Reservation.objects.prefetch_related("items"),
+            pk=pk,
+            user=request.user,
+        )
+
+        if reservation.status == Reservation.Status.CANCELLED:
+            return Response(
+                {"detail": "이미 취소된 예약입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reservation.status = Reservation.Status.CANCELLED
+        reservation.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            ReservationSerializer(reservation).data,
+            status=status.HTTP_200_OK,
+        )
