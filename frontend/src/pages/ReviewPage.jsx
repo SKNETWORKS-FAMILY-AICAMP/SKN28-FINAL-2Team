@@ -9,8 +9,6 @@ export default function ReviewPage() {
   const { activeDay, selectDay, dayRefs } = useDayNav()
   const navigate = useNavigate()
 
-<<<<<<< Updated upstream
-=======
   const { activeDay, selectDay, dayRefs } = useDayNav();
 
   const [itinerary, setItinerary] = useState(null);
@@ -39,7 +37,6 @@ export default function ReviewPage() {
 if (!itinerary) {
     return <div>일정을 찾을 수 없습니다.</div>;
   }
->>>>>>> Stashed changes
   return (
     <div className={styles.page}>
       <AppHeader />
@@ -81,6 +78,24 @@ if (!itinerary) {
               <TripSummary />
             </div>
           </div>
+        </div>
+
+        <div className={styles.bottomActions}>
+          <Link to="/itinerary" className={cx(styles.btn, styles.ghost)}>
+            이전 단계로
+          </Link>
+            <button
+              className={cx(styles.btn, styles.primary)}
+              onClick={() =>
+                navigate("/booking", {
+                  state: {
+                    itineraryId: id,
+                  },
+                })
+              }
+            >
+              이 일정으로 확정하기 →
+            </button>
         </div>
       </div>
     </div>
