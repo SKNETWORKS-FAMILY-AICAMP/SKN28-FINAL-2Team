@@ -1,0 +1,140 @@
+{
+  "trips": [
+    {
+      "history_id": "HIS001",
+      "title": "부모님과 함께하는 2박 3일 힐링 여행",
+      "days": [
+        {
+          "day": 1,
+          "schedule": [
+            {
+              "place_id": "1884191",
+              "time": "09:30"
+            },
+            {
+              "place_id": "2660802",
+              "time": "13:00"
+            },
+            {
+              "place_id": "1884505",
+              "time": "16:00"
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "schedule": [
+            {
+              "place_id": "1885746",
+              "time": "09:30"
+            },
+            {
+              "place_id": "1884521",
+              "time": "13:30"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "history_id": "HIS002",
+      "title": "친구들과 3박 4일 액티비티 여행",
+      "days": [
+        {
+          "day": 1,
+          "schedule": [
+            {
+              "place_id": "2562214",
+              "time": "10:00"
+            },
+            {
+              "place_id": "2498717",
+              "time": "14:00"
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "schedule": [
+            {
+              "place_id": "1911160",
+              "time": "09:30"
+            },
+            {
+              "place_id": "2738705",
+              "time": "15:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "history_id": "HIS003",
+      "title": "혼자 떠나는 감성 제주 여행",
+      "days": [
+        {
+          "day": 1,
+          "schedule": [
+            {
+              "place_id": "125445",
+              "time": "10:30"
+            },
+            {
+              "place_id": "3371999",
+              "time": "15:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "history_id": "HIS004",
+      "title": "커플 제주 드라이브 여행",
+      "days": [
+        {
+          "day": 1,
+          "schedule": [
+            {
+              "place_id": "2738705",
+              "time": "09:00"
+            },
+            {
+              "place_id": "696841",
+              "time": "14:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "history_id": "HIS005",
+      "title": "제주 맛집 탐방 여행",
+      "days": []
+    },
+    {
+      "history_id": "HIS006",
+      "title": "가족 호캉스 여행",
+      "days": []
+    },
+    {
+      "history_id": "HIS007",
+      "title": "제주 자연 탐방",
+      "days": []
+    },
+    {
+      "history_id": "HIS008",
+      "title": "카페 투어",
+      "days": []
+    },
+    {
+      "history_id": "HIS009",
+      "title": "오름 일주 여행",
+      "days": []
+    },
+    {
+      "history_id": "HIS010",
+      "title": "제주 일주 드라이브",
+      "days": []
+    }
+  ]
+}

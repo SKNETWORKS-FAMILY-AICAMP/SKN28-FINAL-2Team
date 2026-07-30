@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 *.local
+frontend/.env
 
 # Python virtual environments
 .venv/
@@ -76,7 +77,7 @@ Thumbs.db
 # AIHub 원본은 로컬에서 준비합니다.
 data/raw/aihub/
 
-# ChromaDB 파일은 재생성하며 manifest만 공유합니다.
+# 로컬 ChromaDB 파일은 재생성하며 manifest만 공유합니다.
 data/vectorstore/*
 !data/vectorstore/chromadb_manifest.json
 
@@ -84,3 +85,6 @@ node_modules
 dist
 .DS_Store
 *.local
+# 로컬 DB 백업은 Git 대신 별도 저장소에서 관리합니다.
+backups/
+data/backups/

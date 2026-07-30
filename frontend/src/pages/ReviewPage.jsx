@@ -5,11 +5,7 @@ import AppHeader from './review/AppHeader.jsx';
 import { DayNav, DayColumns, useDayNav } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import { useEffect, useState } from 'react';
-import {
-  getItinerary,
-  createShareLink,
-  getSharedItinerary,
-} from '../api/itinerary';
+import { getItinerary, createShareLink, getSharedItinerary, } from '../api/itinerary';
 
 export default function ReviewPage() {
   const { id, token } = useParams();
@@ -100,9 +96,7 @@ export default function ReviewPage() {
               {!token && (
                 <div className={styles.actionRow}>
                   {showToast && (
-                    <div className={styles.toast}>
-                      링크 복사!
-                    </div>
+                    <div className={styles.toast}>링크 복사!</div>
                   )}
 
                   <button

@@ -6,6 +6,7 @@ import ReviewPage from './pages/ReviewPage.jsx'
 import BookingPage from './pages/BookingPage.jsx'
 import PackagesPage from './pages/PackagesPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import KakaoCallback from './pages/KakaoCallback.jsx'
 import MyPage from './pages/MyPage.jsx'
 import MyItinerariesPage from './pages/MyItinerariesPage.jsx'
 import MyBookmarksPage from './pages/MyBookmarksPage.jsx'
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/packages" element={<PackagesPage />} />
 
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/oauth/kakao/callback" element={<KakaoCallback />} />
 
       <Route
         path="/mypage"
