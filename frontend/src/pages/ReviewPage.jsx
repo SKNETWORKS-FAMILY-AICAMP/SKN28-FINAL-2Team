@@ -86,11 +86,6 @@ if (!itinerary) {
           <Link to="/itinerary" className={cx(styles.btn, styles.ghost)}>
             이전 단계로
           </Link>
-<<<<<<< HEAD
-          <button className={cx(styles.btn, styles.primary)} onClick={() => navigate('/booking')}>
-            이 일정으로 확정하기 →
-          </button>
-=======
             <button
               className={cx(styles.btn, styles.primary)}
               onClick={() =>
@@ -103,7 +98,6 @@ if (!itinerary) {
             >
               이 일정으로 확정하기 →
             </button>
->>>>>>> 55475c4 (feat: 예약 페이지 이동 시 일정 ID 전달 기능 추가)
         </div>
       </div>
     </div>
