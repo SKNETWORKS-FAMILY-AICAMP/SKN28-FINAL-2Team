@@ -63,7 +63,7 @@ export async function cancelReservation(id) {
   const response = await fetch(
     `${API_BASE_URL}/api/reservations/${id}/cancel/`,
     {
-      method: 'POST',
+      method: 'PATCH',
       headers: authHeaders(),
     },
   )
