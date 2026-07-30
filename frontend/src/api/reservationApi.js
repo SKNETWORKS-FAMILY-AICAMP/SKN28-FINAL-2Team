@@ -58,3 +58,21 @@ export async function createReservation(packageIds, paymentMethod) {
 
   return response.json()
 }
+
+export async function cancelReservation(id) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/reservations/${id}/cancel/`,
+    {
+      method: 'POST',
+      headers: authHeaders(),
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error(
+      await parseError(response, '예약을 취소하지 못했습니다.'),
+    )
+  }
+
+  return response.json()
+}

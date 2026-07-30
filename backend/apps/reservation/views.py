@@ -145,20 +145,22 @@ class ReservationDetailAPIView(RetrieveAPIView):
     def get_queryset(self):
         return Reservation.objects.filter(user=self.request.user).prefetch_related("items")
 
-
+@extend_schema(
+    tags=["Reservation"],
+    summary="예약 취소",
+    request=None,
+    responses={
+        200: ReservationSerializer,
+        400: None,
+        404: None,
+    },
+)
 class ReservationCancelAPIView(APIView):
+    """예약 취소."""
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(
-        tags=["Reservation"],
-        summary="예약 취소",
-        responses={
-            200: ReservationSerializer,
-            400: None,
-        },
-    )
-    def patch(self, request, pk):
+    def post(self, request, pk):
         reservation = get_object_or_404(
             Reservation.objects.prefetch_related("items"),
             pk=pk,
