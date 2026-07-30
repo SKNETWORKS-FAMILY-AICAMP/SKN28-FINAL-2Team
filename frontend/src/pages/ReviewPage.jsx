@@ -11,8 +11,14 @@ import { getItinerary } from "../api/itinerary";
 export default function ReviewPage() {
   const { id } = useParams();
 
+<<<<<<< HEAD
   const { activeDay, selectDay, dayRefs } = useDayNav();
   const navigate = useNavigate();
+=======
+<<<<<<< Updated upstream
+=======
+  const { activeDay, selectDay, dayRefs } = useDayNav();
+>>>>>>> 8721f15 (feature/backend 변경사항을 feature/frontend에 반영)
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +46,10 @@ export default function ReviewPage() {
 if (!itinerary) {
     return <div>일정을 찾을 수 없습니다.</div>;
   }
+<<<<<<< HEAD
+=======
+>>>>>>> Stashed changes
+>>>>>>> 8721f15 (feature/backend 변경사항을 feature/frontend에 반영)
   return (
     <div className={styles.page}>
       <AppHeader />
@@ -47,8 +57,8 @@ if (!itinerary) {
       <div className={styles.wrap}>
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>✓ 최종 일정 확인</div>
-          <h1>확정 전, 마지막으로 검토해주세요</h1>
-          <p>일정과 예상 비용을 확인하고, 이 일정으로 예약을 진행할 수 있어요.</p>
+          <h1>완성된 일정을 확인해보세요</h1>
+          <p>일정과 예상 비용을 확인하고, 저장하거나 공유할 수 있어요.</p>
         </div>
 
         <div className={styles.shell}>
@@ -81,6 +91,7 @@ if (!itinerary) {
             </div>
           </div>
         </div>
+<<<<<<< HEAD
 
         <div className={styles.bottomActions}>
           <Link to="/itinerary" className={cx(styles.btn, styles.ghost)}>
@@ -99,6 +110,8 @@ if (!itinerary) {
               이 일정으로 확정하기 →
             </button>
         </div>
+=======
+>>>>>>> 8721f15 (feature/backend 변경사항을 feature/frontend에 반영)
       </div>
     </div>
   )

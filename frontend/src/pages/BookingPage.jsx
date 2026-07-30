@@ -25,17 +25,20 @@ export default function BookingPage() {
   const chosen = PACKAGES.filter((p) => selected.includes(p.id))
   const total = chosen.reduce((sum, p) => sum + p.price, 0)
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setSubmitting(true)
-    setTimeout(() => {
-      // 실제로는 POST /api/reservations/ 호출 — 아직 연결 전이라 ReservationContext에 바로 기록
-      addReservation(
+    try {
+      await addReservation(
         chosen.map((p) => ({ packageId: p.id, name: p.name, price: p.price })),
         '신용카드 (**** **** **** 1234)'
       )
-      setSubmitting(false)
       setConfirmed(true)
-    }, 1200)
+    } catch (error) {
+      console.error('예약 생성 실패:', error)
+      alert(error.message || '예약에 실패했어요. 다시 시도해주세요.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
