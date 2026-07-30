@@ -32,10 +32,51 @@ export const getItinerary = async (id) => {
     totalCost: data.total_cost,
     style: data.style_display,
     costBreakdown: data.cost_breakdown,
+<<<<<<< HEAD
     days: data.days.map(day => ({
+=======
+    days: data.days.map((day) => ({
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
       dayNumber: day.day_number,
       date: day.date,
       items: day.items,
     })),
   };
+<<<<<<< HEAD
 }; 
+=======
+};
+
+export const getSharedItinerary = async (token) => {
+  const { data } = await api.get(
+    `/travel/itineraries/shared/${token}/`
+  );
+
+  return {
+    id: data.id,
+    title: data.title,
+    subtitle: data.subtitle,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    durationLabel: data.duration_label,
+    companionCount: data.companion_count,
+    budgetPerPerson: data.budget_per_person,
+    totalCost: data.total_cost,
+    style: data.style_display,
+    costBreakdown: data.cost_breakdown,
+    days: data.days.map((day) => ({
+      dayNumber: day.day_number,
+      date: day.date,
+      items: day.items,
+    })),
+  };
+};
+
+export const createShareLink = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/share/`
+  );
+
+  return data;
+};
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)

@@ -5,20 +5,44 @@ import AppHeader from './review/AppHeader.jsx';
 import { DayNav, DayColumns, useDayNav } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import { useEffect, useState } from 'react';
+<<<<<<< HEAD
 import { getItinerary } from '../api/itinerary';
 
 export default function ReviewPage() {
   const { id } = useParams();
+=======
+import {
+  getItinerary,
+  createShareLink,
+  getSharedItinerary,
+} from '../api/itinerary';
+
+export default function ReviewPage() {
+  const { id, token } = useParams();
+  const navigate = useNavigate();
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
   const { activeDay, selectDay, dayRefs } = useDayNav();
   const navigate = useNavigate();
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+<<<<<<< HEAD
         const data = await getItinerary(id);
+=======
+        let data;
+
+        if (token) {
+          data = await getSharedItinerary(token);
+        } else {
+          data = await getItinerary(id);
+        }
+
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
         setItinerary(data);
       } catch (e) {
         console.error(e);
@@ -28,7 +52,33 @@ export default function ReviewPage() {
     };
 
     fetchData();
+<<<<<<< HEAD
   }, [id]);
+=======
+  }, [id, token]);
+
+  const handleShare = async () => {
+    try {
+      const data = await createShareLink(id);
+
+      let shareUrl = data.share_url;
+
+      if (!shareUrl) {
+        shareUrl = `${window.location.origin}/share/${data.share_token}`;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+
+      setShowToast(true);
+
+      setTimeout(() => {
+        setShowToast(false);
+      }, 2000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
 
   if (loading) {
     return <div>일정을 불러오는 중...</div>;
@@ -61,6 +111,7 @@ export default function ReviewPage() {
               <div>
                 <h2>{itinerary.title}</h2>
                 <div className={styles.sub}>{itinerary.subtitle}</div>
+<<<<<<< HEAD
               </div>
 
               <div className={styles.actionRow}>
@@ -78,7 +129,37 @@ export default function ReviewPage() {
                 >
                   ✏️ 일정 수정하기
                 </Link>
+=======
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
               </div>
+
+              {!token && (
+                <div className={styles.actionRow}>
+                  {showToast && (
+                    <div className={styles.toast}>
+                      링크 복사!
+                    </div>
+                  )}
+
+                  <button
+                    className={cx(styles.btn, styles.ghost, styles.sm)}
+                    onClick={handleShare}
+                  >
+                    📤 공유하기
+                  </button>
+
+                  <button className={cx(styles.btn, styles.ghost, styles.sm)}>
+                    📄 PDF 다운로드
+                  </button>
+
+                  <Link
+                    to="/itinerary"
+                    className={cx(styles.btn, styles.ghost, styles.sm)}
+                  >
+                    ✏️ 일정 수정하기
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div className={styles.metaRow}>
@@ -95,8 +176,12 @@ export default function ReviewPage() {
               </div>
 
               <div className={styles.metaItem}>
+<<<<<<< HEAD
                 💰 1인당{' '}
                 {(itinerary.budgetPerPerson ?? 0).toLocaleString()}원
+=======
+                💰 1인당 {(itinerary.budgetPerPerson ?? 0).toLocaleString()}원
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
               </div>
             </div>
 
@@ -111,6 +196,7 @@ export default function ReviewPage() {
           </div>
         </div>
 
+<<<<<<< HEAD
         <div className={styles.bottomActions}>
           <Link
             to="/itinerary"
@@ -132,6 +218,31 @@ export default function ReviewPage() {
             이 일정으로 확정하기 →
           </button>
         </div>
+=======
+        {!token && (
+          <div className={styles.bottomActions}>
+            <Link
+              to="/itinerary"
+              className={cx(styles.btn, styles.ghost)}
+            >
+              이전 단계로
+            </Link>
+
+            <button
+              className={cx(styles.btn, styles.primary)}
+              onClick={() =>
+                navigate('/booking', {
+                  state: {
+                    itineraryId: id,
+                  },
+                })
+              }
+            >
+              이 일정으로 확정하기 →
+            </button>
+          </div>
+        )}
+>>>>>>> e8f9bd0 (feat: 일정 공유 기능 및 리뷰 페이지 API 연동)
       </div>
     </div>
   );
