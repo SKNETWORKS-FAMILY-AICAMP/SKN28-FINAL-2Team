@@ -54,6 +54,7 @@ class OpenAITravelLLM:
         self.model = (
             model or os.environ.get("OPENAI_CHAT_MODEL") or "gpt-5-mini"
         )
+        self.usage_records: list[dict[str, Any]] = []
         if client is None:
             key = api_key or os.environ.get("OPENAI_API_KEY", "")
             if not key:
@@ -150,17 +151,21 @@ class OpenAITravelLLM:
         schema: Mapping[str, Any],
         max_output_tokens: int,
     ) -> dict[str, Any]:
-        try:
-            response = self._client.responses.create(
-                model=self.model,
-                input=[
+        from .openai_responses import create_text_response
+
+        output_text, responses = create_text_response(
+            client=self._client,
+            label=f"OpenAI structured response ({schema_name})",
+            request={
+                "model": self.model,
+                "input": [
                     {"role": "system", "content": system_prompt},
                     {
                         "role": "user",
                         "content": json.dumps(payload, ensure_ascii=False),
                     },
                 ],
-                text={
+                "text": {
                     "format": {
                         "type": "json_schema",
                         "name": schema_name,
@@ -168,14 +173,30 @@ class OpenAITravelLLM:
                         "strict": True,
                     }
                 },
-                max_output_tokens=max_output_tokens,
+            },
+            token_budgets=(
+                max(max_output_tokens, 6000),
+                max(max_output_tokens * 2, 12000),
+            ),
+        )
+        for attempt, response in enumerate(responses, start=1):
+            usage = getattr(response, "usage", None)
+            self.usage_records.append(
+                {
+                    "stage": schema_name,
+                    "attempt": attempt,
+                    "model": self.model,
+                    "input_tokens": int(
+                        getattr(usage, "input_tokens", 0) or 0
+                    ),
+                    "output_tokens": int(
+                        getattr(usage, "output_tokens", 0) or 0
+                    ),
+                    "total_tokens": int(
+                        getattr(usage, "total_tokens", 0) or 0
+                    ),
+                }
             )
-        except Exception as exc:
-            raise LLMError(f"OpenAI structured response failed: {exc}") from exc
-
-        output_text = getattr(response, "output_text", None)
-        if not output_text:
-            raise LLMError("OpenAI returned no structured output")
         try:
             parsed = json.loads(output_text)
         except json.JSONDecodeError as exc:
@@ -183,3 +204,10 @@ class OpenAITravelLLM:
         if not isinstance(parsed, dict):
             raise LLMError("OpenAI structured output root must be an object")
         return parsed
+
+    def drain_usage_records(self) -> list[dict[str, Any]]:
+        """Return and clear per-call token usage for evaluation/observability."""
+
+        records = [dict(item) for item in self.usage_records]
+        self.usage_records.clear()
+        return records

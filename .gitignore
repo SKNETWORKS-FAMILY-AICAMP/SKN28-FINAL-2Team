@@ -34,6 +34,7 @@ coverage.xml
 junit.xml
 htmlcov/
 test-results/
+artifacts/rag_evaluation/
 .hypothesis/
 .ipynb_checkpoints/
 

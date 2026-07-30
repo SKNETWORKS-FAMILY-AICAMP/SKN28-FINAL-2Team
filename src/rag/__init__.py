@@ -9,6 +9,25 @@ from .api import (
 )
 from .aihub_adapter import AIHubRouteAdapter, create_aihub_route_adapter
 from .conditions import ConditionExtractionService, ConditionResult
+from .comparison import (
+    AnswerComparison,
+    ComparedAnswer,
+    OpenAIResponseComparator,
+    format_rag_answer,
+    summarize_answer_comparisons,
+)
+from .evaluation import (
+    CaseEvaluation,
+    EvalCase,
+    EvaluationReport,
+    JudgeResult,
+    MetricResult,
+    OpenAIItineraryJudge,
+    build_report,
+    evaluate_case,
+    load_eval_cases,
+    report_as_markdown,
+)
 from .llm import LLMError, OpenAITravelLLM, TravelLLM
 from .models import (
     ItineraryChoice,
@@ -54,17 +73,26 @@ from .validation import (
 
 __all__ = [
     "AIHubRouteAdapter",
+    "AnswerComparison",
     "ConditionExtractionService",
     "ConditionResult",
+    "ComparedAnswer",
+    "CaseEvaluation",
     "CachedRouteMetricsProvider",
     "FallbackRouteMetricsProvider",
+    "EvalCase",
+    "EvaluationReport",
     "GoogleRoutesProvider",
     "GooglePlacesFactsProvider",
     "HaversineRouteMetricsProvider",
     "ItineraryChoice",
     "ItineraryDraft",
+    "JudgeResult",
     "LLMError",
+    "MetricResult",
     "OpenAITravelLLM",
+    "OpenAIItineraryJudge",
+    "OpenAIResponseComparator",
     "OperationalFacts",
     "OperationalFactsError",
     "OperationalOverrideStore",
@@ -88,16 +116,22 @@ __all__ = [
     "ValidationPolicy",
     "ValidationResult",
     "build_rag_context",
+    "build_report",
     "create_aihub_route_adapter",
     "create_place_search_service",
     "create_operational_services_from_env",
     "create_rag_orchestrator",
     "create_route_metrics_provider_from_env",
     "deterministic_draft",
+    "evaluate_case",
+    "format_rag_answer",
     "get_place_search_service",
     "get_places_by_ids",
     "is_closed_on_date",
+    "load_eval_cases",
+    "report_as_markdown",
     "route_slots",
     "search_places",
+    "summarize_answer_comparisons",
     "validate_and_schedule",
 ]
