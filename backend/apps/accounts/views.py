@@ -19,9 +19,13 @@ from .serializers import (
 from .services import google_login, kakao_login, get_kakao_access_token
 
 
+from .services import google_login, kakao_login, get_kakao_access_token
+
 class GoogleLoginAPIView(APIView):
 
     @extend_schema(
+        tags=["Accounts"],
+        summary="Google 로그인",
         request=SocialLoginSerializer,
         responses={200: TokenPairSerializer, 400: ErrorSerializer},
     )
@@ -54,6 +58,8 @@ class GoogleLoginAPIView(APIView):
 class KakaoLoginAPIView(APIView):
 
     @extend_schema(
+        tags=["Accounts"],
+        summary="Kakao 로그인",
         request=KakaoLoginSerializer,
         responses={200: TokenPairSerializer, 400: ErrorSerializer},
     )
@@ -92,6 +98,8 @@ class LogoutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        tags=["Accounts"],
+        summary="로그아웃",    
         request=LogoutSerializer,
         responses={205: None, 400: ErrorSerializer},
     )
@@ -112,12 +120,22 @@ class MeAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(responses=UserMeSerializer)
+    @extend_schema(
+        tags=["Accounts"],
+        summary="내 정보 조회",
+        responses=UserMeSerializer
+        )
+    
     def get(self, request):
         serializer = UserMeSerializer(request.user)
         return Response(serializer.data)
 
-    @extend_schema(request=UserMeSerializer, responses=UserMeSerializer)
+    @extend_schema(
+        tags=["Accounts"],
+        summary="내 정보 수정",
+        request=UserMeSerializer,
+        responses=UserMeSerializer
+        )
     def patch(self, request):
         serializer = UserMeSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
