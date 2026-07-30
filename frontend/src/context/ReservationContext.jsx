@@ -1,13 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import {
-  createReservation,
-  getReservations,
-} from '../api/reservationApi'
+import { useAuth } from './AuthContext'
+import { createReservation, getReservations } from '../api/reservationApi'
 
 const ReservationContext = createContext(null)
 
 // 백엔드 GET/POST /api/reservations/ 응답 형태와 필드명을 맞춤
 export function ReservationProvider({ children }) {
+  const { user, loading } = useAuth()
+
   const [reservations, setReservations] = useState([])
 
   const loadReservations = async () => {
@@ -23,8 +23,15 @@ export function ReservationProvider({ children }) {
   }
 
   useEffect(() => {
+    if (loading) return
+
+    if (!user) {
+      setReservations([])
+      return
+    }
+
     loadReservations()
-  }, [])
+  }, [loading, user])
 
   const addReservation = async (items, paymentMethod) => {
     const packageIds = items.map((item) => item.packageId)
