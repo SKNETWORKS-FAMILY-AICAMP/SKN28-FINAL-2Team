@@ -12,6 +12,7 @@ import MyItinerariesPage from './pages/MyItinerariesPage.jsx'
 import MyBookmarksPage from './pages/MyBookmarksPage.jsx'
 import MyReservationsPage from './pages/MyReservationsPage.jsx'
 import RequireAuth from './context/RequireAuth.jsx'
+import HowToUsePage from './pages/HowToUsePage'
 
 export default function App() {
   return (
@@ -23,7 +24,7 @@ export default function App() {
       <Route path="/share/:token" element={<ReviewPage />} />
       <Route path="/booking" element={<BookingPage />} />
       <Route path="/packages" element={<PackagesPage />} />
-
+      <Route path="/how-to-use" element={<HowToUsePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/oauth/kakao/callback" element={<KakaoCallback />} />
 

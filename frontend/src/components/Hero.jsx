@@ -22,23 +22,9 @@ export default function Hero() {
             <Link to="/chat" className="btn primary" id="start">
               무료로 일정 만들기 →
             </Link>
-            <a href="#itinerary" className="btn ghost">
-              일정 예시 보기
-            </a>
-          </div>
-          <div className="hero-meta">
-            <div>
-              <div className="m-n">47초</div>
-              <div className="m-l">첫 일정 생성까지</div>
-            </div>
-            <div>
-              <div className="m-n">28만+</div>
-              <div className="m-l">완성된 제주 일정</div>
-            </div>
-            <div>
-              <div className="m-n">4.8 / 5</div>
-              <div className="m-l">이용자 만족도</div>
-            </div>
+            <Link to="/how-to-use" className="btn ghost">
+              이용 방법 보기
+            </Link>
           </div>
         </div>
 
