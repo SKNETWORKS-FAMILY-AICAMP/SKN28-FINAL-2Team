@@ -138,7 +138,7 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady }) {
                     </div>
                   )}
                   {step.type === 'text' && !alreadyAnswered && (
-                    <div className={styles.stepHint}>아래 입력창에 직접 답해주세요 (예: {step.placeholder})</div>
+                    <div className={styles.stepHint}>아래 입력창에 직접 답해주세요 ({step.placeholder})</div>
                   )}
                 </div>
               </div>
