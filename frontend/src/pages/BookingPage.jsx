@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from "react-router-dom";
 import styles from './booking/booking.module.css'
 import cx from '../utils/cx.js'
 import AppHeader from './booking/AppHeader.jsx'
@@ -10,13 +10,14 @@ import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useReservations } from '../context/ReservationContext.jsx'
 
 export default function BookingPage() {
+  const { addReservation } = useReservations()
+  const { state } = useLocation();
   const [selected, setSelected] = useState([1, 2]) // 오션뷰 힐링 숙소 + 렌터카 3일 기본 선택
   const [visibility, setVisibility] = useState('비공개')
   const [submitting, setSubmitting] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const { isBookmarked, toggle: toggleBookmark } = useBookmarks()
-  const { addReservation } = useReservations()
-
+  const itineraryId = state?.itineraryId;
   const toggle = (id) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
@@ -45,7 +46,7 @@ export default function BookingPage() {
       <AppHeader />
 
       <div className={styles.wrap}>
-        <Link to="/review/1" className={styles.backLink}>
+        <Link to={`/review/${itineraryId}`} className={styles.backLink}>
           ← 일정으로 돌아가기
         </Link>
 
