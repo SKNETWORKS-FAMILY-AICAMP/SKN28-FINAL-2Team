@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useAuth } from './AuthContext'
-import { createReservation, getReservations } from '../api/reservationApi'
+import {
+  cancelReservation as cancelReservationApi,
+  createReservation,
+  getReservations,
+} from '../api/reservationApi'
 
 const ReservationContext = createContext(null)
 
-// 백엔드 GET/POST /api/reservations/ 응답 형태와 필드명을 맞춤
 export function ReservationProvider({ children }) {
   const { user, loading } = useAuth()
 
@@ -46,11 +49,24 @@ export function ReservationProvider({ children }) {
     return reservation
   }
 
+  const cancelReservation = async (id) => {
+    const updated = await cancelReservationApi(id)
+
+    setReservations((prev) =>
+      prev.map((reservation) =>
+        reservation.id === id ? updated : reservation
+      )
+    )
+
+    return updated
+  }
+
   return (
     <ReservationContext.Provider
       value={{
         reservations,
         addReservation,
+        cancelReservation,
       }}
     >
       {children}
@@ -60,6 +76,12 @@ export function ReservationProvider({ children }) {
 
 export function useReservations() {
   const ctx = useContext(ReservationContext)
-  if (!ctx) throw new Error('useReservations must be used within ReservationProvider')
+
+  if (!ctx) {
+    throw new Error(
+      'useReservations must be used within ReservationProvider'
+    )
+  }
+
   return ctx
 }

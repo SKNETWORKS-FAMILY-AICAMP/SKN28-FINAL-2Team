@@ -77,6 +77,48 @@
 .badge{ display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:100px; margin-top:6px; }
 .badgeDraft{ background: var(--bg-soft); color: var(--muted); }
 .badgeConfirmed{ background: var(--green-soft); color: var(--green-deep); }
+.badgeCancelled{ background:#FBE7E5; color:#C0392B; }
+
+/* 예약 내역 상세보기 (펼치기) */
+.reservationBlock{ margin-bottom:12px; }
+.reservationBlock:last-child{ margin-bottom:0; }
+.listItemButton{
+  width:100%; background:#fff; font-family: var(--body); cursor:pointer; margin-bottom:0;
+}
+.listItemButton:has(+ .reservationDetail){ border-radius:16px 16px 0 0; border-bottom:none; }
+.detailToggle{ font-size:11px; color: var(--green-deep); font-weight:700; margin-top:6px; }
+
+.reservationDetail{
+  border:2px solid var(--ink); border-top:none; border-radius:0 0 16px 16px;
+  padding:16px; background: var(--bg-soft);
+}
+.detailRow{ display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:13px; }
+.detailLabel{ color: var(--muted); font-weight:600; }
+.detailItemRow{ display:flex; justify-content:space-between; padding:4px 0 4px 8px; font-size:12.5px; color: var(--ink); }
+.detailDivider{ height:1px; background: var(--line); margin:8px 0; }
+.detailTotal{ font-weight:800; color: var(--green-deep); font-size:15px; }
+.detailError{ margin-top:10px; padding:10px 12px; background:#FBE7E5; color:#C0392B; border-radius:10px; font-size:12.5px; font-weight:600; }
+
+.cancelBtn{
+  display:block;
+  width:fit-content;
+  min-width:100px;
+  height:36px;
+  margin:18px 0 0 auto;
+  padding:0 18px;
+  border-radius:10px;
+  border:2px solid #C0392B;
+  background:#fff;
+  color:#C0392B;
+  font-family: var(--display);
+  font-weight:700;
+  font-size:12px;
+  cursor:pointer;
+  transition: background .15s ease;
+}
+.cancelBtn:hover{ background:#FBE7E5; }
+.cancelBtn:disabled{ opacity:.6; cursor:not-allowed; }
+.cancelledNotice{ margin-top:14px; text-align:center; font-size:12.5px; color: var(--muted); }
 
 /* empty state */
 .empty{ text-align:center; padding:50px 20px; }
