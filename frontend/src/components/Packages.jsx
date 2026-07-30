@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { PACKAGES, won, ratingLabel } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 
@@ -35,6 +36,11 @@ export default function Packages() {
               </div>
             </div>
           ))}
+        </div>
+        <div className="pkg-see-all-wrap">
+          <Link to="/packages" className="btn ghost">
+            전체 패키지 보러가기 →
+          </Link>
         </div>
       </div>
     </section>

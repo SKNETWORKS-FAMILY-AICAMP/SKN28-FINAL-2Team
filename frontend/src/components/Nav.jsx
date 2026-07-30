@@ -16,7 +16,7 @@ export default function Nav() {
         <nav className="nav-links">
           <a href="#how">이용 방법</a>
           <a href="#itinerary">일정 예시</a>
-          <a href="#packages">추천 패키지</a>
+          <Link to="/packages">추천 패키지</Link>
         </nav>
         <div className="nav-right">
           <AccountMenu />

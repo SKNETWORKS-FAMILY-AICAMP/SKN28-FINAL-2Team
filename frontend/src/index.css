@@ -194,6 +194,7 @@ h2.section-title{ font-family: var(--display); font-weight:700; font-size: clamp
 /* package cards */
 .packages{ padding:100px 0; }
 .pkg-grid{ margin-top:44px; display:grid; grid-template-columns: repeat(3,1fr); gap:20px; }
+.pkg-see-all-wrap{ text-align:center; margin-top:28px; }
 .pkg{ border:2.5px solid var(--ink); border-radius:20px; overflow:hidden; box-shadow: 5px 5px 0 var(--green-soft-2); transition: box-shadow .2s, transform .2s; }
 .pkg:hover{ transform: translateY(-4px); box-shadow: 7px 7px 0 var(--green-soft-2); }
 .pkg-img{ height:130px; background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2)); display:flex; align-items:center; justify-content:center; font-size:34px; position:relative; }

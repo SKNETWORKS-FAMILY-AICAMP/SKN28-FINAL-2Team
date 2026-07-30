@@ -4,6 +4,7 @@ import ChatPage from './pages/ChatPage.jsx'
 import ItineraryPage from './pages/ItineraryPage.jsx'
 import ReviewPage from './pages/ReviewPage.jsx'
 import BookingPage from './pages/BookingPage.jsx'
+import PackagesPage from './pages/PackagesPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import KakaoCallback from './pages/KakaoCallback.jsx'
 import MyPage from './pages/MyPage.jsx'
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/itinerary" element={<ItineraryPage />} />
       <Route path="/review/:id" element={<ReviewPage />} />
       <Route path="/booking" element={<BookingPage />} />
+      <Route path="/packages" element={<PackagesPage />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/oauth/kakao/callback" element={<KakaoCallback />} />
