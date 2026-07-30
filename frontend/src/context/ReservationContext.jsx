@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useAuth } from './AuthContext'
-import { createReservation, getReservations } from '../api/reservationApi'
+import {
+  cancelReservation as cancelReservationApi,
+  createReservation,
+  getReservations,
+} from '../api/reservationApi'
 
 const ReservationContext = createContext(null)
 
@@ -49,7 +53,9 @@ export function ReservationProvider({ children }) {
     const updated = await cancelReservationApi(id)
 
     setReservations((prev) =>
-      prev.map((r) => (r.id === id ? updated : r))
+      prev.map((reservation) =>
+        reservation.id === id ? updated : reservation
+      )
     )
 
     return updated
