@@ -56,6 +56,17 @@
 .me .bubble{ background: var(--ink); color:#fff; border-radius: 14px 14px 4px 14px; }
 .bubble .miniBtn{ display:inline-block; margin-top:8px; font-family: var(--display); font-weight:700; font-size:12px; color: var(--green-deep); background:#fff; border:1.5px solid var(--green-deep); padding:5px 11px; border-radius:100px; cursor:pointer; }
 
+.toggleRow{ display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+.toggleBtn{
+  font-family: var(--display); font-weight:700; font-size:12.5px; color: var(--ink);
+  background:#fff; border:2px solid var(--ink); padding:7px 14px; border-radius:100px;
+  box-shadow: 2px 2px 0 var(--ink); transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  cursor:pointer;
+}
+.toggleBtn:hover{ background: var(--green-soft); transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink); }
+
+.stepHint{ margin-top:8px; font-size:11px; color: var(--muted); font-style:italic; }
+
 .chatCard{ margin-left:40px; background:#fff; border:2px solid var(--ink); border-radius:14px; padding:16px; box-shadow: 3px 3px 0 var(--green-soft-2); max-width: calc(88% - 40px); }
 .chatCard h5{ font-family: var(--display); font-weight:700; font-size:14.5px; margin-bottom:10px; }
 .ccRow{ display:flex; align-items:center; gap:9px; padding:6px 0; font-size:13px; }

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom';
 import styles from './review/review.module.css'
 import cx from '../utils/cx.js'
 import AppHeader from './review/AppHeader.jsx'
@@ -9,6 +9,37 @@ export default function ReviewPage() {
   const { activeDay, selectDay, dayRefs } = useDayNav()
   const navigate = useNavigate()
 
+<<<<<<< Updated upstream
+=======
+  const { activeDay, selectDay, dayRefs } = useDayNav();
+
+  const [itinerary, setItinerary] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const data = await getItinerary(id);
+      setItinerary(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [id]);
+
+
+  if (loading) {
+    return <div>일정을 불러오는 중...</div>;
+  }
+
+if (!itinerary) {
+    return <div>일정을 찾을 수 없습니다.</div>;
+  }
+>>>>>>> Stashed changes
   return (
     <div className={styles.page}>
       <AppHeader />
@@ -16,8 +47,8 @@ export default function ReviewPage() {
       <div className={styles.wrap}>
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>✓ 최종 일정 확인</div>
-          <h1>확정 전, 마지막으로 검토해주세요</h1>
-          <p>일정과 예상 비용을 확인하고, 이 일정으로 예약을 진행할 수 있어요.</p>
+          <h1>완성된 일정을 확인해보세요</h1>
+          <p>일정과 예상 비용을 확인하고, 저장하거나 공유할 수 있어요.</p>
         </div>
 
         <div className={styles.shell}>
@@ -50,15 +81,6 @@ export default function ReviewPage() {
               <TripSummary />
             </div>
           </div>
-        </div>
-
-        <div className={styles.bottomActions}>
-          <Link to="/itinerary" className={cx(styles.btn, styles.ghost)}>
-            이전 단계로
-          </Link>
-          <button className={cx(styles.btn, styles.primary)} onClick={() => navigate('/booking')}>
-            이 일정으로 확정하기 →
-          </button>
         </div>
       </div>
     </div>

@@ -1,15 +1,9 @@
 import { Link } from 'react-router-dom'
 import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
+import { STEPS } from './questionSteps.js'
 
-const CONDITIONS = [
-  { ic: '👥', label: '여행 인원', value: '부모님 (2명)' },
-  { ic: '📅', label: '여행 기간', value: '2박 3일' },
-  { ic: '🍃', label: '여행 스타일', value: '힐링 / 여유로운 여행' },
-  { ic: '💰', label: '예산', value: '1인당 50만원' },
-]
-
-export default function SummaryColumn({ ready }) {
+export default function SummaryColumn({ answers, ready }) {
   return (
     <div className={styles.summaryCol}>
       <div className={cx(styles.blob, styles.blob1)}></div>
@@ -83,12 +77,14 @@ export default function SummaryColumn({ ready }) {
 
       <div className={styles.summaryCard}>
         <h4>📋 입력된 조건 요약</h4>
-        {CONDITIONS.map((c) => (
-          <div className={styles.condRow} key={c.label}>
-            <div className={styles.condIc}>{c.ic}</div>
+        {STEPS.map((s) => (
+          <div className={styles.condRow} key={s.key}>
+            <div className={styles.condIc}>{s.icon}</div>
             <div className={styles.condBody}>
-              <div className={styles.lbl}>{c.label}</div>
-              <div className={styles.val}>{c.value}</div>
+              <div className={styles.lbl}>{s.label}</div>
+              <div className={cx(styles.val, !answers[s.key] && styles.valEmpty)}>
+                {answers[s.key] || '아직 정해지지 않았어요'}
+              </div>
             </div>
           </div>
         ))}

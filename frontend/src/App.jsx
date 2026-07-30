@@ -4,6 +4,7 @@ import ChatPage from './pages/ChatPage.jsx'
 import ItineraryPage from './pages/ItineraryPage.jsx'
 import ReviewPage from './pages/ReviewPage.jsx'
 import BookingPage from './pages/BookingPage.jsx'
+import PackagesPage from './pages/PackagesPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import MyPage from './pages/MyPage.jsx'
 import MyItinerariesPage from './pages/MyItinerariesPage.jsx'
@@ -19,6 +20,7 @@ export default function App() {
       <Route path="/itinerary" element={<ItineraryPage />} />
       <Route path="/review" element={<ReviewPage />} />
       <Route path="/booking" element={<BookingPage />} />
+      <Route path="/packages" element={<PackagesPage />} />
 
       <Route path="/login" element={<LoginPage />} />
 
