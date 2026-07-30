@@ -11,9 +11,9 @@ export default function Packages() {
         <div className="reveal">
           <div className="section-tag">AI 추천 패키지</div>
           <h2 className="section-title">
-            일정에 딱 맞는
+            내 일정과 가장 잘 맞는
             <br />
-            숙소·렌터카를 골라드려요
+            추천 패키지를 만나보세요.
           </h2>
         </div>
         <div className="pkg-grid">
