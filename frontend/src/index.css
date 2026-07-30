@@ -241,3 +241,13 @@ footer .flinks a:hover{ color: var(--ink); }
   .it-side{ border-right:none; border-bottom:1px solid var(--line); }
   .itinerary-head{ flex-direction:column; align-items:flex-start; }
 }
+
+.landing-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-main {
+  flex: 1;
+}
