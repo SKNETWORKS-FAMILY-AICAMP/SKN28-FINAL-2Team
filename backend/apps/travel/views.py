@@ -168,6 +168,22 @@ class ItineraryViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         tags=["Itinerary"],
+        summary="전체 일정 재생성",
+        request=None,
+        responses={200: ItinerarySerializer},
+    )
+    
+    @action(detail=True, methods=["post"])
+    def regenerate(self, request, pk=None):
+
+        itinerary = self.get_object()
+
+        serializer = self.get_serializer(itinerary)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=["Itinerary"],
         summary="일정 생성",
         request=ItinerarySerializer,
         responses={201: ItinerarySerializer},
