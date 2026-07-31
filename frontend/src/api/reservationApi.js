@@ -40,13 +40,21 @@ export async function getReservations() {
   return response.json()
 }
 
-export async function createReservation(packageIds, paymentMethod) {
+export async function createReservation(paymentMethod, options = {}) {
+  const { packageIds, cartItemIds, itineraryId } = options
+
   const response = await fetch(`${API_BASE_URL}/api/reservations/`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
-      package_ids: packageIds,
       payment_method: paymentMethod,
+      ...(Array.isArray(packageIds) && packageIds.length > 0
+        ? { package_ids: packageIds }
+        : {}),
+      ...(Array.isArray(cartItemIds) && cartItemIds.length > 0
+        ? { cart_item_ids: cartItemIds }
+        : {}),
+      ...(itineraryId ? { itinerary_id: itineraryId } : {}),
     }),
   })
 

@@ -36,12 +36,10 @@ export function ReservationProvider({ children }) {
     loadReservations()
   }, [loading, user])
 
-  const addReservation = async (items, paymentMethod) => {
-    const packageIds = items.map((item) => item.packageId)
-
+  const addReservation = async (paymentMethod, options = {}) => {
     const reservation = await createReservation(
-      packageIds,
-      paymentMethod || '신용카드 (**** **** **** 1234)'
+      paymentMethod || '신용카드 (**** **** **** 1234)',
+      options,
     )
 
     setReservations((prev) => [reservation, ...prev])

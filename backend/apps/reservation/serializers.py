@@ -11,8 +11,8 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartItem
-        fields = ("id", "package", "package_detail", "added_at")
-        read_only_fields = ("id", "added_at")
+        fields = ("id", "package", "package_detail", "quantity", "option_date", "option_people","added_at")
+        read_only_fields = ("id", "package", "package_detail", "added_at")
 
 
 class CartSerializer(serializers.Serializer):
@@ -25,10 +25,31 @@ class CartItemCreateSerializer(serializers.Serializer):
     package_id = serializers.PrimaryKeyRelatedField(queryset=Package.objects.filter(is_active=True))
 
 
+class CartItemUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ("quantity","option_date","option_people",)
+
+    def validate_quantity(self, value):
+        if value < 1 or value > 9:
+            raise serializers.ValidationError(
+                "수량은 1개 이상 9개 이하로 설정해주세요."
+            )
+
+        return value
+
+    def validate_option_people(self, value):
+        if value < 1 or value > 20:
+            raise serializers.ValidationError(
+                "인원은 1명 이상 20명 이하로 설정해주세요."
+            )
+
+        return value
+
 class ReservationItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReservationItem
-        fields = ("id", "package", "name", "price", "quantity")
+        fields = ("id", "package", "name", "price", "quantity",  "option_date", "option_people",)
 
 
 class ReservationSerializer(serializers.ModelSerializer):
@@ -50,5 +71,10 @@ class ReservationCreateSerializer(serializers.Serializer):
     itinerary_id = serializers.IntegerField(required=False, allow_null=True)
     package_ids = serializers.ListField(
         child=serializers.IntegerField(), required=False, allow_empty=True
+    )
+    cart_item_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
     )
     payment_method = serializers.CharField(required=False, allow_blank=True)

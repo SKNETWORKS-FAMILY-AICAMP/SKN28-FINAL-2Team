@@ -8,6 +8,11 @@ class CartItem(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart_items")
     package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name="cart_items")
+
+    quantity = models.PositiveSmallIntegerField(default=1)
+    option_date = models.DateField(null=True, blank=True)
+    option_people = models.PositiveSmallIntegerField(default=2)
+
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -53,6 +58,8 @@ class ReservationItem(models.Model):
     name = models.CharField(max_length=150)
     price = models.PositiveIntegerField(default=0)
     quantity = models.PositiveSmallIntegerField(default=1)
+    option_date = models.DateField(null=True, blank=True)
+    option_people = models.PositiveSmallIntegerField(default=2)
 
     def __str__(self):
         return f"{self.name} x{self.quantity}"
