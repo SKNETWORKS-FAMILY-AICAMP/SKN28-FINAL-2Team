@@ -1,50 +1,13 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import styles from './itinerary.module.css'
 import cx from '../../utils/cx.js'
+import { getItinerary, regenerateItinerary } from "../../api/itinerary";
 
-// 필드명은 백엔드 ItineraryDay/ItineraryItem 모델과 맞춤
-// (dayNumber → day_number, thumbnail/description/itemType → thumbnail/description/item_type)
-const DAYS = [
-  {
-    dayNumber: 1,
-    date: '7/25 (목)',
-    total: '129,000원',
-    items: [
-      { time: '09:30', itemType: 'spot', thumbnail: '🌋', title: '성산일출봉', description: '일출 명소로 유명한 대표 관광지' },
-      { time: '12:00', itemType: 'spot', thumbnail: '🏖️', title: '협재해변', description: '에메랄드빛 바다 · 산책하기 좋은 해변' },
-      { time: '13:30', itemType: 'restaurant', thumbnail: '🍖', title: '점심 식사 — 흑돼지 맛집', description: '현지 맛집 추천 · 흑돼지 정식' },
-      { time: '15:30', itemType: 'spot', thumbnail: '🍵', title: '오설록 티뮤지엄', description: '녹차밭 산책과 티하우스 체험' },
-      { time: '17:30', itemType: 'accommodation', thumbnail: '🛏️', title: '숙소 체크인', description: '제주 오션뷰 호텔' },
-    ],
-  },
-  {
-    dayNumber: 2,
-    date: '7/26 (금)',
-    total: '168,000원',
-    items: [
-      { time: '09:00', itemType: 'spot', thumbnail: '🌲', title: '사려니숲길', description: '편백나무 향 가득한 여유로운 산책로' },
-      { time: '11:00', itemType: 'spot', thumbnail: '🏮', title: '동문관덕정', description: '제주 전통 시장 골목 구경' },
-      { time: '12:30', itemType: 'restaurant', thumbnail: '🍖', title: '흑돼지 맛집', description: '현지인 추천 흑돼지 맛집' },
-      { time: '14:30', itemType: 'spot', thumbnail: '☕', title: '카페 스누피가든', description: '사진 찍기 좋은 테마 카페 겸 정원' },
-      { time: '19:00', itemType: 'restaurant', thumbnail: '🍜', title: '저녁 식사 — 물회국수', description: '제주식 시원한 물회 한 그릇' },
-    ],
-  },
-  {
-    dayNumber: 3,
-    date: '7/27 (토)',
-    total: '141,700원',
-    items: [
-      { time: '09:00', itemType: 'spot', thumbnail: '🏖️', title: '협재 해변 산책', description: '마지막 날 아침 여유로운 바다 산책' },
-      { time: '11:00', itemType: 'restaurant', thumbnail: '🍲', title: '점심 식사 — 해물뚝배기', description: '떠나기 전 든든한 한 끼' },
-      { time: '13:00', itemType: 'spot', thumbnail: '🎨', title: '아르떼뮤지엄', description: '몰입형 미디어아트 전시로 마무리' },
-      { time: '16:00', itemType: 'custom', thumbnail: '✈️', title: '공항 이동 및 출국', description: '렌터카 반납 후 공항으로 이동' },
-    ],
-  },
-]
 
 export default function ItineraryEditor() {
-  const [days, setDays] = useState(DAYS)
+  const [itinerary, setItinerary] = useState(null)
+  const [days, setDays] = useState([])
   const [activeDay, setActiveDay] = useState(1)
   const [openMenuIndex, setOpenMenuIndex] = useState(null)
   const [editingIndex, setEditingIndex] = useState(null)
@@ -53,6 +16,7 @@ export default function ItineraryEditor() {
   const navigate = useNavigate()
   const current = days.find((d) => d.dayNumber === activeDay)
 
+  const { id } = useParams();
   const toggleMenu = (i) => setOpenMenuIndex((prev) => (prev === i ? null : i))
 
   const startEdit = (i) => {
@@ -94,19 +58,56 @@ export default function ItineraryEditor() {
     setDeleteIndex(null)
   }
 
+  useEffect(() => {
+  const fetchItinerary = async () => {
+    try {
+      const data = await getItinerary(id);
+
+      setItinerary(data);
+      setDays(data.days);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchItinerary();
+}, [id]);
+
+const handleRegenerate = async () => {
+  try {
+    const data = await regenerateItinerary(itinerary.id);
+
+    setItinerary(data);
+    setDays(data.days);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+if (!itinerary || !current) {
+  return <div>일정을 불러오는 중...</div>;
+}
+
   return (
     <div className={styles.itCol}>
       <div className={styles.itTop}>
         <div>
           <div className={styles.sectionTag}>✓ 일정 확인 및 수정</div>
-          <h1>제주 2박 3일 힐링 여행</h1>
-          <p>부모님과 함께 · 2024.07.25(목) – 07.27(토) · 2인 · 1인당 약 50만원</p>
+          <h1>{itinerary?.title}</h1>
+          <p>
+            {itinerary?.subtitle} · {itinerary?.startDate} ~ {itinerary?.endDate}
+          </p>
         </div>
-        <button className={cx(styles.btn, styles.ghost, styles.sm)}>🔄 일정 다시 생성</button>
+        <button
+            className={cx(styles.btn, styles.ghost, styles.sm)}
+            onClick={handleRegenerate}
+        >
+            🔄 일정 다시 생성
+        </button>
       </div>
 
       <div className={styles.dayTabs}>
-        {DAYS.map((d) => (
+        {days.map((d) => (
           <button
             key={d.dayNumber}
             className={cx(styles.dayTab, activeDay === d.dayNumber && styles.dayTabActive)}
@@ -219,7 +220,7 @@ export default function ItineraryEditor() {
         <Link to="/chat" className={cx(styles.btn, styles.ghost)}>
           이전 단계로
         </Link>
-        <button className={cx(styles.btn, styles.primary)} onClick={() => navigate('/review')}>
+        <button className={cx(styles.btn, styles.primary)} onClick={() => navigate(`/review/${itinerary.id}`)}>
           이 일정으로 확정하기 →
         </button>
       </div>

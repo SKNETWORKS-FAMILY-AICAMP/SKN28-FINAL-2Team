@@ -8,6 +8,7 @@ import { INITIAL_ANSWERS } from './chat/questionSteps.js'
 export default function ChatPage() {
   const [answers, setAnswers] = useState(INITIAL_ANSWERS)
   const [ready, setReady] = useState(false)
+  const [itineraryId, setItineraryId] = useState(null)
 
   return (
     <div className={styles.page}>
@@ -18,8 +19,10 @@ export default function ChatPage() {
           setAnswers={setAnswers}
           ready={ready}
           onReady={() => setReady(true)}
+          setItineraryId={setItineraryId}
+          itineraryId={itineraryId}
         />
-        <SummaryColumn answers={answers} ready={ready} />
+        <SummaryColumn answers={answers} ready={ready} itineraryId={itineraryId} />
       </div>
     </div>
   )

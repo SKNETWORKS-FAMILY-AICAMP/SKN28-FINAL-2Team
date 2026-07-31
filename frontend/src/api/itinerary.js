@@ -39,6 +39,56 @@ export const getItinerary = async (id) => {
     })),
   };
 };
+export const createItinerary = async (data) => {
+  const { data: response } = await api.post(
+    "/travel/itineraries/",
+    data
+  );
+
+  return {
+    id: response.id,
+    title: response.title,
+    subtitle: response.subtitle,
+    startDate: response.start_date,
+    endDate: response.end_date,
+    durationLabel: response.duration_label,
+    companionCount: response.companion_count,
+    budgetPerPerson: response.budget_per_person,
+    totalCost: response.total_cost,
+    style: response.style_display,
+    costBreakdown: response.cost_breakdown,
+    days: response.days.map((day) => ({
+      dayNumber: day.day_number,
+      date: day.date,
+      items: day.items,
+    })),
+  };
+};
+
+export const regenerateItinerary = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/regenerate/`
+  );
+
+  return {
+    id: data.id,
+    title: data.title,
+    subtitle: data.subtitle,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    durationLabel: data.duration_label,
+    companionCount: data.companion_count,
+    budgetPerPerson: data.budget_per_person,
+    totalCost: data.total_cost,
+    style: data.style_display,
+    costBreakdown: data.cost_breakdown,
+    days: data.days.map((day) => ({
+      dayNumber: day.day_number,
+      date: day.date,
+      items: day.items,
+    })),
+  };
+};
 
 export const getSharedItinerary = async (token) => {
   const { data } = await api.get(
