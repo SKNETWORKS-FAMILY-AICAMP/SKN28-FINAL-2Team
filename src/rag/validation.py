@@ -1220,6 +1220,16 @@ def _day_start_anchor(
     return None, None
 
 
+def resolve_day_start_anchor(
+    conditions: TravelConditions,
+    *,
+    day: int,
+) -> tuple[str | None, tuple[float, float] | None]:
+    """Return the validated start anchor used by route-aware retrieval."""
+
+    return _day_start_anchor(conditions, day=day)
+
+
 def _day_end_anchor(
     conditions: TravelConditions,
     *,
@@ -1247,6 +1257,17 @@ def _day_end_anchor(
     return None, None
 
 
+def resolve_day_end_anchor(
+    conditions: TravelConditions,
+    *,
+    day: int,
+    last_day: int,
+) -> tuple[str | None, tuple[float, float] | None]:
+    """Return the validated end anchor used by route-aware retrieval."""
+
+    return _day_end_anchor(conditions, day=day, last_day=last_day)
+
+
 def _place_coordinates(
     place: RetrievedPlace,
 ) -> tuple[float, float] | None:
@@ -1256,6 +1277,14 @@ def _place_coordinates(
     ):
         return None
     return place.latitude, place.longitude
+
+
+def place_coordinates(
+    place: RetrievedPlace,
+) -> tuple[float, float] | None:
+    """Expose the validator's coordinate validity rule to retrieval."""
+
+    return _place_coordinates(place)
 
 
 def _travel_date(start_date: str | None, day: int) -> date | None:

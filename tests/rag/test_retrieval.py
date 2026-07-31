@@ -9,6 +9,7 @@ from src.rag.models import (
     SlotRequest,
     TravelConditions,
 )
+from src.rag.operations import OperationalFacts
 from src.rag.retrieval import (
     SlotRetriever,
     add_meal_slots,
@@ -44,8 +45,10 @@ def place(
 class FakePlaceService:
     def __init__(self, places) -> None:
         self.places = tuple(places)
+        self.last_kwargs = {}
 
     def search_places(self, query, *, filters=None, **kwargs):
+        self.last_kwargs = dict(kwargs)
         return PlaceSearchResponse(
             query,
             filters or PlaceSearchFilters(),
@@ -54,7 +57,139 @@ class FakePlaceService:
         )
 
 
+class RequiredTitleFallbackPlaceService(FakePlaceService):
+    def __init__(self, places, required_places) -> None:
+        super().__init__(places)
+        self.required_places = tuple(required_places)
+        self.requested_titles = ()
+
+    def get_retrieved_places_by_titles(self, titles):
+        self.requested_titles = tuple(titles)
+        return self.required_places
+
+
 class SlotRetrievalTests(unittest.TestCase):
+    def test_meal_search_prefilters_by_anchor_before_vector_ranking(self) -> None:
+        service = FakePlaceService(())
+        slot = SlotRequest(
+            day=1,
+            sequence=102,
+            role="meal",
+            category="food_cafe",
+            target_collections=("restaurants",),
+            itinerary_roles=("meal", "food"),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+            slot_kind="meal",
+            meal_type="lunch",
+        )
+
+        SlotRetriever(service).retrieve(
+            slot,
+            TravelConditions.from_mapping({"duration_days": 1}),
+        )
+
+        self.assertEqual(service.last_kwargs["center"], (33.45, 126.50))
+        self.assertEqual(service.last_kwargs["radius_km"], 8.0)
+
+    def test_parking_requirement_applies_to_tourism_but_not_meals(self) -> None:
+        restaurant = RetrievedPlace(
+            content_id=10,
+            title="주차 정보 없는 식당",
+            latitude=33.45,
+            longitude=126.50,
+            similarity_score=0.9,
+            rank=1,
+            target_collection="restaurants",
+            itinerary_role="meal",
+            opening_hours="10:00-21:00",
+            parking="",
+        )
+        slot = SlotRequest(
+            day=1,
+            sequence=102,
+            role="meal",
+            category="food_cafe",
+            target_collections=("restaurants",),
+            itinerary_roles=("meal",),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+            slot_kind="meal",
+            meal_type="lunch",
+        )
+        conditions = TravelConditions.from_mapping(
+            {"duration_days": 1, "parking_required": True}
+        )
+
+        result = SlotRetriever(
+            FakePlaceService((restaurant,))
+        ).retrieve(slot, conditions)
+
+        self.assertEqual(
+            [candidate.content_id for candidate in result.candidates],
+            [10],
+        )
+
+    def test_google_facts_enrich_meal_hours_rating_and_parking(self) -> None:
+        class FactsProvider:
+            def facts_for(self, place, travel_date):
+                return OperationalFacts(
+                    source="google_places",
+                    verified=True,
+                    business_status="OPERATIONAL",
+                    closed_on_date=False,
+                    opening_ranges=((600, 1260),),
+                    parking_options={"freeParkingLot": True},
+                    rating=4.7,
+                    rating_count=321,
+                    external_place_id="places/test",
+                )
+
+        restaurant = RetrievedPlace(
+            content_id=11,
+            title="Google 보강 식당",
+            latitude=33.45,
+            longitude=126.50,
+            similarity_score=0.9,
+            rank=1,
+            target_collection="restaurants",
+            itinerary_role="meal",
+        )
+        slot = SlotRequest(
+            day=1,
+            sequence=102,
+            role="meal",
+            category="food_cafe",
+            target_collections=("restaurants",),
+            itinerary_roles=("meal",),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+            slot_kind="meal",
+            meal_type="lunch",
+        )
+
+        result = SlotRetriever(
+            FakePlaceService((restaurant,)),
+            operational_provider=FactsProvider(),
+        ).retrieve(
+            slot,
+            TravelConditions.from_mapping(
+                {"duration_days": 1, "start_date": "2026-08-01"}
+            ),
+        )
+
+        enriched = result.candidates[0]
+        self.assertEqual(enriched.opening_hours, "10:00-21:00")
+        self.assertEqual(enriched.rating, 4.7)
+        self.assertEqual(enriched.rating_count, 321)
+        self.assertIn("주차 가능", enriched.parking)
+
     def test_adds_lunch_and_dinner_and_opt_in_breakfast(self) -> None:
         tourism = tuple(
             SlotRequest(
@@ -599,6 +734,65 @@ class SlotRetrievalTests(unittest.TestCase):
         result = retriever.retrieve(slot, conditions)
 
         self.assertEqual([place.title for place in result.candidates], ["우도"])
+
+    def test_hydrates_required_name_when_vector_results_miss_it(self) -> None:
+        slot = SlotRequest(
+            day=1,
+            sequence=1,
+            role="visit",
+            category="nature",
+            target_collections=("attractions",),
+            itinerary_roles=("visit",),
+            stay_minutes=60,
+            latitude=33.45,
+            longitude=126.50,
+            radius_km=8.0,
+        )
+        vector_place = RetrievedPlace(
+            content_id=701,
+            title="일반 관광지",
+            latitude=33.45,
+            longitude=126.50,
+            similarity_score=0.90,
+            rank=1,
+            target_collection="attractions",
+            itinerary_role="visit",
+            tags=("nature",),
+            opening_hours="09:00-18:00",
+        )
+        required_place = RetrievedPlace(
+            content_id=702,
+            title="한라수목원",
+            latitude=33.50,
+            longitude=126.55,
+            similarity_score=1.0,
+            rank=1,
+            target_collection="attractions",
+            itinerary_role="visit",
+            tags=("nature",),
+            opening_hours="09:00-18:00",
+        )
+        service = RequiredTitleFallbackPlaceService(
+            [vector_place],
+            [required_place],
+        )
+        retriever = SlotRetriever(service)
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "required_day_itineraries": [
+                    {"day": 1, "place_names": ["한라수목원"]},
+                ],
+            }
+        )
+
+        result = retriever.retrieve(slot, conditions)
+
+        self.assertEqual(service.requested_titles, ("한라수목원",))
+        self.assertIn(
+            "한라수목원",
+            [place.title for place in result.candidates],
+        )
 
 
 if __name__ == "__main__":

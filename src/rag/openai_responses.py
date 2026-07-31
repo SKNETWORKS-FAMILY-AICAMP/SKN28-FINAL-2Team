@@ -81,6 +81,25 @@ def create_text_response(
     )
 
 
+def configured_token_budgets(
+    first_budget: int,
+    retry_budget: int,
+    *,
+    retry_env: str,
+) -> tuple[int, ...]:
+    """Make costly full-prompt retries opt-in instead of silently doubling cost."""
+
+    enabled = str(os.getenv(retry_env, "0")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if enabled:
+        return (int(first_budget), int(retry_budget))
+    return (int(first_budget),)
+
+
 def summed_usage(responses: Sequence[Any]) -> dict[str, int]:
     """Sum token usage across retries so evaluation cost remains observable."""
 

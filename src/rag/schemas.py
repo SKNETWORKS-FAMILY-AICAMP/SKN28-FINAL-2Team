@@ -83,6 +83,10 @@ CONDITION_OUTPUT_SCHEMA = {
         "accommodation_address": {"type": ["string", "null"]},
         "preferred_places": {"type": "array", "items": {"type": "string"}},
         "preferred_foods": {"type": "array", "items": {"type": "string"}},
+        "preferred_meal_regions": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
         "include_breakfast": {"type": ["boolean", "null"]},
         "meal_search_radius_km": {
             "type": ["number", "null"],
@@ -174,6 +178,7 @@ CONDITION_OUTPUT_SCHEMA = {
         "accommodation_address",
         "preferred_places",
         "preferred_foods",
+        "preferred_meal_regions",
         "include_breakfast",
         "meal_search_radius_km",
         "skipped_meals",

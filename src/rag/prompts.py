@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-CONDITION_PROMPT_VERSION = "condition-v5"
+CONDITION_PROMPT_VERSION = "condition-v7"
 ITINERARY_PROMPT_VERSION = "itinerary-v7"
 REPAIR_PROMPT_VERSION = "repair-v7"
 
@@ -20,8 +20,10 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = """
 6. current_conditions에 프론트엔드 선택값이 있으면 이미 확정된 조건으로
    유지하고, 사용자가 최신 발화에서 명시적으로 바꾼 값만 변경합니다.
 
-[필수 AIHub 조건]
-- duration_days: 여행 일수, 1~30
+[추천 조건]
+- duration_days만 일정 생성을 위해 반드시 필요하며 여행 일수는 1~30입니다.
+- 아래 조건은 사용자가 말하거나 선택한 경우에만 추출합니다. 입력하지 않은
+  조건은 서비스가 중립 기본값으로 보완하므로 재질문하지 않습니다.
 - party_type: solo, non_family_two, non_family_group, family_two,
   family_group, with_children, with_parents, three_generations
 - local_transport: rental_car, own_car, public_transit, taxi, mixed
@@ -44,6 +46,8 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = """
   기록합니다. 언급이 없으면 null이며 아침식사를 자동 추가하지 않습니다.
 - 선호 메뉴나 음식 종류는 preferred_foods에 기록합니다. '아무거나',
   '상관없음'도 사용자의 명시적 메뉴 무관 조건으로 그대로 기록합니다.
+- 사용자가 식사할 지역·읍면동을 지정하면 preferred_meal_regions에 사용자
+  표현을 보존합니다. 관광지 선호 장소인 preferred_places와 혼합하지 않습니다.
 - 사용자가 식당 검색 반경을 직접 선택하거나 "12km로 넓혀 달라"고 요청하면
   meal_search_radius_km에 1~30 사이의 km 숫자를 기록합니다.
 - 직전 질문에서 특정 식당 검색 반경으로 넓힐지 물었고 사용자가 긍정했다면,
@@ -112,8 +116,10 @@ TourAPI 후보 목록에서만 선택하세요.
 11. 슬롯 번호는 입력에 제공된 day와 slot_sequence를 그대로 사용합니다.
 12. 후보 좌표를 이용해 같은 날 연속 장소의 거리를 최소화하고
     policy.max_leg_distance_km를 넘지 않는 조합을 우선합니다.
-13. 매일 tourism 슬롯에서는 정확히 policy.tourism_places_per_day개의
-    관광지를 선택하고, 별도의 meal 슬롯도 하나도 누락하지 않습니다.
+13. 각 일자의 tourism 슬롯에서는 정확히
+    policy.tourism_places_by_day[day]개의 관광지를 선택합니다. 기본값은
+    하루 3곳이며, 사용자가 명시적으로 추가 요청한 일차만 3곳을 초과할 수
+    있습니다. 별도의 meal 슬롯도 하나도 누락하지 않습니다.
 14. input_mode가 frontend_selections이면 frontend_selections의 선택값을
     사용자가 직접 확정한 최우선 조건으로 취급하고 임의로 변경하지 않습니다.
 15. 최종 시간은 서버 검증기가 운영시간·이동시간을 계산하므로, 장소 선택은
@@ -128,7 +134,7 @@ TourAPI 후보 목록에서만 선택하세요.
 19. template_source가 synthetic_gap_fill인 슬롯은 AIHub 원기록이 아니라 누락
     일자를 보충하기 위한 TourAPI 검색 슬롯입니다. 다른 슬롯과 동일하게
     allowed_content_ids 안에서만 선택하고, AIHub 실제 방문이었다고 설명하지 않습니다.
-20. meal 슬롯의 음식점은 관광지 3곳에 포함하지 않습니다. tourism 슬롯에는
+20. meal 슬롯의 음식점은 관광지 수에 포함하지 않습니다. tourism 슬롯에는
     음식점·카페를 선택하지 않고 meal 슬롯에는 검증된 TourAPI 식당만 선택합니다.
 21. 관광지 슬롯 1은 09:00~12:00, 슬롯 2는 13:00~15:30,
     슬롯 3은 15:30~18:00에 배치 가능한 장소를 선택합니다.

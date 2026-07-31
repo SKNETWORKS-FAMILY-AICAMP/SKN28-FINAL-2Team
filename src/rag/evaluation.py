@@ -830,7 +830,9 @@ class OpenAIItineraryJudge:
             from openai import OpenAI
 
             client = OpenAI(api_key=key, timeout=60.0)
-        self._client = client
+        from .langsmith_observability import maybe_wrap_openai_client
+
+        self._client = maybe_wrap_openai_client(client)
 
     def grade(
         self,
@@ -848,7 +850,11 @@ class OpenAIItineraryJudge:
             "itinerary": list(_as_sequence(result.get("itinerary"))),
             "validation": dict(_as_mapping(result.get("validation"))),
         }
-        from .openai_responses import create_text_response, summed_usage
+        from .openai_responses import (
+            configured_token_budgets,
+            create_text_response,
+            summed_usage,
+        )
 
         output_text, responses = create_text_response(
             client=self._client,
@@ -859,7 +865,11 @@ class OpenAIItineraryJudge:
                     {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
                     {
                         "role": "user",
-                        "content": json.dumps(payload, ensure_ascii=False),
+                        "content": json.dumps(
+                            payload,
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        ),
                     },
                 ],
                 "text": {
@@ -871,7 +881,11 @@ class OpenAIItineraryJudge:
                     }
                 },
             },
-            token_budgets=(4000, 8000),
+            token_budgets=configured_token_budgets(
+                2200,
+                3600,
+                retry_env="RAG_EVAL_EMPTY_RESPONSE_RETRIES",
+            ),
             evaluation=True,
         )
         parsed = json.loads(output_text)

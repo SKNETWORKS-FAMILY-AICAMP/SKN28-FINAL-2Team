@@ -37,6 +37,11 @@ VISIT_PREFERENCES = frozenset(
 )
 PACES = frozenset({"relaxed", "balanced", "packed"})
 MEAL_TYPES = frozenset({"breakfast", "lunch", "dinner"})
+DEFAULT_RECOMMENDATION_VISIT_TYPES = (
+    "nature",
+    "culture",
+    "experience",
+)
 
 
 def _strings(value: Any) -> tuple[str, ...]:
@@ -284,6 +289,7 @@ class TravelConditions:
     accommodation_longitude: float | None = None
     preferred_places: tuple[str, ...] = ()
     preferred_foods: tuple[str, ...] = ()
+    preferred_meal_regions: tuple[str, ...] = ()
     include_breakfast: bool | None = None
     meal_search_radius_km: float | None = None
     skipped_meals: tuple[SkippedMeal, ...] = ()
@@ -429,6 +435,11 @@ class TravelConditions:
                 raw.get("preferred_foods")
                 or raw.get("meal_menu_preferences")
             ),
+            preferred_meal_regions=_strings(
+                raw.get("preferred_meal_regions")
+                or raw.get("meal_regions")
+                or raw.get("meal_region")
+            ),
             include_breakfast=_optional_bool(raw.get("include_breakfast")),
             meal_search_radius_km=meal_search_radius,
             skipped_meals=skipped_meals,
@@ -462,6 +473,7 @@ class TravelConditions:
             "purpose_codes",
             "preferred_places",
             "preferred_foods",
+            "preferred_meal_regions",
             "travel_styles",
             "must_visit_places",
             "must_visit_content_ids",
@@ -497,13 +509,26 @@ class TravelConditions:
         missing: list[str] = []
         if self.duration_days is None:
             missing.append("duration_days")
-        if self.party_type is None:
-            missing.append("party_type")
-        if self.local_transport is None:
-            missing.append("local_transport")
-        if not self.preferred_visit_types:
-            missing.append("preferred_visit_types")
         return tuple(missing)
+
+    def with_recommendation_defaults(self) -> TravelConditions:
+        """Fill neutral AIHub matching defaults without claiming user intent."""
+
+        payload = self.to_dict()
+        if self.party_type is None:
+            if self.companion_count == 1:
+                payload["party_type"] = "solo"
+            elif self.companion_count is not None and self.companion_count >= 3:
+                payload["party_type"] = "non_family_group"
+            else:
+                payload["party_type"] = "non_family_two"
+        if self.local_transport is None:
+            payload["local_transport"] = "mixed"
+        if not self.preferred_visit_types:
+            payload["preferred_visit_types"] = list(
+                DEFAULT_RECOMMENDATION_VISIT_TYPES
+            )
+        return TravelConditions.from_mapping(payload)
 
     def missing_conditional_fields(self) -> tuple[str, ...]:
         missing: list[str] = []
@@ -525,12 +550,13 @@ class TravelConditions:
         return payload
 
     def to_aihub_dict(self) -> dict[str, Any]:
-        missing = self.missing_required_fields()
+        normalized = self.with_recommendation_defaults()
+        missing = normalized.missing_required_fields()
         if missing:
             raise ValueError(
                 "missing required AIHub conditions: " + ", ".join(missing)
             )
-        payload = self.to_dict()
+        payload = normalized.to_dict()
         payload.pop("explicit_fields", None)
         return payload
 

@@ -26,6 +26,49 @@ CLARIFICATION_QUESTIONS = {
     ),
 }
 
+GUIDED_TRAVEL_STYLE_PROFILES: dict[str, dict[str, Any]] = {
+    "healing": {
+        "preferred_visit_types": ["nature", "trail"],
+        "pace": "relaxed",
+        "avoid_long_distance": True,
+    },
+    "nature": {
+        "preferred_visit_types": ["nature", "trail"],
+        "pace": "balanced",
+    },
+    "culture": {
+        "preferred_visit_types": ["history", "culture"],
+        "pace": "balanced",
+    },
+    "activity": {
+        "preferred_visit_types": ["leisure", "experience", "theme_park"],
+        "pace": "packed",
+    },
+    "local": {
+        "preferred_visit_types": ["market_shopping", "culture", "experience"],
+        "pace": "balanced",
+    },
+    "popular": {
+        "preferred_visit_types": ["nature", "culture", "experience"],
+        "pace": "balanced",
+    },
+}
+
+GUIDED_TRAVEL_STYLE_ALIASES = {
+    "힐링": "healing",
+    "힐링·여유": "healing",
+    "자연": "nature",
+    "자연·풍경": "nature",
+    "역사·문화": "culture",
+    "문화": "culture",
+    "체험·액티비티": "activity",
+    "액티비티": "activity",
+    "시장·로컬": "local",
+    "로컬": "local",
+    "인기 명소 중심": "popular",
+    "인기": "popular",
+}
+
 
 @dataclass(frozen=True)
 class ConditionResult:
@@ -69,7 +112,9 @@ class ConditionExtractionService:
             history=history,
             current_conditions=current.to_dict(),
         )
-        merged = _resolve_condition_conflicts(current.merged_with(extracted))
+        merged = _resolve_condition_conflicts(
+            current.merged_with(extracted)
+        ).with_recommendation_defaults()
         questions = _clarification_questions(merged)
         return ConditionResult(merged, questions, _optional_questions(merged))
 
@@ -86,9 +131,59 @@ class ConditionExtractionService:
         else:
             current = TravelConditions.from_mapping(current_conditions)
         selected = TravelConditions.from_mapping(selected_options)
-        merged = _resolve_condition_conflicts(current.merged_with(selected))
+        merged = _resolve_condition_conflicts(
+            current.merged_with(selected)
+        ).with_recommendation_defaults()
         questions = _clarification_questions(merged)
         return ConditionResult(merged, questions, _optional_questions(merged))
+
+    def from_guided_inputs(
+        self,
+        *,
+        duration_days: int,
+        party_size: int,
+        local_transport: str,
+        travel_style: str,
+    ) -> ConditionResult:
+        """Build initial RAG conditions from the four-step frontend scenario."""
+
+        options = guided_input_options(
+            duration_days=duration_days,
+            party_size=party_size,
+            local_transport=local_transport,
+            travel_style=travel_style,
+        )
+        return self.from_selections(selected_options=options)
+
+
+def guided_input_options(
+    *,
+    duration_days: int,
+    party_size: int,
+    local_transport: str,
+    travel_style: str,
+) -> dict[str, Any]:
+    """Translate guided UI values into the canonical RAG condition schema."""
+
+    if not 1 <= int(duration_days) <= 30:
+        raise ValueError("duration_days must be between 1 and 30")
+    if not 1 <= int(party_size) <= 30:
+        raise ValueError("party_size must be between 1 and 30")
+    style_key = GUIDED_TRAVEL_STYLE_ALIASES.get(
+        str(travel_style).strip(),
+        str(travel_style).strip(),
+    )
+    profile = GUIDED_TRAVEL_STYLE_PROFILES.get(style_key)
+    if profile is None:
+        raise ValueError(f"unsupported travel_style: {travel_style}")
+    return {
+        "region": "제주",
+        "duration_days": int(duration_days),
+        "companion_count": int(party_size),
+        "local_transport": str(local_transport).strip(),
+        "travel_styles": [style_key],
+        **profile,
+    }
 
 
 def _clarification_questions(

@@ -129,7 +129,8 @@ def test_comparator_scores_no_rag_and_rag_answers_anonymously():
     assert "상태: clarification_required" in judge_payload["answer_b"]
 
 
-def test_comparator_retries_empty_judge_output_and_counts_usage():
+def test_comparator_retries_empty_judge_output_and_counts_usage(monkeypatch):
+    monkeypatch.setenv("RAG_EVAL_EMPTY_RESPONSE_RETRIES", "1")
     criteria = COMPARISON_CRITERIA
     judged = {
         "answer_a": {name: 50 for name in criteria},
@@ -156,8 +157,8 @@ def test_comparator_retries_empty_judge_output_and_counts_usage():
 
     assert result.winner == "rag"
     assert len(client.responses.calls) == 3
-    assert client.responses.calls[1]["max_output_tokens"] == 4000
-    assert client.responses.calls[2]["max_output_tokens"] == 8000
+    assert client.responses.calls[1]["max_output_tokens"] == 2400
+    assert client.responses.calls[2]["max_output_tokens"] == 4000
     assert result.usage["judge"]["total_tokens"] == 300
 
 

@@ -235,6 +235,59 @@ class MySQLPlaceRepository:
                 cursor.close()
         return rows
 
+    def find_content_ids_by_titles(
+        self,
+        titles: Sequence[str],
+        *,
+        limit_per_title: int = 3,
+    ) -> dict[str, list[int]]:
+        """Resolve user-entered required names to eligible TourAPI IDs."""
+
+        if limit_per_title <= 0:
+            raise ValueError("limit_per_title must be greater than zero")
+        normalized_titles = tuple(
+            dict.fromkeys(
+                str(title).strip() for title in titles if str(title).strip()
+            )
+        )
+        matches: dict[str, list[int]] = {
+            title: [] for title in normalized_titles
+        }
+        if not normalized_titles:
+            return matches
+
+        sql = """
+SELECT p.content_id, p.title
+FROM places AS p
+JOIN place_search_documents AS sd ON sd.content_id = p.content_id
+WHERE sd.rag_eligible = TRUE
+  AND sd.route_eligible = TRUE
+  AND sd.schedule_eligible = TRUE
+  AND (p.title = %s OR p.title LIKE %s)
+ORDER BY CASE WHEN p.title = %s THEN 0 ELSE 1 END, p.content_id
+LIMIT %s
+"""
+        with self.connect() as connection:
+            cursor = connection.cursor()
+            try:
+                for title in normalized_titles:
+                    cursor.execute(
+                        sql,
+                        (title, f"%{title}%", title, limit_per_title),
+                    )
+                    rows = list(cursor.fetchall())
+                    exact_ids = [
+                        int(row[0])
+                        for row in rows
+                        if str(row[1]).strip() == title
+                    ]
+                    matches[title] = exact_ids or [
+                        int(row[0]) for row in rows
+                    ]
+            finally:
+                cursor.close()
+        return matches
+
     def get_aihub_evidence(
         self,
         content_ids: Sequence[int],

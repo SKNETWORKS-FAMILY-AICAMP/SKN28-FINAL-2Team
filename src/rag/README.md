@@ -4,6 +4,55 @@
 > not be connected to or imported from `backend/` until the user explicitly
 > authorizes backend integration. See `BOUNDARY.md`.
 
+## 프론트엔드 기본 입력 시나리오
+
+최초 일정은 대화창에서 다음 네 값을 한 번에 하나씩 순서대로 입력받아
+생성합니다.
+
+1. `duration_days`: 여행 일수(1~30)
+2. `party_size`: 본인을 포함한 여행 인원(1~30)
+3. `local_transport`: `rental_car`, `own_car`, `public_transit`, `taxi`, `mixed`
+4. `travel_style`: `healing`, `nature`, `culture`, `activity`, `local`, `popular`
+
+질문 순서와 선택지 상태는 프레임워크 독립적인 대화 계약으로 제공합니다.
+
+```python
+from src.rag import start_guided_dialogue, submit_guided_answer
+
+dialogue = start_guided_dialogue()
+# dialogue["question"]을 표시하고 dialogue["options"]를 선택지로 렌더링
+
+for answer in ("3일", "2명", "렌터카", "힐링·여유"):
+    dialogue = submit_guided_answer(dialogue, answer)
+
+assert dialogue["status"] == "ready_to_generate"
+inputs = dialogue["generation_inputs"]
+```
+
+선택지 대신 사용자가 같은 값을 자연어로 직접 입력해도 동일한 단계에서
+검증합니다. 네 번째 답변까지 완료된 뒤에만 아래 최초 일정 생성 계약을
+호출합니다.
+
+```python
+result = rag.create_initial_itinerary(
+    **inputs,
+)
+```
+
+여행 스타일은 내부에서 TourAPI 검색 유형, 일정 속도 및 거리 정책으로
+변환됩니다. 최초 일정 이후의 사용자 문장은 별도의 수정 계약으로 처리합니다.
+
+```python
+revised = rag.continue_itinerary(
+    previous_result=result,
+    message="2일차의 한라수목원을 다른 자연 관광지로 바꿔 주세요.",
+)
+```
+
+정확한 일차·장소 교체 요청은 해당 슬롯만 수정하고, 조건 추가 요청은 이전
+조건과 병합하여 일정을 다시 생성합니다. HTTP 연결은 포함하지 않으며
+백엔드 소유자가 이 Python 계약을 API로 감싸서 사용합니다.
+
 ## AIHub 동선 부재 시 제한적 폴백
 
 기본 경로는 항상 `AIHub 유사 동선 → TourAPI 장소 배치`입니다. AIHub 조회
@@ -55,8 +104,9 @@ TourAPI MySQL·ChromaDB에서 검색해 배치하는 1차 RAG 체인입니다.
      정확한 TourAPI ID를 조회해 후보 화이트리스트에 넣습니다.
    - 관광지 후보 조합을 먼저 확정한 다음, 점심·저녁 슬롯을 실제 선택
      관광지 좌표로 다시 앵커링하여 주변 식당을 2차 검색합니다.
-   - 하루 슬롯은 relaxed 3개, balanced 4개, packed 5개를 상한으로 하며
-     AIHub 방문 순서를 유지한 채 균등하게 압축합니다.
+   - 최초 일정은 여행 스타일과 관계없이 하루 관광지 3곳으로 구성합니다.
+     사용자가 특정 일차에 관광지 추가를 명시적으로 요청한 경우에만 해당
+     일차의 슬롯 수를 늘립니다.
 4. `validation.py`
    - 슬롯별 TourAPI ID 화이트리스트, 중복, 필수·제외 장소, 운영시간,
      일자별 이동거리와 도착·출발 제한시간을 검증합니다.
@@ -85,9 +135,10 @@ TourAPI MySQL·ChromaDB에서 검색해 배치하는 1차 RAG 체인입니다.
 - 접근성은 TourAPI 정형 상세정보와 Google Places
   `accessibilityOptions`를 합쳐 검증합니다. 명시적 불충족은 차단하고,
   정보 부재는 `validation.warnings`에 표시합니다.
-- `pace`를 명시하면 `relaxed=3`, `balanced=4`, `packed=5`개의 관광지
-  슬롯을 만들고 점심·저녁 슬롯은 별도로 배치합니다. 미지정 시 기존
-  호환값인 관광지 3개를 사용합니다.
+- `pace`와 관계없이 최초 관광지 슬롯은 하루 3개이며 점심·저녁 슬롯은
+  별도로 배치합니다. `2일차에 관광지 1곳 추가해 주세요` 또는
+  `매일 관광지 1곳씩 추가해 주세요`처럼 일차와 수량을 명시한 후속
+  요청만 관광지 슬롯 수를 늘립니다.
 
 ## 외부 공급자와 운영 예외 설정
 
@@ -153,6 +204,74 @@ result = rag.run(
 )
 ```
 
+## LangGraph 실행
+
+기존 `RagOrchestrator`의 반환 계약은 유지하면서 실제 UI 실행은 컴파일된
+LangGraph를 통과합니다.
+
+```python
+from pathlib import Path
+
+from src.rag import create_langgraph_rag_workflow
+
+rag = create_langgraph_rag_workflow(project_root=Path.cwd())
+result = rag.run(
+    message="부모님과 렌터카로 제주 3일 여행을 하고 싶어요.",
+    thread_id="user-42-conversation-1",
+)
+```
+
+그래프 경로는 다음과 같습니다.
+
+`START → prepare_input → execute_rag → 조건 분기`
+
+- 조건 누락: `request_clarification → END`
+- 생성·검색·검증 결과 존재: `finalize_result → END`
+
+같은 `thread_id`를 사용하면 인메모리 체크포인터가 이전 결과의 조건을 후속
+요청에 전달합니다. 개발용 메모리이므로 프로세스를 재시작하면 사라집니다.
+운영 환경에서는 별도 PostgreSQL/Redis 체크포인터로 교체해야 합니다.
+응답의 `meta.langgraph.path`와 `meta.langgraph.thread_id`에서 실행 경로를
+확인할 수 있습니다.
+
+## LangSmith 추적 및 평가
+
+LangSmith는 기본 비활성화입니다. `.env`에 다음 값을 설정한 뒤 프로세스를
+재시작하면 LangGraph 노드와 OpenAI 조건 추출·일정 생성 호출이 같은 trace
+계층에 기록됩니다.
+
+```dotenv
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=발급받은_키
+LANGSMITH_PROJECT=skn28-jeju-rag
+LANGSMITH_HIDE_INPUTS=true
+LANGSMITH_HIDE_OUTPUTS=true
+```
+
+여행 날짜·숙소·동행 정보가 trace에 포함될 수 있어 입력·출력 숨김을
+기본값으로 사용합니다. 디버깅을 위해 실제 내용을 확인해야 할 때만 개인정보를
+제거한 테스트 데이터에서 두 값을 `false`로 바꾸십시오.
+
+LangSmith 데이터셋 생성과 실험 실행:
+
+```powershell
+python scripts\evaluation\run_langsmith_experiment.py `
+  --sync `
+  --dataset skn28-jeju-rag-golden `
+  --repetitions 1 `
+  --max-concurrency 1
+```
+
+실험에는 다음 결정론적 평가가 기록됩니다.
+
+- `itinerary_completed`: 실제 일정이 생성되었는지
+- `deterministic_validation`: 거리·운영시간·화이트리스트 검증 통과 여부
+- `required_place_coverage`: 평가 데이터의 필수 TourAPI ID 포함 비율
+
+LangSmith가 없어도 기존 `create_rag_orchestrator()`는 계속 사용할 수 있으며,
+LangSmith 장애가 여행 추천 실행을 중단시키지 않도록 OpenAI 추적 래퍼는
+실패 시 원래 클라이언트로 자동 복귀합니다.
+
 프론트엔드 선택형 입력이 기본 경로라면 자연어 메시지 없이 구조화된 선택값을
 직접 전달합니다. 이 경우 조건 추출 LLM을 호출하지 않고 선택값을 확정 조건으로
 사용합니다.
@@ -195,10 +314,22 @@ result = rag.run(
 ```
 
 프론트엔드는 최소한 `duration_days`, `party_type`, `local_transport`,
-`preferred_visit_types`를 전달해야 합니다. 결과의 관광지 수는 기본 3개이며
-`pace`를 명시하면 3~5개로 바뀝니다. `itinerary`의 `start_time`,
-`end_time`으로 시간표를 표시할 수 있습니다.
+`preferred_visit_types`를 전달해야 합니다. 결과의 관광지 수는 여행 스타일과
+관계없이 하루 3개입니다. `itinerary`의 `start_time`, `end_time`으로 시간표를
+표시할 수 있습니다.
 추가 대화로 선택값을 변경할 때는 `selected_options`와 `message`를 함께 전달합니다.
+
+최초 일정 이후에는 다음처럼 특정 일차의 관광지 슬롯을 추가할 수 있습니다.
+
+```python
+revised = rag.continue_itinerary(
+    previous_result=result,
+    message="2일차에 관광지 1곳 추가해 주세요.",
+)
+```
+
+일차를 생략하고 “관광지 한 곳 추가”라고만 요청하면 기존 일정을 유지한 채
+추가할 일차를 재질문합니다. 식사 슬롯은 관광지 수에 포함되지 않습니다.
 
 선택형 입력은 `start_point`(시작 지점), `end_point`(종료 지점),
 `required_itinerary`(반드시 포함할 장소 목록), `accommodation`(숙소명 또는 주소)을
@@ -287,12 +418,19 @@ regenerated = rag.revise(
   추가합니다. 식당은 관광지 3곳에 포함되지 않습니다.
 - 아침식사는 `include_breakfast=true`이거나 자연어로 명시적으로 요청한
   경우에만 `07:30~09:00` 식사 슬롯을 추가합니다.
-- 선호 메뉴는 `preferred_foods` 또는 `meal_menu_preferences`로 전달합니다.
-  메뉴가 비어 있어도 일정 생성은 계속하며, 응답의 `optional_questions`에
-  원하는 메뉴 질문을 반환합니다.
+- 선호 메뉴는 `preferred_foods` 또는 `meal_menu_preferences`로 전달하고,
+  식사 지역은 `preferred_meal_regions`로 전달합니다. 메뉴가 비어 있어도
+  일정 생성은 계속하며, 응답의 `optional_questions`에 원하는 메뉴 질문을
+  반환합니다.
+- 식당은 관광지 좌표 기준 8km 안의 MySQL 후보를 먼저 제한한 뒤 Chroma
+  벡터 검색과 재정렬을 수행합니다. `parking_required`는 관광지 슬롯에만
+  필수 필터로 적용합니다.
 - 식당 후보는 거리 45%, 실제 평점 25%, 메뉴 일치 15%, 벡터 유사도 10%,
   운영정보 5%를 반영합니다. 실제 평점 필드가 없는 후보는 중립값으로
   처리하며 사용자에게 평점을 임의로 만들어 보여주지 않습니다.
+- `GOOGLE_PLACES_API_KEY`가 설정되어 있으면 식당 후보의 운영시간, 평점,
+  평점 수, 주차 정보를 검색 단계에서 보강하고 같은 장소·날짜 조회는
+  캐시합니다.
 
 식사 슬롯 후보가 없으면 오류로 끝내지 않고 다음 계약을 반환합니다.
 
@@ -303,24 +441,25 @@ regenerated = rag.revise(
   "clarification_questions": ["2일차 점심 식당을 찾지 못했습니다..."],
   "clarification_options": [
     {
-      "label": "12km까지 검색",
-      "selected_options": {"meal_search_radius_km": 12}
-    },
-    {
       "label": "해당 식사 일정 제외",
       "selected_options": {
         "skipped_meals": [{"day": 2, "meal_type": "lunch"}]
       }
-    }
-  ]
+    },
+    {"label": "식사 지역 지정", "selected_options": {}},
+    {"label": "원하는 메뉴 변경", "selected_options": {}}
+  ],
+  "itinerary": ["검증을 통과한 관광지 일정은 그대로 보존"]
 }
 ```
 
-프론트엔드에서 선택한 버튼 값은 이전 조건과 함께 다시 전달합니다.
+프론트엔드에서 식사 제외 버튼을 선택하면 이전 조건과 함께 다시 전달합니다.
 
 ```python
 retry = rag.run(
-    selected_options={"meal_search_radius_km": 12},
+    selected_options={
+        "skipped_meals": [{"day": 2, "meal_type": "lunch"}]
+    },
     current_conditions=result["conditions"],
 )
 ```
@@ -330,7 +469,7 @@ retry = rag.run(
 
 ```python
 retry = rag.run(
-    message="12km까지 넓혀서 다시 찾아주세요.",
+    message="2일차 점심은 애월읍에서 흑돼지로 찾아주세요.",
     current_conditions=result["conditions"],
     history=[
         {"role": "assistant", "content": result["message"]},

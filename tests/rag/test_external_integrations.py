@@ -176,6 +176,8 @@ class OperationalFactsTests(unittest.TestCase):
                             "wheelchairAccessibleRestroom": False,
                         },
                         "parkingOptions": {"freeParkingLot": True},
+                        "rating": 4.6,
+                        "userRatingCount": 217,
                     }
                 ]
             }
@@ -192,6 +194,8 @@ class OperationalFactsTests(unittest.TestCase):
             facts.accessibility["wheelchairAccessibleEntrance"]
         )
         self.assertTrue(facts.parking_options["freeParkingLot"])
+        self.assertEqual(facts.rating, 4.6)
+        self.assertEqual(facts.rating_count, 217)
 
     def test_versioned_override_can_mark_a_temporary_closure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

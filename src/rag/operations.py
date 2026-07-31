@@ -28,6 +28,8 @@ class OperationalFacts:
     opening_ranges: tuple[tuple[int, int], ...] = ()
     accessibility: Mapping[str, bool] = field(default_factory=dict)
     parking_options: Mapping[str, bool] = field(default_factory=dict)
+    rating: float | None = None
+    rating_count: int | None = None
     external_place_id: str | None = None
 
 
@@ -148,6 +150,8 @@ class GooglePlacesFactsProvider:
             "places.regularOpeningHours",
             "places.accessibilityOptions",
             "places.parkingOptions",
+            "places.rating",
+            "places.userRatingCount",
         )
     )
 
@@ -223,6 +227,8 @@ class GooglePlacesFactsProvider:
             opening_ranges=ranges,
             accessibility=_bool_mapping(result.get("accessibilityOptions")),
             parking_options=_bool_mapping(result.get("parkingOptions")),
+            rating=_optional_float(result.get("rating")),
+            rating_count=_optional_int(result.get("userRatingCount")),
             external_place_id=str(result.get("id") or "") or None,
         )
 
@@ -233,19 +239,28 @@ class CompositeOperationalFactsProvider:
         providers: Sequence[PlaceOperationalFactsProvider],
     ) -> None:
         self._providers = tuple(providers)
+        self._cache: dict[
+            tuple[int, str],
+            OperationalFacts | None,
+        ] = {}
 
     def facts_for(
         self,
         place: RetrievedPlace,
         travel_date: date,
     ) -> OperationalFacts | None:
+        key = (place.content_id, travel_date.isoformat())
+        if key in self._cache:
+            return self._cache[key]
         for provider in self._providers:
             try:
                 facts = provider.facts_for(place, travel_date)
             except OperationalFactsError:
                 continue
             if facts is not None:
+                self._cache[key] = facts
                 return facts
+        self._cache[key] = None
         return None
 
 
@@ -294,6 +309,20 @@ def _read_override_file(path: Path) -> dict[str, Any]:
             "operating exceptions root must be an object"
         )
     return payload
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        return None if value in (None, "") else float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        return None if value in (None, "") else int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _ranges_from_strings(value: Any) -> tuple[tuple[int, int], ...]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Mapping, Protocol, Sequence
 
 from .models import (
@@ -12,6 +13,13 @@ from .models import (
 
 class MetadataRepository(Protocol):
     def find_rag_content_ids(self, **kwargs: Any) -> list[int]: ...
+
+    def find_content_ids_by_titles(
+        self,
+        titles: Sequence[str],
+        *,
+        limit_per_title: int = 3,
+    ) -> Mapping[str, Sequence[int]]: ...
 
     def get_places_by_ids(
         self,
@@ -54,6 +62,8 @@ class PlaceSearchService:
         top_k: int = 10,
         candidate_k: int | None = None,
         include_aihub_evidence: bool = False,
+        center: tuple[float, float] | None = None,
+        radius_km: float | None = None,
     ) -> PlaceSearchResponse:
         normalized_query = query.strip()
         if not normalized_query:
@@ -76,6 +86,33 @@ class PlaceSearchService:
         )
         if not allowed_ids:
             return PlaceSearchResponse(normalized_query, filters, 0, ())
+
+        prefetched_rows: dict[int, dict[str, Any]] = {}
+        if center is not None and radius_km is not None:
+            if radius_km <= 0:
+                raise ValueError("radius_km must be greater than zero")
+            nearby_rows = self.mysql_repository.get_places_by_ids(allowed_ids)
+            prefetched_rows = {
+                int(row["content_id"]): dict(row)
+                for row in nearby_rows
+                if _row_within_radius(
+                    row,
+                    center=center,
+                    radius_km=radius_km,
+                )
+            }
+            allowed_ids = [
+                content_id
+                for content_id in allowed_ids
+                if content_id in prefetched_rows
+            ]
+            if not allowed_ids:
+                return PlaceSearchResponse(
+                    normalized_query,
+                    filters,
+                    0,
+                    (),
+                )
 
         query_embedding = self.embedder.embed([normalized_query])
         if len(query_embedding) != 1 or not query_embedding[0]:
@@ -110,12 +147,25 @@ class PlaceSearchService:
             document = str(documents[index] or "") if index < len(documents) else ""
             ranked.append((content_id, distance, metadata, document))
 
+        ranked_ids = [content_id for content_id, _, _, _ in ranked]
         details_by_id = {
-            int(row["content_id"]): row
-            for row in self.mysql_repository.get_places_by_ids(
-                [content_id for content_id, _, _, _ in ranked]
-            )
+            content_id: prefetched_rows[content_id]
+            for content_id in ranked_ids
+            if content_id in prefetched_rows
         }
+        missing_detail_ids = [
+            content_id
+            for content_id in ranked_ids
+            if content_id not in details_by_id
+        ]
+        details_by_id.update(
+            {
+                int(row["content_id"]): row
+                for row in self.mysql_repository.get_places_by_ids(
+                    missing_detail_ids
+                )
+            }
+        )
         aihub = (
             self.mysql_repository.get_aihub_evidence(details_by_id)
             if include_aihub_evidence
@@ -173,6 +223,27 @@ class PlaceSearchService:
             for index, row in enumerate(rows, start=1)
         )
 
+    def get_retrieved_places_by_titles(
+        self,
+        titles: Sequence[str],
+    ) -> tuple[RetrievedPlace, ...]:
+        """Resolve required place names through current MySQL TourAPI facts."""
+
+        finder = getattr(
+            self.mysql_repository,
+            "find_content_ids_by_titles",
+            None,
+        )
+        if not callable(finder):
+            return ()
+        matches = finder(titles)
+        ordered_ids: list[int] = []
+        for title in titles:
+            ordered_ids.extend(int(value) for value in matches.get(title, ()))
+        return self.get_retrieved_places_by_ids(
+            tuple(dict.fromkeys(ordered_ids))
+        )
+
 
 def _first_result(value: Any) -> list[Any]:
     if not isinstance(value, list) or not value:
@@ -224,6 +295,29 @@ def _float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _row_within_radius(
+    row: Mapping[str, Any],
+    *,
+    center: tuple[float, float],
+    radius_km: float,
+) -> bool:
+    latitude = _float(row.get("latitude"))
+    longitude = _float(row.get("longitude"))
+    if latitude is None or longitude is None:
+        return False
+    lat1, lon1 = map(math.radians, center)
+    lat2, lon2 = map(math.radians, (latitude, longitude))
+    delta_latitude = lat2 - lat1
+    delta_longitude = lon2 - lon1
+    value = (
+        math.sin(delta_latitude / 2) ** 2
+        + math.cos(lat1)
+        * math.cos(lat2)
+        * math.sin(delta_longitude / 2) ** 2
+    )
+    return 6371.0 * 2 * math.asin(math.sqrt(value)) <= radius_km
 
 
 def _retrieved_place(

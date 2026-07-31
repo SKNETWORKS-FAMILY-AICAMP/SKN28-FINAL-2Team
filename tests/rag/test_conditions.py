@@ -23,6 +23,19 @@ class FakeConditionLLM:
 
 
 class ConditionExtractionTests(unittest.TestCase):
+    def test_accepts_preferred_meal_regions(self) -> None:
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "preferred_meal_regions": ["애월읍", "한림읍"],
+            }
+        )
+
+        self.assertEqual(
+            conditions.preferred_meal_regions,
+            ("애월읍", "한림읍"),
+        )
+
     def test_menu_question_is_optional_and_disappears_after_selection(self) -> None:
         service = ConditionExtractionService(
             FakeConditionLLM(TravelConditions())
@@ -290,7 +303,7 @@ class ConditionExtractionTests(unittest.TestCase):
                 }
             )
 
-    def test_returns_questions_for_missing_aihub_fields(self) -> None:
+    def test_defaults_optional_aihub_fields_for_recommendation(self) -> None:
         service = ConditionExtractionService(
             FakeConditionLLM(
                 TravelConditions.from_mapping(
@@ -304,12 +317,89 @@ class ConditionExtractionTests(unittest.TestCase):
 
         result = service.extract(message="부모님과 3일 여행할래요")
 
+        self.assertTrue(result.ready)
+        self.assertEqual(result.clarification_questions, ())
+        self.assertEqual(result.conditions.party_type, "with_parents")
+        self.assertEqual(result.conditions.local_transport, "mixed")
+        self.assertEqual(
+            result.conditions.preferred_visit_types,
+            ("nature", "culture", "experience"),
+        )
+
+    def test_only_duration_is_required_for_recommendation(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(TravelConditions())
+        )
+
+        result = service.extract(message="제주 여행지를 추천해 주세요")
+
         self.assertFalse(result.ready)
         self.assertEqual(
             result.conditions.missing_required_fields(),
-            ("local_transport", "preferred_visit_types"),
+            ("duration_days",),
         )
-        self.assertEqual(len(result.clarification_questions), 2)
+        self.assertEqual(
+            result.clarification_questions,
+            ("제주에서 며칠 동안 여행하시나요?",),
+        )
+
+    def test_frontend_minimum_values_receive_neutral_defaults(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(TravelConditions())
+        )
+
+        result = service.from_selections(
+            selected_options={
+                "duration_days": 2,
+                "companion_count": 3,
+            }
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.conditions.party_type, "non_family_group")
+        self.assertEqual(result.conditions.local_transport, "mixed")
+        self.assertEqual(
+            result.conditions.preferred_visit_types,
+            ("nature", "culture", "experience"),
+        )
+
+    def test_guided_inputs_translate_style_without_llm_call(self) -> None:
+        llm = FakeConditionLLM(TravelConditions())
+        service = ConditionExtractionService(llm)
+
+        result = service.from_guided_inputs(
+            duration_days=3,
+            party_size=2,
+            local_transport="rental_car",
+            travel_style="힐링·여유",
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.conditions.duration_days, 3)
+        self.assertEqual(result.conditions.companion_count, 2)
+        self.assertEqual(result.conditions.party_type, "non_family_two")
+        self.assertEqual(result.conditions.local_transport, "rental_car")
+        self.assertEqual(result.conditions.travel_styles, ("healing",))
+        self.assertEqual(
+            result.conditions.preferred_visit_types,
+            ("nature", "trail"),
+        )
+        self.assertEqual(result.conditions.pace, "relaxed")
+        self.assertTrue(result.conditions.avoid_long_distance)
+        self.assertEqual(llm.extract_calls, 0)
+
+    def test_guided_inputs_reject_unknown_travel_style(self) -> None:
+        service = ConditionExtractionService(
+            FakeConditionLLM(TravelConditions())
+        )
+
+        with self.assertRaisesRegex(ValueError, "unsupported travel_style"):
+            service.from_guided_inputs(
+                duration_days=3,
+                party_size=2,
+                local_transport="rental_car",
+                travel_style="unknown",
+            )
 
     def test_merges_previous_conditions_and_removes_exclusion_conflict(self) -> None:
         service = ConditionExtractionService(

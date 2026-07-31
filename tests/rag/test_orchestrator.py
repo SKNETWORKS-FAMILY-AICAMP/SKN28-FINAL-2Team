@@ -13,6 +13,7 @@ from src.rag.models import (
 )
 from src.rag.orchestrator import RagOrchestrator
 from src.rag.retrieval import route_slots
+from src.rag.routing import RouteEstimate
 
 
 ROUTE_CONTEXT = {
@@ -185,6 +186,46 @@ class MissingLunchSlotRetriever(FakeSlotRetriever):
         return super().retrieve(slot, conditions)
 
 
+class CountingSlotRetriever(FakeSlotRetriever):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def retrieve(self, slot, conditions):
+        self.calls += 1
+        return super().retrieve(slot, conditions)
+
+
+class AnchorEchoSlotRetriever:
+    def __init__(self) -> None:
+        self.slots = []
+
+    def retrieve(self, slot, conditions):
+        self.slots.append(slot)
+        candidate = RetrievedPlace(
+            content_id=700000 + len(self.slots),
+            title=f"앵커 인접 장소 {len(self.slots)}",
+            latitude=float(slot.latitude),
+            longitude=float(slot.longitude),
+            similarity_score=0.8,
+            rank=1,
+            target_collection="attractions",
+            itinerary_role="visit",
+            opening_hours="09:00-20:00",
+            slot_score=0.8,
+        )
+        return SlotCandidates(slot, "앵커 인접 관광지", (candidate,))
+
+
+class AlwaysFarRouteProvider:
+    def estimate(self, origin, destination, *, transport):
+        return RouteEstimate(
+            distance_km=100.0,
+            duration_minutes=180,
+            provider="always_far_test",
+            verified=True,
+        )
+
+
 class TwoDayConditionLLM(FakeLLM):
     def extract_conditions(self, **kwargs):
         return TravelConditions.from_mapping(
@@ -258,9 +299,18 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result["missing_slots"], ["Day 1 #102"])
         self.assertIn("점심", result["clarification_questions"][0])
         self.assertEqual(
-            result["clarification_options"][0]["selected_options"],
-            {"meal_search_radius_km": 12},
+            [
+                option["value"]
+                for option in result["clarification_options"]
+            ],
+            [
+                "skip_unavailable_meals",
+                "enter_meal_region",
+                "change_meal_menu",
+            ],
         )
+        self.assertTrue(result["meta"]["tourism_itinerary_preserved"])
+        self.assertTrue(result["meta"]["partial_result"])
         skip_option = next(
             option
             for option in result["clarification_options"]
@@ -274,7 +324,9 @@ class OrchestratorTests(unittest.TestCase):
                 ]
             },
         )
-        self.assertEqual(result["itinerary"], [])
+        self.assertEqual(len(result["itinerary"]), 3)
+        self.assertTrue(result["meta"]["provisional_tourism_schedule"])
+        self.assertTrue(result["validation"]["valid"])
 
     def test_builds_schedule_directly_from_frontend_selections(self) -> None:
         llm = FakeLLM()
@@ -310,6 +362,177 @@ class OrchestratorTests(unittest.TestCase):
             result["conditions"]["accommodation_address"],
             "제주시 숙소",
         )
+
+    def test_builds_schedule_from_minimum_frontend_values(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+
+        result = orchestrator.run(
+            selected_options={
+                "duration_days": 1,
+                "companion_count": 2,
+            }
+        )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(len(result["itinerary"]), 5)
+        self.assertEqual(result["conditions"]["party_type"], "non_family_two")
+        self.assertEqual(result["conditions"]["local_transport"], "mixed")
+        self.assertEqual(
+            result["conditions"]["preferred_visit_types"],
+            ["nature", "culture", "experience"],
+        )
+        self.assertEqual(result["meta"]["places_per_day"], 3)
+
+    def test_creates_initial_itinerary_from_guided_four_inputs(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+
+        result = orchestrator.create_initial_itinerary(
+            duration_days=1,
+            party_size=2,
+            local_transport="rental_car",
+            travel_style="healing",
+        )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(len(result["itinerary"]), 5)
+        self.assertEqual(result["conditions"]["travel_styles"], ["healing"])
+        self.assertEqual(
+            result["conditions"]["preferred_visit_types"],
+            ["nature", "trail"],
+        )
+        self.assertEqual(
+            result["meta"]["interaction_flow"],
+            "guided_initial_itinerary_v1",
+        )
+        self.assertEqual(
+            result["meta"]["guided_input_fields"],
+            [
+                "duration_days",
+                "party_size",
+                "local_transport",
+                "travel_style",
+            ],
+        )
+
+    def test_continues_completed_itinerary_with_natural_language(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+        original = orchestrator.create_initial_itinerary(
+            duration_days=1,
+            party_size=2,
+            local_transport="rental_car",
+            travel_style="popular",
+        )
+
+        revised = orchestrator.continue_itinerary(
+            previous_result=original,
+            message="자연 관광지를 더 선호합니다.",
+        )
+
+        self.assertEqual(revised["status"], "completed")
+        self.assertEqual(
+            revised["meta"]["interaction_flow"],
+            "natural_language_revision_v1",
+        )
+        self.assertEqual(
+            revised["meta"]["edit_mode"],
+            "condition_update_regeneration",
+        )
+
+    def test_adds_tourism_slot_only_after_explicit_request(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+        original = orchestrator.create_initial_itinerary(
+            duration_days=2,
+            party_size=2,
+            local_transport="rental_car",
+            travel_style="activity",
+        )
+
+        original_counts = {
+            day: len(
+                [
+                    stop
+                    for stop in original["itinerary"]
+                    if stop["slot_kind"] == "tourism"
+                    and stop["day"] == day
+                ]
+            )
+            for day in (1, 2)
+        }
+        self.assertEqual(original_counts, {1: 3, 2: 3})
+
+        revised = orchestrator.continue_itinerary(
+            previous_result=original,
+            message="2일차에 관광지 1곳 추가해 주세요.",
+        )
+
+        revised_counts = {
+            day: len(
+                [
+                    stop
+                    for stop in revised["itinerary"]
+                    if stop["slot_kind"] == "tourism"
+                    and stop["day"] == day
+                ]
+            )
+            for day in (1, 2)
+        }
+        self.assertEqual(revised["status"], "completed")
+        self.assertEqual(revised_counts, {1: 3, 2: 4})
+        self.assertEqual(
+            revised["meta"]["edit_mode"],
+            "tourism_slot_addition",
+        )
+        self.assertEqual(
+            revised["meta"]["tourism_places_by_day"],
+            {1: 3, 2: 4},
+        )
+
+    def test_slot_addition_without_day_requests_clarification(self) -> None:
+        llm = FakeLLM()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=FakeSlotRetriever(),
+            llm=llm,
+        )
+        original = orchestrator.create_initial_itinerary(
+            duration_days=1,
+            party_size=2,
+            local_transport="rental_car",
+            travel_style="healing",
+        )
+
+        revised = orchestrator.continue_itinerary(
+            previous_result=original,
+            message="관광지 한 곳 추가해 주세요.",
+        )
+
+        self.assertEqual(revised["status"], "clarification_required")
+        self.assertIn("추가할 일차", revised["message"])
 
     def test_uses_tourapi_only_when_aihub_has_no_reference_route(self) -> None:
         llm = FakeLLM()
@@ -353,7 +576,7 @@ class OrchestratorTests(unittest.TestCase):
             )
         )
 
-    def test_repairs_invalid_llm_id_and_completes(self) -> None:
+    def test_repairs_invalid_llm_id_locally_before_paid_retry(self) -> None:
         llm = FakeLLM()
         orchestrator = RagOrchestrator(
             condition_service=ConditionExtractionService(llm),
@@ -367,9 +590,93 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["itinerary"][0]["content_id"], 101)
         self.assertEqual(len(result["itinerary"]), 5)
-        self.assertTrue(result["meta"]["llm_repaired"])
-        self.assertEqual(llm.repair_calls, 1)
+        self.assertFalse(result["meta"]["llm_repaired"])
+        self.assertTrue(result["meta"]["deterministic_fallback_used"])
+        self.assertEqual(llm.repair_calls, 0)
         self.assertEqual(result["meta"]["aihub_tourapi_mapping"], "ignored")
+
+    def test_retrieves_candidates_again_instead_of_llm_repair(self) -> None:
+        llm = FakeLLM()
+        retriever = CountingSlotRetriever()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=retriever,
+            llm=llm,
+            route_provider=AlwaysFarRouteProvider(),
+        )
+
+        result = orchestrator.run(message="혼자 렌터카로 자연 여행")
+
+        self.assertEqual(result["status"], "validation_failed")
+        self.assertEqual(llm.repair_calls, 0)
+        self.assertFalse(result["meta"]["llm_repaired"])
+        self.assertTrue(result["meta"]["candidate_retrieval_retry_used"])
+        self.assertEqual(result["meta"]["candidate_retrieval_retry_count"], 1)
+        self.assertGreater(retriever.calls, 5)
+
+    def test_validation_retry_reanchors_each_slot_to_previous_place(self) -> None:
+        llm = FakeLLM()
+        retriever = AnchorEchoSlotRetriever()
+        orchestrator = RagOrchestrator(
+            condition_service=ConditionExtractionService(llm),
+            route_adapter=FakeRouteAdapter(),
+            slot_retriever=retriever,
+            llm=llm,
+        )
+        conditions = TravelConditions.from_mapping(
+            {
+                "duration_days": 1,
+                "party_type": "solo",
+                "local_transport": "rental_car",
+                "preferred_visit_types": ["nature"],
+                "entry_point": "제주국제공항",
+                "avoid_long_distance": True,
+            }
+        )
+        original_slots = route_slots(ROUTE_CONTEXT, duration_days=1)
+        original = [
+            SlotCandidates(
+                slot,
+                "기존 AIHub 슬롯",
+                (
+                    RetrievedPlace(
+                        content_id=800000 + slot.sequence,
+                        title=f"기존 장소 {slot.sequence}",
+                        latitude=slot.latitude,
+                        longitude=slot.longitude,
+                        similarity_score=0.9,
+                        rank=1,
+                        target_collection="attractions",
+                        itinerary_role="visit",
+                        opening_hours="09:00-20:00",
+                        slot_score=0.9,
+                    ),
+                ),
+            )
+            for slot in original_slots
+        ]
+
+        retried = orchestrator._retrieve_validation_retry_candidates(
+            conditions=conditions,
+            tourism_retrieved=original,
+            meal_slots=(),
+            broad_fallback_slots={},
+            places_per_day_by_day={1: 3},
+            avoided_ids=set(),
+        )
+
+        self.assertEqual(len(retried), 3)
+        self.assertAlmostEqual(retriever.slots[0].latitude, 33.5104, places=4)
+        self.assertAlmostEqual(retriever.slots[0].longitude, 126.4913, places=4)
+        self.assertEqual(
+            retriever.slots[1].latitude,
+            retried[0].candidates[0].latitude,
+        )
+        self.assertEqual(
+            retriever.slots[1].longitude,
+            retried[0].candidates[0].longitude,
+        )
 
     def test_replaces_only_the_requested_stop(self) -> None:
         llm = FakeLLM()

@@ -22,10 +22,12 @@ from src.rag import (
     OpenAIItineraryJudge,
     OpenAIResponseComparator,
     build_report,
-    create_rag_orchestrator,
+    create_langgraph_rag_workflow,
     evaluate_case,
     load_eval_cases,
     report_as_markdown,
+    start_guided_dialogue,
+    submit_guided_answer,
     summarize_answer_comparisons,
 )
 EVAL_DATASET = PROJECT_ROOT / "evals" / "rag" / "golden_cases.jsonl"
@@ -149,6 +151,14 @@ TRANSPORTS = {
     "택시": "taxi",
     "혼합": "mixed",
 }
+TRAVEL_STYLES = {
+    "힐링·여유": "healing",
+    "자연·풍경": "nature",
+    "역사·문화": "culture",
+    "체험·액티비티": "activity",
+    "시장·로컬": "local",
+    "인기 명소 중심": "popular",
+}
 VISIT_TYPES = {
     "자연": "nature",
     "역사": "history",
@@ -225,6 +235,7 @@ VALIDATION_HELP = {
 def _state() -> None:
     defaults = {
         "rag_result": None,
+        "guided_dialogue": None,
         "conversation": [],
         "last_error": None,
         "evaluation_artifact": None,
@@ -239,7 +250,7 @@ def _state() -> None:
 
 @st.cache_resource(show_spinner=False)
 def _rag():
-    return create_rag_orchestrator(project_root=PROJECT_ROOT)
+    return create_langgraph_rag_workflow(project_root=PROJECT_ROOT)
 
 
 @st.cache_data(show_spinner=False)
@@ -308,10 +319,20 @@ def _usage_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "total_tokens": 0,
+                "reasoning_tokens": 0,
+                "input_characters": 0,
+                "output_token_budget": 0,
             },
         )
         bucket["calls"] += 1
-        for name in ("input_tokens", "output_tokens", "total_tokens"):
+        for name in (
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "reasoning_tokens",
+            "input_characters",
+            "output_token_budget",
+        ):
             bucket[name] += int(record.get(name) or 0)
     return {
         "calls": len(records),
@@ -323,6 +344,15 @@ def _usage_summary(records: list[Mapping[str, Any]]) -> dict[str, Any]:
         ),
         "total_tokens": sum(
             int(item.get("total_tokens") or 0) for item in records
+        ),
+        "reasoning_tokens": sum(
+            int(item.get("reasoning_tokens") or 0) for item in records
+        ),
+        "input_characters": sum(
+            int(item.get("input_characters") or 0) for item in records
+        ),
+        "output_token_budget": sum(
+            int(item.get("output_token_budget") or 0) for item in records
         ),
         "by_stage": by_stage,
     }
@@ -338,6 +368,7 @@ def _run_selected_evaluation(
     judge_model: str,
 ) -> dict[str, Any]:
     orchestrator = _rag()
+    discarded_usage = _drain_usage(orchestrator)
     judge = (
         OpenAIItineraryJudge(model=judge_model.strip() or None)
         if llm_judge
@@ -399,6 +430,7 @@ def _run_selected_evaluation(
         "llm_judge": llm_judge,
         "judge_model": judge_model.strip() if llm_judge else None,
         "generation_usage": _usage_summary(generation_usage),
+        "discarded_preexisting_usage": _usage_summary(discarded_usage),
         "judge_usage": _usage_summary(judge_usage),
         "report": report.to_dict(),
         "markdown": report_as_markdown(report),
@@ -434,19 +466,22 @@ def _day_requirements(text: str) -> list[dict[str, Any]]:
     return result
 
 
-def _execute_initial(options: Mapping[str, Any], message: str) -> None:
+def _execute_initial(
+    *,
+    duration_days: int,
+    party_size: int,
+    local_transport: str,
+    travel_style: str,
+) -> None:
     try:
         with st.spinner("AIHub 동선과 TourAPI 후보를 검색하고 있습니다..."):
-            result = _rag().run(
-                selected_options=options,
-                message=message.strip(),
+            result = _rag().create_initial_itinerary(
+                duration_days=duration_days,
+                party_size=party_size,
+                local_transport=local_transport,
+                travel_style=travel_style,
             )
         st.session_state.rag_result = result
-        st.session_state.conversation = []
-        if message.strip():
-            st.session_state.conversation.append(
-                {"role": "user", "content": message.strip()}
-            )
         _remember_assistant(result)
         st.session_state.last_error = None
     except Exception as exc:
@@ -488,9 +523,10 @@ def _continue_with_text(message: str) -> None:
     try:
         with st.spinner("요청을 처리하고 있습니다..."):
             if previous.get("status") == "completed":
-                result = _rag().revise(
+                result = _rag().continue_itinerary(
                     previous_result=previous,
                     message=message,
+                    history=history,
                 )
             else:
                 result = _rag().run(
@@ -508,192 +544,76 @@ def _continue_with_text(message: str) -> None:
         st.session_state.last_error = f"{type(exc).__name__}: {exc}"
 
 
-def _render_input_form() -> None:
-    st.subheader("1. 최초 여행 조건")
-    st.caption(
-        "말풍선을 눌러 조건을 선택하세요. 선택된 말풍선은 강조되어 표시됩니다."
+def _ensure_guided_dialogue() -> Mapping[str, Any]:
+    state = st.session_state.guided_dialogue
+    if not isinstance(state, Mapping):
+        state = start_guided_dialogue()
+        st.session_state.guided_dialogue = state
+        st.session_state.conversation = [
+            {"role": "assistant", "content": state["question"]}
+        ]
+    return state
+
+
+def _submit_guided_value(value: str, *, display_value: str | None = None) -> None:
+    current = _ensure_guided_dialogue()
+    next_state = submit_guided_answer(current, value)
+    st.session_state.guided_dialogue = next_state
+    st.session_state.conversation.append(
+        {"role": "user", "content": display_value or str(value)}
     )
-    st.info(
-        "처리 순서: 조건 선택 → AIHub 유사 동선 구성 → TourAPI 장소 검색 "
-        "→ 일정 생성 → 거리·운영시간·중복·필수 장소 검증"
-    )
-    with st.form("initial_conditions", clear_on_submit=False):
-        top1, top2 = st.columns([1, 2])
-        with top1:
-            duration_days = st.number_input(
-                "여행 일수",
-                min_value=1,
-                max_value=30,
-                value=2,
-            )
-            companion_count = st.number_input(
-                "총 여행 인원",
-                min_value=1,
-                max_value=30,
-                value=2,
-            )
-        with top2:
-            st.info(
-                "필수 조건은 동행 유형, 교통수단, 선호 관광 유형입니다. "
-                "관광 유형은 여러 개를 선택할 수 있습니다."
-            )
-
-        st.markdown("##### 누구와 함께 여행하나요?")
-        party_label = st.pills(
-            "동행 유형",
-            list(PARTY_TYPES),
-            default="친구·연인 2명",
-            required=True,
-            label_visibility="collapsed",
-            width="stretch",
+    error = str(next_state.get("error") or "").strip()
+    if error:
+        st.session_state.conversation.append(
+            {
+                "role": "assistant",
+                "content": f"{error}\n\n{next_state['question']}",
+            }
         )
-
-        st.markdown("##### 제주에서 어떤 교통수단을 이용하나요?")
-        transport_label = st.pills(
-            "교통수단",
-            list(TRANSPORTS),
-            default="렌터카",
-            required=True,
-            label_visibility="collapsed",
-            width="stretch",
-        )
-
-        st.markdown("##### 어떤 관광지를 좋아하나요?")
-        visit_labels = st.pills(
-            "선호 관광 유형",
-            list(VISIT_TYPES),
-            selection_mode="multi",
-            default=["자연", "문화"],
-            label_visibility="collapsed",
-            width="stretch",
-        )
-
-        st.markdown("##### 원하는 일정 속도는 어떤가요?")
-        pace_label = st.pills(
-            "일정 속도",
-            list(PACES),
-            default="여유롭게",
-            required=True,
-            label_visibility="collapsed",
-            width="stretch",
-        )
-
-        st.markdown("##### 추가로 반영할 조건을 선택하세요.")
-        extra_conditions = st.pills(
-            "추가 조건",
-            ["주차 가능한 장소", "긴 이동 피하기", "아침 식사 일정 포함"],
-            selection_mode="multi",
-            default=["주차 가능한 장소", "긴 이동 피하기"],
-            label_visibility="collapsed",
-            width="stretch",
-        )
-        parking_required = "주차 가능한 장소" in extra_conditions
-        avoid_long_distance = "긴 이동 피하기" in extra_conditions
-        include_breakfast = "아침 식사 일정 포함" in extra_conditions
-
-        food_col, blank_col = st.columns([2, 1])
-        with food_col:
-            preferred_foods = st.text_input(
-                "선호 메뉴",
-                placeholder="갈치조림, 흑돼지",
-            )
-        with blank_col:
-            st.caption(
-                "메뉴를 비워두면 RAG가 식사 후보 부족 시 추가로 질문합니다."
-            )
-
-        with st.expander("선택 조건"):
-            opt1, opt2 = st.columns(2)
-            with opt1:
-                start_point = st.text_input(
-                    "시작 지점",
-                    value="제주국제공항",
-                )
-                trip_start_time = st.text_input(
-                    "첫날 시작 시각",
-                    value="09:00",
-                    help="HH:MM 형식",
-                )
-                accommodation = st.text_input(
-                    "숙소명 또는 주소",
-                    placeholder="입력하지 않아도 됩니다.",
-                )
-                preferred_places = st.text_input(
-                    "좋아하는 장소",
-                    placeholder="숲, 바다",
-                )
-            with opt2:
-                end_point = st.text_input(
-                    "종료 지점·공항",
-                    value="제주국제공항",
-                )
-                deadline = st.text_input(
-                    "마지막 날 도착 제한 시각",
-                    value="20:00",
-                    help="HH:MM 형식",
-                )
-                must_visit = st.text_input(
-                    "반드시 포함할 장소",
-                    placeholder="우도, 성산일출봉",
-                )
-                excluded_places = st.text_input(
-                    "제외할 장소",
-                    placeholder="테마파크",
-                )
-            required_by_day = st.text_input(
-                "일차별 필수 장소",
-                placeholder="2: 우도, 성산일출봉; 3: 한라수목원",
-            )
-
-        natural_message = st.text_area(
-            "추가 자연어 요청",
-            placeholder=(
-                "예: 부모님과 여유롭게 여행하고 싶고, "
-                "휠체어 이동이 어려운 곳은 피해주세요."
-            ),
-        )
-        submitted = st.form_submit_button(
-            "RAG 일정 생성",
-            type="primary",
-            use_container_width=True,
-        )
-
-    if submitted:
-        if not visit_labels:
-            st.error("선호 관광 유형을 한 개 이상 선택해 주세요.")
-            return
-        try:
-            options = {
-                "region": "제주",
-                "duration_days": int(duration_days),
-                "party_type": PARTY_TYPES[party_label],
-                "companion_count": int(companion_count),
-                "local_transport": TRANSPORTS[transport_label],
-                "preferred_visit_types": [
-                    VISIT_TYPES[label] for label in visit_labels
-                ],
-                "pace": PACES[pace_label],
-                "parking_required": parking_required,
-                "avoid_long_distance": avoid_long_distance,
-                "include_breakfast": include_breakfast,
-                "preferred_foods": _csv(preferred_foods),
-                "entry_point": start_point.strip() or None,
-                "arrival_time": trip_start_time.strip() or None,
-                "exit_point": end_point.strip() or None,
-                "departure_time": deadline.strip() or None,
-                "accommodation_address": accommodation.strip() or None,
-                "preferred_places": _csv(preferred_places),
-                "must_visit_places": _csv(must_visit),
-                "excluded_places": _csv(excluded_places),
-                "required_day_itineraries": _day_requirements(
-                    required_by_day
+        return
+    if next_state.get("ready"):
+        inputs = dict(next_state["generation_inputs"])
+        st.session_state.conversation.append(
+            {
+                "role": "assistant",
+                "content": (
+                    "좋습니다. 입력하신 조건으로 AIHub 동선과 TourAPI 장소를 "
+                    "검색해 1차 여행 일정을 만들겠습니다."
                 ),
             }
-        except ValueError as exc:
-            st.error(str(exc))
-            return
-        _execute_initial(options, natural_message)
-        st.rerun()
+        )
+        _execute_initial(**inputs)
+        return
+    st.session_state.conversation.append(
+        {"role": "assistant", "content": next_state["question"]}
+    )
+
+
+def _render_guided_intake() -> None:
+    state = _ensure_guided_dialogue()
+    st.subheader("제주 여행 조건 대화")
+    st.caption(
+        "RAG가 한 번에 한 가지씩 질문합니다. 선택지를 누르거나 아래 "
+        "대화창에 직접 답변할 수 있습니다."
+    )
+    _render_conversation()
+    if state.get("ready"):
+        return
+    options = list(state.get("options") or [])
+    if options:
+        st.markdown("##### 빠른 선택")
+        columns = st.columns(min(3, len(options)))
+        for index, option in enumerate(options):
+            label = str(option["label"])
+            value = str(option["value"])
+            with columns[index % len(columns)]:
+                if st.button(
+                    label,
+                    key=f"guided_{state['step_index']}_{value}",
+                    use_container_width=True,
+                ):
+                    _submit_guided_value(value, display_value=label)
+                    st.rerun()
 
 
 def _status_label(status: str) -> str:
@@ -728,6 +648,19 @@ def _render_summary(result: Mapping[str, Any]) -> None:
             "아래 일정은 확정 일정이 아니라 실패 원인을 확인하기 위한 미리보기입니다."
         )
         _render_validation_issues(result)
+    elif status == "clarification_required" and result.get("itinerary"):
+        st.info(
+            "식사 후보를 확정하기 전 관광 일정 초안을 먼저 생성했습니다. "
+            "아래 선택지에서 검색 반경 확대 또는 식사 제외를 선택하면 "
+            "현재 관광 조건을 유지한 채 최종 일정을 다시 검증합니다."
+        )
+        validation = result.get("validation") or {}
+        if validation and not validation.get("valid"):
+            st.warning(
+                "현재 관광 일정은 식사 확정 전 초안이며 거리·시간 보정이 "
+                "추가로 필요합니다."
+            )
+            _render_validation_issues(result)
 
     conditions = result.get("conditions") or {}
     meta = result.get("meta") or {}
@@ -907,16 +840,18 @@ def _render_diagnostics(result: Mapping[str, Any]) -> None:
 def _render_conversation() -> None:
     conversation = st.session_state.conversation
     if conversation:
-        with st.expander("후속 요청 기록"):
-            for item in conversation:
-                label = "사용자" if item["role"] == "user" else "RAG"
-                st.markdown(f"**{label}:** {item['content']}")
+        for item in conversation:
+            with st.chat_message(item["role"]):
+                st.markdown(str(item["content"]))
 
 
 def _render_evaluation_results(artifact: Mapping[str, Any]) -> None:
     report = dict(artifact.get("report") or {})
     generation_usage = dict(artifact.get("generation_usage") or {})
     judge_usage = dict(artifact.get("judge_usage") or {})
+    discarded_usage = dict(
+        artifact.get("discarded_preexisting_usage") or {}
+    )
 
     st.subheader("2. 평가 결과")
     status_label = "통과" if report.get("passed") else "기준 미달"
@@ -948,6 +883,11 @@ def _render_evaluation_results(artifact: Mapping[str, Any]) -> None:
         "점수는 골든셋 기대값과 실제 결과를 비교한 0~1 값입니다. "
         "통과율은 개별 통과 기준을 넘은 케이스의 비율입니다."
     )
+    if int(discarded_usage.get("calls") or 0):
+        st.caption(
+            "평가 시작 전 캐시된 RAG 사용량 "
+            f"{int(discarded_usage.get('calls') or 0)}회는 합계에서 제외했습니다."
+        )
 
     case_rows = []
     for case in report.get("cases") or []:
@@ -1088,6 +1028,9 @@ def _run_answer_comparison(
     repeat_count: int,
 ) -> dict[str, Any]:
     orchestrator = _rag()
+    # `_rag()` is a cached resource shared with the schedule test page.
+    # Exclude token records left by earlier interactions from this experiment.
+    discarded_usage = _drain_usage(orchestrator)
     comparator = OpenAIResponseComparator(
         baseline_model=baseline_model.strip() or None,
         judge_model=judge_model.strip() or None,
@@ -1097,6 +1040,7 @@ def _run_answer_comparison(
     all_rag_usage: list[dict[str, Any]] = []
     all_baseline_usage: list[dict[str, Any]] = []
     all_judge_usage: list[dict[str, Any]] = []
+    reusable_conditions: dict[str, Any] | None = None
     progress = st.progress(0, text="A/B 비교 평가를 준비하고 있습니다.")
 
     try:
@@ -1106,10 +1050,21 @@ def _run_answer_comparison(
                 text=f"{run_index}/{repeat_count}회: RAG 답변 생성 중",
             )
             started = time.perf_counter()
-            rag_result = orchestrator.run(message=question)
+            condition_reused = run_index > 1 and reusable_conditions is not None
+            rag_result = (
+                orchestrator.run(selected_options=reusable_conditions)
+                if condition_reused
+                else orchestrator.run(message=question)
+            )
             rag_latency_ms = (time.perf_counter() - started) * 1000
             run_rag_usage = _drain_usage(orchestrator)
             all_rag_usage.extend(run_rag_usage)
+            if (
+                reusable_conditions is None
+                and rag_result.get("status") != "clarification_required"
+                and isinstance(rag_result.get("conditions"), Mapping)
+            ):
+                reusable_conditions = dict(rag_result["conditions"])
             progress.progress(
                 (run_index - 0.5) / repeat_count,
                 text=f"{run_index}/{repeat_count}회: 기본 LLM 생성·익명 심사 중",
@@ -1137,6 +1092,7 @@ def _run_answer_comparison(
                     "rag_status": rag_result.get("status"),
                     "rag_latency_ms": round(rag_latency_ms, 3),
                     "rag_usage": _usage_summary(run_rag_usage),
+                    "condition_reused": condition_reused,
                 }
             )
             progress.progress(
@@ -1156,6 +1112,7 @@ def _run_answer_comparison(
             "baseline": _usage_summary(all_baseline_usage),
             "judge": _usage_summary(all_judge_usage),
         },
+        "discarded_preexisting_usage": _usage_summary(discarded_usage),
     }
 
 
@@ -1372,6 +1329,9 @@ def _render_answer_comparison_results(
     rag_usage = dict(total_usage.get("rag") or {})
     baseline_usage = dict(total_usage.get("baseline") or {})
     judge_usage = dict(total_usage.get("judge") or {})
+    discarded_usage = dict(
+        artifact.get("discarded_preexisting_usage") or {}
+    )
     with st.expander("응답 시간·API 사용량"):
         usage_rows = [
             {
@@ -1405,6 +1365,43 @@ def _render_answer_comparison_results(
             use_container_width=True,
             hide_index=True,
         )
+        discarded_calls = int(discarded_usage.get("calls") or 0)
+        if discarded_calls:
+            st.info(
+                "평가 시작 전에 캐시된 RAG 사용량 "
+                f"{discarded_calls}회·"
+                f"{int(discarded_usage.get('total_tokens') or 0):,}토큰을 "
+                "이번 평가 합계에서 제외했습니다."
+            )
+        stage_labels = {
+            "travel_condition_extraction": "조건 추출",
+            "tourapi_itinerary_draft": "일정 생성",
+            "repaired_tourapi_itinerary_draft": "일정 자동 수정",
+        }
+        stage_rows = []
+        for stage, values in dict(rag_usage.get("by_stage") or {}).items():
+            stage_rows.append(
+                {
+                    "RAG 단계": stage_labels.get(stage, stage),
+                    "호출": int(values.get("calls") or 0),
+                    "입력 토큰": int(values.get("input_tokens") or 0),
+                    "출력 토큰": int(values.get("output_tokens") or 0),
+                    "추론 토큰": int(values.get("reasoning_tokens") or 0),
+                    "프롬프트 문자": int(
+                        values.get("input_characters") or 0
+                    ),
+                }
+            )
+        if stage_rows:
+            st.caption(
+                "RAG 단계별 실제 사용량입니다. 입력 토큰에는 시스템 프롬프트, "
+                "JSON Schema, 검색 후보 컨텍스트가 포함됩니다."
+            )
+            st.dataframe(
+                pd.DataFrame(stage_rows),
+                use_container_width=True,
+                hide_index=True,
+            )
 
     st.download_button(
         "A/B 비교 결과 JSON 다운로드",
@@ -1689,6 +1686,7 @@ def main() -> None:
         if selected_menu == MENU_RAG_TEST:
             if st.button("일정 결과 초기화", use_container_width=True):
                 st.session_state.rag_result = None
+                st.session_state.guided_dialogue = None
                 st.session_state.conversation = []
                 st.session_state.last_error = None
                 st.rerun()
@@ -1711,18 +1709,23 @@ def main() -> None:
         "src/rag의 순수 Python 인터페이스를 직접 호출합니다. "
         "backend에는 연결하지 않습니다."
     )
-    _render_input_form()
 
     if st.session_state.last_error:
         st.error(st.session_state.last_error)
 
     result = st.session_state.rag_result
-    if result:
+    if not result:
+        _render_guided_intake()
+        prompt = st.chat_input("답변을 입력하거나 위 선택지를 눌러주세요.")
+        if prompt:
+            _submit_guided_value(prompt)
+            st.rerun()
+    else:
+        _render_conversation()
         _render_summary(result)
         _render_clarification(result)
         _render_itinerary(result)
         _render_diagnostics(result)
-        _render_conversation()
 
         prompt = st.chat_input(
             (

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 import logging
+import os
 import re
 from typing import Any, Mapping, Sequence
 
@@ -37,16 +38,21 @@ from .retrieval import (
 from .routing import (
     HaversineRouteMetricsProvider,
     RouteMetricsProvider,
+    RouteProviderError,
     create_route_metrics_provider_from_env,
 )
 from .validation import (
     ValidationPolicy,
     deterministic_draft,
     max_leg_distance_km,
+    place_coordinates,
+    resolve_day_end_anchor,
+    resolve_day_start_anchor,
     validate_and_schedule,
 )
 
 PLACES_PER_DAY = 3
+MAX_TOURISM_PLACES_PER_DAY = 8
 LOGGER = logging.getLogger(__name__)
 
 
@@ -86,6 +92,7 @@ class RagOrchestrator:
         current_conditions: Mapping[str, Any] | TravelConditions | None = None,
         selected_options: Mapping[str, Any] | None = None,
         avoid_content_ids: Sequence[int] = (),
+        tourism_places_by_day: Mapping[int, int] | None = None,
     ) -> dict[str, Any]:
         input_mode = (
             "frontend_selections"
@@ -125,13 +132,18 @@ class RagOrchestrator:
             }
 
         conditions = condition_result.conditions
-        places_per_day = PACE_SLOTS_PER_DAY.get(
-            conditions.pace or "",
-            PLACES_PER_DAY,
+        places_per_day = PLACES_PER_DAY
+        requested_days = int(conditions.duration_days or 0)
+        target_places_by_day = _resolve_tourism_places_by_day(
+            duration_days=requested_days,
+            overrides=tourism_places_by_day,
+        )
+        max_places_per_day = max(
+            target_places_by_day.values(),
+            default=places_per_day,
         )
         route_context = self.route_adapter.build_route_context(conditions)
         patterns = route_context.get("reference_trip_patterns")
-        requested_days = int(conditions.duration_days or 0)
         route_strategy = "aihub_pattern"
         aihub_fallback_reason: str | None = None
         if isinstance(patterns, list) and patterns:
@@ -140,12 +152,12 @@ class RagOrchestrator:
                 duration_days=requested_days,
                 pace=conditions.pace,
                 max_leg_distance_km=max_leg_distance_km(conditions),
-                places_per_day=places_per_day,
+                places_per_day=max_places_per_day,
             )
             slots = route_slots(
                 route_context,
                 duration_days=requested_days,
-                max_slots_per_day=places_per_day,
+                max_slots_per_day=max_places_per_day,
             )
             if not slots:
                 route_strategy = "tourapi_only_fallback"
@@ -162,13 +174,14 @@ class RagOrchestrator:
         synthesized_days = [
             day
             for day, count in original_slot_counts.items()
-            if count != places_per_day
+            if count != target_places_by_day[day]
         ]
         if route_strategy == "tourapi_only_fallback":
             slots = tourapi_only_slots(
                 conditions,
                 places_per_day=places_per_day,
                 radius_km=max_leg_distance_km(conditions),
+                places_per_day_by_day=target_places_by_day,
             )
         else:
             slots = complete_route_slots(
@@ -176,6 +189,7 @@ class RagOrchestrator:
                 conditions,
                 places_per_day=places_per_day,
                 anchor_radius_km=max_leg_distance_km(conditions),
+                places_per_day_by_day=target_places_by_day,
             )
         synthesized_slot_count = len(
             [
@@ -196,6 +210,28 @@ class RagOrchestrator:
         tourism_retrieved = [
             self.slot_retriever.retrieve(slot, conditions)
             for slot in tourism_slots
+        ]
+        broad_fallback_slots = {
+            (slot.day, slot.sequence): slot
+            for slot in tourapi_only_slots(
+                conditions,
+                places_per_day=places_per_day,
+                radius_km=max_leg_distance_km(conditions),
+                places_per_day_by_day=target_places_by_day,
+            )
+        }
+        tourism_retrieved = [
+            (
+                self.slot_retriever.retrieve(
+                    broad_fallback_slots[
+                        (item.slot.day, item.slot.sequence)
+                    ],
+                    conditions,
+                )
+                if not item.candidates
+                else item
+            )
+            for item in tourism_retrieved
         ]
         avoided_ids = {int(value) for value in avoid_content_ids}
         tourism_retrieved = _filter_avoided_candidates(
@@ -227,7 +263,7 @@ class RagOrchestrator:
             _anchor_meal_slot_to_selected_tourism(
                 slot,
                 selected_tourism,
-                places_per_day=places_per_day,
+                places_per_day=target_places_by_day[slot.day],
             )
             for slot in meal_slots
         ]
@@ -258,6 +294,15 @@ class RagOrchestrator:
             if empty_items and all(
                 item.slot.slot_kind == "meal" for item in empty_items
             ):
+                tourism_validation = validate_and_schedule(
+                    tourism_draft,
+                    locked_tourism,
+                    conditions,
+                    route_provider=self.route_provider,
+                    policy=self.validation_policy,
+                    operational_provider=self.operational_provider,
+                    holiday_calendar=self.holiday_calendar,
+                )
                 return _meal_retrieval_clarification(
                     conditions=conditions,
                     empty_items=empty_items,
@@ -269,6 +314,12 @@ class RagOrchestrator:
                     input_mode=input_mode,
                     route_strategy=route_strategy,
                     aihub_fallback_reason=aihub_fallback_reason,
+                    tourism_places_by_day=target_places_by_day,
+                    provisional_itinerary=[
+                        stop.to_dict()
+                        for stop in tourism_validation.schedule
+                    ],
+                    provisional_validation=tourism_validation.to_dict(),
                 )
             return {
                 "status": "retrieval_incomplete",
@@ -297,6 +348,8 @@ class RagOrchestrator:
                     "aihub_original_slot_counts": original_slot_counts,
                     "synthesized_route_days": synthesized_days,
                     "synthesized_slot_count": synthesized_slot_count,
+                    "tourism_places_per_day": places_per_day,
+                    "tourism_places_by_day": target_places_by_day,
                 },
             }
 
@@ -305,10 +358,13 @@ class RagOrchestrator:
             route_context,
             retrieved,
             frontend_selections=selected_options,
+            tourism_places_by_day=target_places_by_day,
         )
         llm_used = False
         repaired = False
         fallback_used = False
+        candidate_retry_used = False
+        candidate_retry_count = 0
         validation_messages: list[str] = []
         try:
             draft = self.llm.generate_itinerary(prompt_context)
@@ -322,50 +378,35 @@ class RagOrchestrator:
                 operational_provider=self.operational_provider,
                 holiday_calendar=self.holiday_calendar,
             )
-            attempts = 0
-            while not validation.valid and attempts < self.repair_attempts:
-                validation_messages = [
-                    issue.message for issue in validation.issues
-                ]
-                draft = self.llm.repair_itinerary(
-                    context=prompt_context,
-                    invalid_draft=draft,
-                    validation_messages=validation_messages,
-                )
-                repaired = True
-                attempts += 1
-                validation = validate_and_schedule(
-                    draft,
-                    retrieved,
-                    conditions,
-                    route_provider=self.route_provider,
-                    policy=self.validation_policy,
-                    operational_provider=self.operational_provider,
-                    holiday_calendar=self.holiday_calendar,
-                )
         except LLMError:
             LOGGER.warning(
                 "LLM itinerary generation failed; using deterministic optimizer",
                 exc_info=True,
             )
-            draft = deterministic_draft(retrieved, conditions)
+            draft = deterministic_draft(revision_retrieved, conditions)
             validation = validate_and_schedule(
                 draft,
-                retrieved,
+                revision_retrieved,
                 conditions,
                 route_provider=self.route_provider,
                 policy=self.validation_policy,
                 operational_provider=self.operational_provider,
                 holiday_calendar=self.holiday_calendar,
             )
+            retrieved = list(revision_retrieved)
             fallback_used = True
 
         if not validation.valid:
             validation_messages = [issue.message for issue in validation.issues]
-            fallback_draft = deterministic_draft(retrieved, conditions)
+            # Recombine all candidates already retrieved for each slot before
+            # paying for or attempting any additional generation.
+            fallback_draft = deterministic_draft(
+                revision_retrieved,
+                conditions,
+            )
             fallback_validation = validate_and_schedule(
                 fallback_draft,
-                retrieved,
+                revision_retrieved,
                 conditions,
                 route_provider=self.route_provider,
                 policy=self.validation_policy,
@@ -376,6 +417,43 @@ class RagOrchestrator:
             if fallback_validation.valid:
                 draft = fallback_draft
                 validation = fallback_validation
+                retrieved = list(revision_retrieved)
+
+        if not validation.valid:
+            # A deterministic correction that cannot satisfy the validator
+            # means the current whitelist is insufficient. Re-run retrieval
+            # with expanded geographic slots, then rebuild meals around the
+            # newly selected tourism places. Do not send the same large
+            # context to an LLM repair call.
+            validation_messages = [issue.message for issue in validation.issues]
+            retry_retrieved = self._retrieve_validation_retry_candidates(
+                conditions=conditions,
+                tourism_retrieved=tourism_retrieved,
+                meal_slots=meal_slots,
+                broad_fallback_slots=broad_fallback_slots,
+                places_per_day_by_day=target_places_by_day,
+                avoided_ids=avoided_ids,
+            )
+            candidate_retry_used = True
+            candidate_retry_count = 1
+            retry_draft = deterministic_draft(
+                retry_retrieved,
+                conditions,
+            )
+            retry_validation = validate_and_schedule(
+                retry_draft,
+                retry_retrieved,
+                conditions,
+                route_provider=self.route_provider,
+                policy=self.validation_policy,
+                operational_provider=self.operational_provider,
+                holiday_calendar=self.holiday_calendar,
+            )
+            draft = retry_draft
+            validation = retry_validation
+            retrieved = list(retry_retrieved)
+            revision_retrieved = list(retry_retrieved)
+            fallback_used = True
 
         status = "completed" if validation.valid else "validation_failed"
         ready_for_booking = validation.valid and not validation.warnings
@@ -412,6 +490,7 @@ class RagOrchestrator:
                 "input_mode": input_mode,
                 "places_per_day": places_per_day,
                 "tourism_places_per_day": places_per_day,
+                "tourism_places_by_day": target_places_by_day,
                 "meal_slots_per_day": (
                     3 if conditions.include_breakfast is True else 2
                 ),
@@ -424,6 +503,8 @@ class RagOrchestrator:
                 "aihub_fallback_reason": aihub_fallback_reason,
                 "llm_repaired": repaired,
                 "deterministic_fallback_used": fallback_used,
+                "candidate_retrieval_retry_used": candidate_retry_used,
+                "candidate_retrieval_retry_count": candidate_retry_count,
                 "validation_messages_before_fallback": validation_messages,
                 "place_source": "tourapi_vector_candidates_only",
                 "aihub_tourapi_mapping": "ignored",
@@ -444,6 +525,348 @@ class RagOrchestrator:
                 ),
             },
         }
+
+    def create_initial_itinerary(
+        self,
+        *,
+        duration_days: int,
+        party_size: int,
+        local_transport: str,
+        travel_style: str,
+    ) -> dict[str, Any]:
+        """Create the first itinerary from the four guided UI inputs."""
+
+        condition_result = self.condition_service.from_guided_inputs(
+            duration_days=duration_days,
+            party_size=party_size,
+            local_transport=local_transport,
+            travel_style=travel_style,
+        )
+        result = self.run(
+            selected_options=condition_result.conditions.to_dict(),
+        )
+        meta = dict(result.get("meta") or {})
+        meta["interaction_flow"] = "guided_initial_itinerary_v1"
+        meta["guided_input_fields"] = [
+            "duration_days",
+            "party_size",
+            "local_transport",
+            "travel_style",
+        ]
+        result["meta"] = meta
+        return result
+
+    def continue_itinerary(
+        self,
+        *,
+        previous_result: Mapping[str, Any],
+        message: str,
+        history: Sequence[Mapping[str, str]] = (),
+    ) -> dict[str, Any]:
+        """Apply a natural-language request after the first itinerary exists."""
+
+        if not message.strip():
+            raise ValueError("message must not be blank")
+        previous_conditions = previous_result.get("conditions")
+        if not isinstance(previous_conditions, Mapping):
+            return _revision_clarification(
+                previous_result,
+                "기존 여행 조건을 확인할 수 없어 요청을 반영할 수 없습니다.",
+            )
+        duration_days = int(previous_conditions.get("duration_days") or 0)
+        slot_addition = _parse_tourism_slot_addition_request(
+            message,
+            duration_days=duration_days,
+        )
+        if slot_addition is not None:
+            increments, clarification = slot_addition
+            if clarification:
+                return _revision_clarification(previous_result, clarification)
+            current_counts = _current_tourism_places_by_day(
+                previous_result,
+                duration_days=duration_days,
+            )
+            target_counts = dict(current_counts)
+            for day, increment in increments.items():
+                target_counts[day] = target_counts.get(day, PLACES_PER_DAY) + increment
+            if any(
+                count > MAX_TOURISM_PLACES_PER_DAY
+                for count in target_counts.values()
+            ):
+                return _revision_clarification(
+                    previous_result,
+                    "하루 관광지는 운영시간과 식사 시간을 고려해 최대 "
+                    f"{MAX_TOURISM_PLACES_PER_DAY}곳까지 추가할 수 있습니다.",
+                )
+            result = self.run(
+                selected_options=dict(previous_conditions),
+                tourism_places_by_day=target_counts,
+            )
+            meta = dict(result.get("meta") or {})
+            meta.update(
+                {
+                    "interaction_flow": "natural_language_revision_v1",
+                    "edit_mode": "tourism_slot_addition",
+                    "tourism_slot_increments": increments,
+                    "previous_itinerary_preserved": False,
+                }
+            )
+            result["meta"] = meta
+            if result.get("status") == "completed":
+                changed = ", ".join(
+                    f"{day}일차 +{count}곳"
+                    for day, count in sorted(increments.items())
+                )
+                result["message"] = (
+                    f"요청하신 관광지 슬롯을 추가해 일정을 다시 구성했습니다: "
+                    f"{changed}."
+                )
+            return result
+        if (
+            _is_full_regeneration_request(message)
+            or _parse_replacement_request(message) is not None
+        ):
+            return self.revise(
+                previous_result=previous_result,
+                message=message,
+            )
+        result = self.run(
+            message=message,
+            history=history,
+            current_conditions=previous_conditions,
+            tourism_places_by_day=_current_tourism_places_by_day(
+                previous_result,
+                duration_days=duration_days,
+            ),
+        )
+        meta = dict(result.get("meta") or {})
+        meta.update(
+            {
+                "interaction_flow": "natural_language_revision_v1",
+                "edit_mode": "condition_update_regeneration",
+                "previous_itinerary_preserved": False,
+            }
+        )
+        result["meta"] = meta
+        if result.get("status") == "completed":
+            result["message"] = (
+                "기존 여행 조건에 추가 요청을 반영해 일정을 다시 구성했습니다."
+            )
+        return result
+
+    def _retrieve_validation_retry_candidates(
+        self,
+        *,
+        conditions: TravelConditions,
+        tourism_retrieved: Sequence[SlotCandidates],
+        meal_slots: Sequence[SlotRequest],
+        broad_fallback_slots: Mapping[tuple[int, int], SlotRequest],
+        places_per_day_by_day: Mapping[int, int],
+        avoided_ids: set[int],
+    ) -> list[SlotCandidates]:
+        """Re-query TourAPI around the actual route and lock route-safe places."""
+
+        max_radius = max_leg_distance_km(conditions)
+        last_day = max(
+            (item.slot.day for item in tourism_retrieved),
+            default=conditions.duration_days or 1,
+        )
+        retry_tourism: list[SlotCandidates] = []
+        selected_tourism: dict[tuple[int, int], RetrievedPlace] = {}
+        used_ids = set(avoided_ids)
+        by_day: dict[int, list[SlotCandidates]] = {}
+        for item in tourism_retrieved:
+            by_day.setdefault(item.slot.day, []).append(item)
+
+        for day in sorted(by_day):
+            day_items = sorted(
+                by_day[day],
+                key=lambda item: item.slot.sequence,
+            )
+            _, previous_coordinates = resolve_day_start_anchor(
+                conditions,
+                day=day,
+            )
+            if previous_coordinates is None and day_items:
+                first_slot = day_items[0].slot
+                if first_slot.latitude and first_slot.longitude:
+                    previous_coordinates = (
+                        first_slot.latitude,
+                        first_slot.longitude,
+                    )
+            _, day_end_coordinates = resolve_day_end_anchor(
+                conditions,
+                day=day,
+                last_day=last_day,
+            )
+
+            for index, item in enumerate(day_items):
+                slot = item.slot
+                current_radius = float(slot.radius_km or 0)
+                expanded_radius = min(
+                    max_radius,
+                    max(current_radius * 1.5, min(max_radius, 12.0)),
+                )
+                retry_slot = replace(
+                    slot,
+                    latitude=(
+                        previous_coordinates[0]
+                        if previous_coordinates is not None
+                        else slot.latitude
+                    ),
+                    longitude=(
+                        previous_coordinates[1]
+                        if previous_coordinates is not None
+                        else slot.longitude
+                    ),
+                    radius_km=expanded_radius,
+                    template_source="validation_retry_route_aware",
+                )
+                refreshed = self.slot_retriever.retrieve(
+                    retry_slot,
+                    conditions,
+                )
+                fallback_slot = broad_fallback_slots.get(
+                    (slot.day, slot.sequence)
+                )
+                if not refreshed.candidates and fallback_slot is not None:
+                    refreshed = self.slot_retriever.retrieve(
+                        replace(
+                            fallback_slot,
+                            latitude=retry_slot.latitude,
+                            longitude=retry_slot.longitude,
+                            radius_km=expanded_radius,
+                            template_source="validation_retry_broad",
+                        ),
+                        conditions,
+                    )
+                merged = _merge_slot_candidate_pools(refreshed, item)
+                merged = _filter_avoided_candidates(
+                    [merged],
+                    avoided_ids,
+                )[0]
+                destination = (
+                    day_end_coordinates
+                    if index == len(day_items) - 1
+                    else None
+                )
+                selected = self._select_route_safe_place(
+                    merged,
+                    conditions=conditions,
+                    origin=previous_coordinates,
+                    destination=destination,
+                    max_distance_km=max_radius,
+                    used_ids=used_ids,
+                )
+                if selected is not None:
+                    used_ids.add(selected.content_id)
+                    selected_tourism[
+                        (slot.day, slot.sequence)
+                    ] = selected
+                    previous_coordinates = place_coordinates(selected)
+                    merged = replace(merged, candidates=(selected,))
+                retry_tourism.append(merged)
+
+        tourism_draft = deterministic_draft(retry_tourism, conditions)
+        selected_tourism = _selected_places_by_slot(
+            tourism_draft,
+            retry_tourism,
+        )
+        retry_meal_slots = [
+            _anchor_meal_slot_to_selected_tourism(
+                slot,
+                selected_tourism,
+                places_per_day=places_per_day_by_day[slot.day],
+            )
+            for slot in meal_slots
+        ]
+        retry_meals: list[SlotCandidates] = []
+        for slot in retry_meal_slots:
+            meal_result = self.slot_retriever.retrieve(slot, conditions)
+            meal_result = _filter_avoided_candidates(
+                [meal_result],
+                avoided_ids,
+            )[0]
+            origin, destination = _meal_route_neighbors(
+                slot,
+                selected_tourism,
+                conditions=conditions,
+                places_per_day=places_per_day_by_day[slot.day],
+                last_day=last_day,
+            )
+            selected_meal = self._select_route_safe_place(
+                meal_result,
+                conditions=conditions,
+                origin=origin,
+                destination=destination,
+                max_distance_km=max_radius,
+                used_ids=used_ids,
+            )
+            if selected_meal is not None:
+                used_ids.add(selected_meal.content_id)
+                meal_result = replace(
+                    meal_result,
+                    candidates=(selected_meal,),
+                )
+            retry_meals.append(meal_result)
+        return sorted(
+            [*retry_tourism, *retry_meals],
+            key=lambda item: (item.slot.day, item.slot.sequence),
+        )
+
+    def _select_route_safe_place(
+        self,
+        item: SlotCandidates,
+        *,
+        conditions: TravelConditions,
+        origin: tuple[float, float] | None,
+        destination: tuple[float, float] | None,
+        max_distance_km: float,
+        used_ids: set[int],
+    ) -> RetrievedPlace | None:
+        """Choose the highest-scoring candidate whose adjacent legs are safe."""
+
+        ranked: list[tuple[float, float, int, RetrievedPlace]] = []
+        for candidate in item.candidates:
+            if candidate.content_id in used_ids:
+                continue
+            coordinates = place_coordinates(candidate)
+            if coordinates is None and (origin is not None or destination is not None):
+                continue
+            total_distance = 0.0
+            route_safe = True
+            for leg_origin, leg_destination in (
+                (origin, coordinates),
+                (coordinates, destination),
+            ):
+                if leg_origin is None or leg_destination is None:
+                    continue
+                try:
+                    estimate = self.route_provider.estimate(
+                        leg_origin,
+                        leg_destination,
+                        transport=conditions.local_transport or "mixed",
+                    )
+                except RouteProviderError:
+                    route_safe = False
+                    break
+                if estimate.distance_km > max_distance_km:
+                    route_safe = False
+                    break
+                total_distance += estimate.distance_km
+            if route_safe:
+                ranked.append(
+                    (
+                        -float(candidate.slot_score or 0.0),
+                        total_distance,
+                        candidate.content_id,
+                        candidate,
+                    )
+                )
+        if not ranked:
+            return None
+        ranked.sort(key=lambda value: value[:3])
+        return ranked[0][3]
 
     def revise(
         self,
@@ -473,6 +896,12 @@ class RagOrchestrator:
             regenerated = self.run(
                 selected_options=dict(previous_conditions),
                 avoid_content_ids=previous_ids,
+                tourism_places_by_day=_current_tourism_places_by_day(
+                    previous_result,
+                    duration_days=int(
+                        previous_conditions.get("duration_days") or 0
+                    ),
+                ),
             )
             meta = dict(regenerated.get("meta") or {})
             meta.update(
@@ -646,6 +1075,9 @@ def _meal_retrieval_clarification(
     input_mode: str,
     route_strategy: str,
     aihub_fallback_reason: str | None,
+    tourism_places_by_day: Mapping[int, int],
+    provisional_itinerary: Sequence[Mapping[str, Any]] = (),
+    provisional_validation: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     meal_labels = {
         "breakfast": "아침",
@@ -669,23 +1101,7 @@ def _meal_retrieval_clarification(
         f"{detail['day']}일차 {detail['meal_label']}"
         for detail in missing_details
     )
-    suggested_radii = [
-        radius for radius in (12, 20, 30) if radius > current_radius
-    ][:2]
     options = [
-        {
-            "value": f"expand_meal_radius_{radius}",
-            "label": f"{radius}km까지 검색",
-            "description": (
-                f"식당 검색 반경을 {radius}km로 넓혀 다시 검색합니다."
-            ),
-            "selected_options": {
-                "meal_search_radius_km": radius,
-            },
-        }
-        for radius in suggested_radii
-    ]
-    options.append(
         {
             "value": "skip_unavailable_meals",
             "label": "해당 식사 일정 제외",
@@ -701,23 +1117,29 @@ def _meal_retrieval_clarification(
                     for detail in missing_details
                 ],
             },
-        }
-    )
-    options.append(
+        },
         {
-            "value": "enter_meal_preference",
-            "label": "메뉴·지역 직접 입력",
+            "value": "enter_meal_region",
+            "label": "식사 지역 지정",
             "description": (
-                "원하는 음식이나 식사할 지역을 자연어로 입력합니다."
+                "식사할 읍·면·동 또는 관광지 주변 지역을 직접 입력합니다."
             ),
             "selected_options": {},
-        }
-    )
+        },
+        {
+            "value": "change_meal_menu",
+            "label": "원하는 메뉴 변경",
+            "description": (
+                "원하는 음식 메뉴를 바꿔 해당 반경에서 다시 검색합니다."
+            ),
+            "selected_options": {},
+        },
+    ]
     question = (
         f"{missing_text} 식당을 현재 검색 반경 "
         f"{current_radius:g}km 안에서 찾지 못했습니다. "
-        "검색 반경을 넓힐까요, 해당 식사 일정을 제외할까요, "
-        "아니면 원하는 메뉴·지역을 직접 입력하시겠습니까?"
+        "해당 식사 일정을 제외하거나, 식사 지역을 지정하거나, "
+        "원하는 메뉴를 변경해 주세요."
     )
     return {
         "status": "clarification_required",
@@ -734,7 +1156,8 @@ def _meal_retrieval_clarification(
         ],
         "aihub_route_context": _safe_route_context(route_context),
         "slot_candidates": [item.to_dict() for item in retrieved],
-        "itinerary": [],
+        "itinerary": [dict(item) for item in provisional_itinerary],
+        "validation": dict(provisional_validation or {}),
         "meta": {
             "input_mode": input_mode,
             "aihub_used": route_strategy == "aihub_pattern",
@@ -745,9 +1168,141 @@ def _meal_retrieval_clarification(
             "aihub_original_slot_counts": dict(original_slot_counts),
             "synthesized_route_days": list(synthesized_days),
             "synthesized_slot_count": synthesized_slot_count,
+            "tourism_places_per_day": PLACES_PER_DAY,
+            "tourism_places_by_day": dict(tourism_places_by_day),
             "meal_search_radius_km": current_radius,
+            "provisional_tourism_schedule": bool(provisional_itinerary),
+            "tourism_itinerary_preserved": True,
+            "partial_result": True,
         },
     }
+
+
+def _parse_tourism_slot_addition_request(
+    message: str,
+    *,
+    duration_days: int,
+) -> tuple[dict[int, int], str | None] | None:
+    """Parse an explicit request to add tourism stops to selected days."""
+
+    normalized = re.sub(r"\s+", " ", message.strip())
+    compact = normalized.replace(" ", "")
+    addition_terms = ("추가", "더넣", "늘려", "늘리")
+    slot_terms = ("관광지", "장소", "일정", "슬롯", "코스")
+    if not any(term in compact for term in addition_terms):
+        return None
+    if not any(term in compact for term in slot_terms):
+        return None
+
+    count_match = re.search(r"(\d+)\s*(?:곳|개|군데)", normalized)
+    if count_match is not None:
+        increment = int(count_match.group(1))
+    elif re.search(r"(?:한\s*곳|한\s*군데|하나)", normalized):
+        increment = 1
+    elif re.search(r"(?:두\s*곳|두\s*군데|둘)", normalized):
+        increment = 2
+    elif re.search(r"(?:세\s*곳|세\s*군데|셋)", normalized):
+        increment = 3
+    else:
+        increment = 1
+    if increment <= 0:
+        return {}, "추가할 관광지 수는 1곳 이상이어야 합니다."
+
+    requested_days = {
+        int(value)
+        for value in re.findall(r"(\d+)\s*일차", normalized)
+    }
+    if not requested_days and any(
+        token in compact for token in ("매일", "각일차", "하루마다")
+    ):
+        requested_days = set(range(1, duration_days + 1))
+    if not requested_days:
+        return (
+            {},
+            "관광지 슬롯을 추가할 일차를 알려주세요. "
+            "예: '2일차에 관광지 1곳 추가해 주세요.'",
+        )
+    invalid_days = sorted(
+        day for day in requested_days if not 1 <= day <= duration_days
+    )
+    if invalid_days:
+        return (
+            {},
+            f"현재 여행 기간에 없는 일차입니다: {invalid_days}. "
+            f"1~{duration_days}일차 중에서 선택해 주세요.",
+        )
+    return ({day: increment for day in sorted(requested_days)}, None)
+
+
+def _current_tourism_places_by_day(
+    result: Mapping[str, Any],
+    *,
+    duration_days: int,
+) -> dict[int, int]:
+    """Restore per-day tourism counts from metadata or the visible itinerary."""
+
+    counts = {
+        day: PLACES_PER_DAY
+        for day in range(1, max(duration_days, 0) + 1)
+    }
+    meta = result.get("meta")
+    raw_counts = (
+        meta.get("tourism_places_by_day")
+        if isinstance(meta, Mapping)
+        else None
+    )
+    if isinstance(raw_counts, Mapping):
+        for day in counts:
+            value = raw_counts.get(day, raw_counts.get(str(day)))
+            if value is not None:
+                counts[day] = max(1, int(value))
+        return counts
+
+    itinerary = result.get("itinerary")
+    if isinstance(itinerary, list):
+        observed = {day: 0 for day in counts}
+        for item in itinerary:
+            if not isinstance(item, Mapping):
+                continue
+            day = int(item.get("day") or 0)
+            if day not in observed:
+                continue
+            if (
+                item.get("slot_kind") == "meal"
+                or item.get("meal_type") in {"breakfast", "lunch", "dinner"}
+            ):
+                continue
+            observed[day] += 1
+        for day, value in observed.items():
+            if value:
+                counts[day] = value
+    return counts
+
+
+def _resolve_tourism_places_by_day(
+    *,
+    duration_days: int,
+    overrides: Mapping[int, int] | None,
+) -> dict[int, int]:
+    if duration_days <= 0:
+        raise ValueError("duration_days must be positive")
+    result = {
+        day: PLACES_PER_DAY
+        for day in range(1, duration_days + 1)
+    }
+    raw = overrides or {}
+    for day in result:
+        value = raw.get(day, raw.get(str(day)))  # type: ignore[arg-type]
+        if value is None:
+            continue
+        count = int(value)
+        if not 1 <= count <= MAX_TOURISM_PLACES_PER_DAY:
+            raise ValueError(
+                "tourism places per day must be between 1 and "
+                f"{MAX_TOURISM_PLACES_PER_DAY}"
+            )
+        result[day] = count
+    return result
 
 
 def _parse_replacement_request(message: str) -> tuple[int, str] | None:
@@ -831,6 +1386,25 @@ def _filter_avoided_candidates(
     ]
 
 
+def _merge_slot_candidate_pools(
+    primary: SlotCandidates,
+    secondary: SlotCandidates,
+) -> SlotCandidates:
+    """Keep refreshed ranking first while retaining unique prior candidates."""
+
+    merged: list[RetrievedPlace] = []
+    seen: set[int] = set()
+    for place in (*primary.candidates, *secondary.candidates):
+        if place.content_id in seen:
+            continue
+        seen.add(place.content_id)
+        merged.append(place)
+    return replace(
+        primary,
+        candidates=tuple(merged),
+    )
+
+
 def _anchor_meal_slot_to_selected_tourism(
     slot: SlotRequest,
     selected: Mapping[tuple[int, int], RetrievedPlace],
@@ -853,6 +1427,55 @@ def _anchor_meal_slot_to_selected_tourism(
         route_anchor=anchor.title,
         template_source="meal_after_tourism_selection",
     )
+
+
+def _meal_route_neighbors(
+    slot: SlotRequest,
+    selected: Mapping[tuple[int, int], RetrievedPlace],
+    *,
+    conditions: TravelConditions,
+    places_per_day: int,
+    last_day: int,
+) -> tuple[
+    tuple[float, float] | None,
+    tuple[float, float] | None,
+]:
+    """Return the route legs immediately before and after a meal slot."""
+
+    if slot.meal_type == "breakfast":
+        _, origin = resolve_day_start_anchor(conditions, day=slot.day)
+        destination_place = selected.get((slot.day, 1))
+        return origin, (
+            place_coordinates(destination_place)
+            if destination_place is not None
+            else None
+        )
+    if slot.meal_type == "lunch":
+        previous_sequence = max(1, round(places_per_day * 0.4))
+        next_sequence = min(places_per_day, previous_sequence + 1)
+        previous_place = selected.get((slot.day, previous_sequence))
+        next_place = selected.get((slot.day, next_sequence))
+        return (
+            place_coordinates(previous_place)
+            if previous_place is not None
+            else None
+        ), (
+            place_coordinates(next_place)
+            if next_place is not None
+            else None
+        )
+
+    previous_place = selected.get((slot.day, places_per_day))
+    _, destination = resolve_day_end_anchor(
+        conditions,
+        day=slot.day,
+        last_day=last_day,
+    )
+    return (
+        place_coordinates(previous_place)
+        if previous_place is not None
+        else None
+    ), destination
 
 
 def _restore_slot_candidates(value: Any) -> tuple[SlotCandidates, ...]:
@@ -1002,6 +1625,7 @@ def _revision_clarification(
     return {
         "status": "clarification_required",
         "conditions": dict(previous_result.get("conditions") or {}),
+        "message": question,
         "clarification_questions": [question],
         "itinerary": list(previous_result.get("itinerary") or []),
         "meta": {
@@ -1071,6 +1695,7 @@ def build_itinerary_prompt_context(
     slot_candidates: Sequence[SlotCandidates],
     *,
     frontend_selections: Mapping[str, Any] | None = None,
+    tourism_places_by_day: Mapping[int, int] | None = None,
 ) -> dict[str, Any]:
     pattern = _selected_pattern(route_context)
     route_strategy = (
@@ -1079,29 +1704,26 @@ def build_itinerary_prompt_context(
         else "tourapi_only_fallback"
     )
     slots_payload: list[dict[str, Any]] = []
+    candidate_limit = _positive_env_int(
+        "RAG_PROMPT_CANDIDATES_PER_SLOT",
+        3,
+    )
     for item in slot_candidates:
         candidates = [
             {
                 "content_id": place.content_id,
                 "title": place.title,
-                "target_collection": place.target_collection,
                 "itinerary_role": place.itinerary_role,
-                "tags": list(place.tags),
-                "address": place.address,
-                "latitude": place.latitude,
-                "longitude": place.longitude,
-                "opening_hours": place.opening_hours,
-                "closed_days": place.closed_days,
-                "parking": place.parking,
+                "opening_hours": place.opening_hours[:240],
+                "closed_days": place.closed_days[:160],
+                "parking": place.parking[:160],
                 "rating": place.rating,
-                "rating_count": place.rating_count,
                 "distance_km": place.distance_km,
-                "semantic_similarity": place.similarity_score,
-                "slot_score": place.slot_score,
-                "score_breakdown": dict(place.score_breakdown),
-                "overview": place.overview[:800],
+                "operating_information_known": bool(
+                    place.opening_hours or place.closed_days
+                ),
             }
-            for place in item.candidates
+            for place in item.candidates[:candidate_limit]
         ]
         slots_payload.append(
             {
@@ -1112,13 +1734,6 @@ def build_itinerary_prompt_context(
                 "slot_kind": item.slot.slot_kind,
                 "meal_type": item.slot.meal_type,
                 "suggested_stay_minutes": item.slot.stay_minutes,
-                "template_source": item.slot.template_source,
-                "route_anchor": item.slot.route_anchor,
-                "location_hint": {
-                    "latitude": item.slot.latitude,
-                    "longitude": item.slot.longitude,
-                    "radius_km": item.slot.radius_km,
-                },
                 "allowed_content_ids": [
                     place["content_id"] for place in candidates
                 ],
@@ -1131,33 +1746,25 @@ def build_itinerary_prompt_context(
             if frontend_selections
             else "natural_language"
         ),
-        "frontend_selections": dict(frontend_selections or {}),
-        "user_conditions": conditions.to_dict(),
-        "aihub_reference_pattern": pattern,
+        "explicit_frontend_fields": sorted(
+            str(key) for key in (frontend_selections or {})
+        ),
+        "user_conditions": _compact_conditions_for_itinerary_prompt(
+            conditions
+        ),
         "slots": slots_payload,
         "policy": {
-            "source_priority": (
-                [
-                    "user_conditions",
-                    "tourapi_verified_facts",
-                    "distance_and_opening_hours",
-                    "aihub_route_pattern",
-                ]
-                if pattern
-                else [
-                    "user_conditions",
-                    "tourapi_verified_facts",
-                    "distance_and_opening_hours",
-                ]
-            ),
             "route_strategy": route_strategy,
-            "aihub_route_pattern_available": bool(pattern),
-            "place_source": "TourAPI candidates only",
-            "aihub_place_names_allowed": False,
-            "one_place_per_slot": True,
             "tourism_places_per_day": PACE_SLOTS_PER_DAY.get(
                 conditions.pace or "",
                 PLACES_PER_DAY,
+            ),
+            "tourism_places_by_day": dict(
+                tourism_places_by_day
+                or _resolve_tourism_places_by_day(
+                    duration_days=int(conditions.duration_days or 0),
+                    overrides=None,
+                )
             ),
             "meal_slots_per_day": (
                 3 if conditions.include_breakfast is True else 2
@@ -1165,40 +1772,56 @@ def build_itinerary_prompt_context(
             "every_slot_required": True,
             "duplicate_content_ids_allowed": False,
             "max_leg_distance_km": max_leg_distance_km(conditions),
-            "schedule_windows": {
-                "breakfast": (
-                    "07:30-09:00"
-                    if conditions.include_breakfast is True
-                    else "not included unless explicitly requested"
-                ),
-                "slot_1": "09:00-12:00",
-                "lunch": "12:00-13:00",
-                "slot_2": "13:00-15:30",
-                "slot_3": "15:30-18:00",
-                "dinner": "18:00-19:30",
-            },
-            "food_and_cafe_as_tourism_places": False,
-            "restaurants_allowed_only_in_meal_slots": True,
-            "restaurant_ranking": [
-                "distance",
-                "verified_rating_when_available",
-                "preferred_menu_match",
-                "opening_hours",
-            ],
-            "unknown_rating_policy": "neutral; never fabricate a rating",
-            "route_anchors": {
-                "start_point": conditions.entry_point,
-                "end_point": conditions.exit_point,
-                "accommodation": conditions.accommodation_address,
-            },
-            "conditional_time_constraints": {
-                "trip_start_time": conditions.arrival_time,
-                "departure_airport": conditions.exit_point,
-                "airport_arrival_deadline": conditions.departure_time,
-            },
-            "route_anchors_are_optional": True,
-            "route_anchor_distance_requires_coordinates": True,
         },
+    }
+
+
+def _positive_env_int(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _compact_conditions_for_itinerary_prompt(
+    conditions: TravelConditions,
+) -> dict[str, Any]:
+    """Send only constraints that can affect ID and stay-time selection."""
+
+    payload = conditions.to_dict()
+    allowed_fields = (
+        "duration_days",
+        "party_type",
+        "local_transport",
+        "preferred_visit_types",
+        "pace",
+        "arrival_time",
+        "departure_time",
+        "entry_point",
+        "exit_point",
+        "accommodation_address",
+        "preferred_places",
+        "preferred_foods",
+        "preferred_meal_regions",
+        "include_breakfast",
+        "skipped_meals",
+        "travel_styles",
+        "must_visit_places",
+        "must_visit_content_ids",
+        "required_day_itineraries",
+        "excluded_places",
+        "excluded_foods",
+        "avoid_long_distance",
+        "opening_hours_constraints",
+        "parking_required",
+        "indoor_preference",
+        "mobility_constraints",
+    )
+    return {
+        key: payload[key]
+        for key in allowed_fields
+        if payload.get(key) not in (None, "", [], {})
     }
 
 
@@ -1231,7 +1854,12 @@ def create_rag_orchestrator(
     return RagOrchestrator(
         condition_service=condition_service,
         route_adapter=route_adapter,
-        slot_retriever=SlotRetriever(place_service),
+        slot_retriever=SlotRetriever(
+            place_service,
+            operational_provider=(
+                operational_provider or configured_operational
+            ),
+        ),
         llm=llm,
         route_provider=(
             route_provider or create_route_metrics_provider_from_env()

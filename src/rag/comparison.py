@@ -10,7 +10,12 @@ from statistics import mean, pstdev
 from typing import Any, Mapping, Sequence
 
 from .llm import LLMError
-from .openai_responses import create_text_response, summed_usage
+from .langsmith_observability import maybe_wrap_openai_client
+from .openai_responses import (
+    configured_token_budgets,
+    create_text_response,
+    summed_usage,
+)
 
 
 COMPARISON_CRITERIA = (
@@ -475,16 +480,32 @@ def format_rag_answer(result: Mapping[str, Any]) -> str:
                 item.get("selection_reason") or item.get("reason") or ""
             ).strip()
             if description:
-                lines.append(f"  설명: {description}")
+                lines.append(f"  설명: {description[:240]}")
             if reason:
-                lines.append(f"  선택 이유: {reason}")
+                lines.append(f"  선택 이유: {reason[:240]}")
 
     validation = result.get("validation")
     if isinstance(validation, Mapping):
+        compact_issues = []
+        for issue in list(validation.get("issues") or [])[:10]:
+            if not isinstance(issue, Mapping):
+                continue
+            compact_issues.append(
+                {
+                    key: issue.get(key)
+                    for key in (
+                        "code",
+                        "day",
+                        "slot_sequence",
+                        "content_id",
+                    )
+                }
+                | {"message": str(issue.get("message") or "")[:180]}
+            )
         lines.append(
             "검증: "
             f"valid={bool(validation.get('valid'))}, "
-            f"issues={json.dumps(validation.get('issues') or [], ensure_ascii=False)}"
+            f"issues={json.dumps(compact_issues, ensure_ascii=False)}"
         )
     if not any(line.startswith("Day ") for line in lines):
         lines.append("생성된 일정 없음")
@@ -524,7 +545,7 @@ class OpenAIResponseComparator:
                     "openai is not installed; run: pip install -r requirements.txt"
                 ) from exc
             client = OpenAI(api_key=key, timeout=timeout)
-        self._client = client
+        self._client = maybe_wrap_openai_client(client)
 
     def compare(
         self,
@@ -546,7 +567,11 @@ class OpenAIResponseComparator:
                     {"role": "user", "content": prompt},
                 ],
             },
-            token_budgets=(4000, 8000),
+            token_budgets=configured_token_budgets(
+                2200,
+                3600,
+                retry_env="RAG_EVAL_EMPTY_RESPONSE_RETRIES",
+            ),
             evaluation=True,
         )
 
@@ -591,6 +616,7 @@ class OpenAIResponseComparator:
                         "content": json.dumps(
                             judge_payload,
                             ensure_ascii=False,
+                            separators=(",", ":"),
                         ),
                     },
                 ],
@@ -603,7 +629,11 @@ class OpenAIResponseComparator:
                     }
                 },
             },
-            token_budgets=(4000, 8000),
+            token_budgets=configured_token_budgets(
+                2400,
+                4000,
+                retry_env="RAG_EVAL_EMPTY_RESPONSE_RETRIES",
+            ),
             evaluation=True,
         )
         try:
@@ -628,6 +658,7 @@ class OpenAIResponseComparator:
                             "content": json.dumps(
                                 judged,
                                 ensure_ascii=False,
+                                separators=(",", ":"),
                             ),
                         },
                     ],
@@ -640,7 +671,11 @@ class OpenAIResponseComparator:
                         }
                     },
                 },
-                token_budgets=(2500, 5000),
+                token_budgets=configured_token_budgets(
+                    1400,
+                    2400,
+                    retry_env="RAG_EVAL_EMPTY_RESPONSE_RETRIES",
+                ),
                 evaluation=True,
             )
             judge_responses.extend(translated_responses)

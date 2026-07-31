@@ -229,7 +229,7 @@ class QualityImprovementTests(unittest.TestCase):
         self.assertEqual(provider.calls[0][0], (33.48, 126.52))
         self.assertEqual(provider.calls[1][1], (33.48, 126.52))
 
-    def test_explicit_balanced_pace_creates_four_tourism_slots(self) -> None:
+    def test_balanced_pace_keeps_three_default_tourism_slots(self) -> None:
         llm = FakeLLM()
         orchestrator = RagOrchestrator(
             condition_service=ConditionExtractionService(llm),
@@ -254,8 +254,8 @@ class QualityImprovementTests(unittest.TestCase):
             if stop["slot_kind"] == "tourism"
         ]
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(result["meta"]["places_per_day"], 4)
-        self.assertEqual(len(tourism), 4)
+        self.assertEqual(result["meta"]["places_per_day"], 3)
+        self.assertEqual(len(tourism), 3)
 
     def test_full_regeneration_avoids_previous_places_when_possible(self) -> None:
         llm = FakeLLM()

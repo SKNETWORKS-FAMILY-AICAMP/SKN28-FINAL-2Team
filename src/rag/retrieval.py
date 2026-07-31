@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date, timedelta
 import math
 import re
 from typing import Any, Mapping, Sequence
@@ -11,6 +12,11 @@ from .models import (
     SlotCandidates,
     SlotRequest,
     TravelConditions,
+)
+from .operations import (
+    OperationalFacts,
+    OperationalFactsError,
+    PlaceOperationalFactsProvider,
 )
 from .service import PlaceSearchService
 
@@ -29,8 +35,8 @@ CATEGORY_QUERY_LABELS = {
 }
 PACE_SLOTS_PER_DAY = {
     "relaxed": 3,
-    "balanced": 4,
-    "packed": 5,
+    "balanced": 3,
+    "packed": 3,
 }
 SYNTHETIC_FALLBACK_CATEGORIES = ("nature", "culture", "history")
 SYNTHETIC_TARGET_COLLECTIONS = ("attractions",)
@@ -59,12 +65,18 @@ class SlotRetriever:
         *,
         candidates_per_slot: int = 5,
         vector_candidate_multiplier: int = 6,
+        operational_provider: PlaceOperationalFactsProvider | None = None,
     ) -> None:
         if candidates_per_slot <= 0 or vector_candidate_multiplier <= 0:
             raise ValueError("slot retrieval limits must be positive")
         self.place_service = place_service
         self.candidates_per_slot = candidates_per_slot
         self.vector_candidate_multiplier = vector_candidate_multiplier
+        self.operational_provider = operational_provider
+        self._operational_cache: dict[
+            tuple[int, str],
+            OperationalFacts | None,
+        ] = {}
 
     def retrieve(
         self,
@@ -74,6 +86,15 @@ class SlotRetriever:
         reserved_content_ids: Sequence[int] = (),
     ) -> SlotCandidates:
         query = build_slot_query(slot, conditions)
+        meal_search = slot.slot_kind == "meal"
+        search_top_k = (
+            max(self.candidates_per_slot * 2, 10)
+            if meal_search
+            else max(
+                self.candidates_per_slot * self.vector_candidate_multiplier,
+                20,
+            )
+        )
         response = self.place_service.search_places(
             query,
             filters=PlaceSearchFilters(
@@ -84,15 +105,23 @@ class SlotRetriever:
                 schedule_eligible=True,
                 requires_verification=False,
             ),
-            top_k=max(
-                self.candidates_per_slot * self.vector_candidate_multiplier,
-                20,
-            ),
-            candidate_k=max(
-                self.candidates_per_slot * self.vector_candidate_multiplier,
-                30,
-            ),
+            top_k=search_top_k,
+            candidate_k=max(search_top_k * 2, 20),
             include_aihub_evidence=False,
+            center=(
+                (slot.latitude, slot.longitude)
+                if (
+                    meal_search
+                    and slot.latitude is not None
+                    and slot.longitude is not None
+                )
+                else None
+            ),
+            radius_km=(
+                slot.radius_km
+                if meal_search and slot.radius_km is not None
+                else None
+            ),
         )
         reserved = {int(value) for value in reserved_content_ids}
         excluded = {
@@ -111,6 +140,25 @@ class SlotRetriever:
             required_content_ids_for_day(conditions, slot.day)
         )
         response_places = list(response.places)
+        missing_required_names = [
+            name
+            for name in required_place_names_for_day(conditions, slot.day)
+            if _normalized(name)
+            and not any(
+                _normalized(name) in _normalized(place.title)
+                or _normalized(place.title) in _normalized(name)
+                for place in response_places
+            )
+        ]
+        if missing_required_names and hasattr(
+            self.place_service,
+            "get_retrieved_places_by_titles",
+        ):
+            response_places.extend(
+                self.place_service.get_retrieved_places_by_titles(
+                    missing_required_names
+                )
+            )
         missing_required_ids = required_content_ids - {
             place.content_id for place in response_places
         }
@@ -123,6 +171,17 @@ class SlotRetriever:
                     sorted(missing_required_ids)
                 )
             )
+        response_places = list(
+            {
+                place.content_id: place for place in response_places
+            }.values()
+        )
+        if meal_search and self.operational_provider is not None:
+            travel_date = _slot_travel_date(conditions, slot.day)
+            response_places = [
+                self._enrich_operational_place(place, travel_date)
+                for place in response_places
+            ]
         scored: list[RetrievedPlace] = []
         for place in response_places:
             if place.content_id in reserved:
@@ -130,6 +189,11 @@ class SlotRetriever:
             if slot.slot_kind == "meal" and not _is_food_or_cafe(place):
                 continue
             if slot.slot_kind != "meal" and _is_food_or_cafe(place):
+                continue
+            if (
+                slot.slot_kind == "meal"
+                and bool(place.raw.get("operational_closed_on_date"))
+            ):
                 continue
             if (
                 slot.slot_kind == "meal"
@@ -155,8 +219,10 @@ class SlotRetriever:
                 for key in excluded
             ):
                 continue
-            if conditions.parking_required is True and not _parking_available(
-                place.parking
+            if (
+                slot.slot_kind != "meal"
+                and conditions.parking_required is True
+                and not _parking_available(place.parking)
             ):
                 continue
             distance = _slot_distance(slot, place)
@@ -199,6 +265,60 @@ class SlotRetriever:
             slot=slot,
             query=query,
             candidates=tuple(scored[: self.candidates_per_slot]),
+        )
+
+    def _enrich_operational_place(
+        self,
+        place: RetrievedPlace,
+        travel_date: date,
+    ) -> RetrievedPlace:
+        key = (place.content_id, travel_date.isoformat())
+        if key not in self._operational_cache:
+            try:
+                self._operational_cache[key] = (
+                    self.operational_provider.facts_for(
+                        place,
+                        travel_date,
+                    )
+                    if self.operational_provider is not None
+                    else None
+                )
+            except OperationalFactsError:
+                self._operational_cache[key] = None
+        facts = self._operational_cache[key]
+        if facts is None:
+            return place
+        raw = dict(place.raw)
+        raw.update(
+            {
+                "operational_source": facts.source,
+                "operational_verified": facts.verified,
+                "operational_business_status": facts.business_status,
+                "operational_closed_on_date": facts.closed_on_date,
+                "operational_external_place_id": facts.external_place_id,
+            }
+        )
+        return replace(
+            place,
+            opening_hours=(
+                _format_opening_ranges(facts.opening_ranges)
+                or place.opening_hours
+            ),
+            parking=(
+                _format_parking_options(facts.parking_options)
+                or place.parking
+            ),
+            rating=(
+                facts.rating
+                if facts.rating is not None
+                else place.rating
+            ),
+            rating_count=(
+                facts.rating_count
+                if facts.rating_count is not None
+                else place.rating_count
+            ),
+            raw=raw,
         )
 
 
@@ -291,6 +411,7 @@ def complete_route_slots(
     *,
     places_per_day: int,
     anchor_radius_km: float,
+    places_per_day_by_day: Mapping[int, int] | None = None,
 ) -> tuple[SlotRequest, ...]:
     """Fill missing AIHub day slots around the nearest known route anchor.
 
@@ -329,14 +450,21 @@ def complete_route_slots(
         _retarget_food_slot(slot, categories=categories)
         for slot in raw_ordered
     ]
+    target_by_day = {
+        day: int((places_per_day_by_day or {}).get(day, places_per_day))
+        for day in range(1, duration_days + 1)
+    }
+    if any(value <= 0 for value in target_by_day.values()):
+        raise ValueError("places_per_day_by_day values must be positive")
     by_day = {
-        day: [slot for slot in ordered if slot.day == day][:places_per_day]
+        day: [slot for slot in ordered if slot.day == day][:target_by_day[day]]
         for day in range(1, duration_days + 1)
     }
 
     completed: list[SlotRequest] = []
     previous_anchor: SlotRequest | None = None
     for day in range(1, duration_days + 1):
+        day_target = target_by_day[day]
         existing = list(by_day[day])
         if existing:
             previous_anchor = existing[-1]
@@ -347,13 +475,13 @@ def complete_route_slots(
                 previous=previous_anchor,
             )
 
-        while len(existing) < places_per_day:
+        while len(existing) < day_target:
             sequence = len(existing) + 1
             anchor = existing[-1] if existing else previous_anchor
             route_anchor = None
             if day == 1 and sequence == 1:
                 route_anchor = conditions.entry_point
-            if day == duration_days and sequence == places_per_day:
+            if day == duration_days and sequence == day_target:
                 route_anchor = conditions.exit_point or route_anchor
             category = categories[(sequence - 1) % len(categories)]
             synthetic = SlotRequest(
@@ -397,6 +525,7 @@ def tourapi_only_slots(
     *,
     places_per_day: int,
     radius_km: float,
+    places_per_day_by_day: Mapping[int, int] | None = None,
 ) -> tuple[SlotRequest, ...]:
     """Create broad TourAPI slots when AIHub has no usable route at all."""
 
@@ -405,6 +534,7 @@ def tourapi_only_slots(
         conditions,
         places_per_day=places_per_day,
         anchor_radius_km=radius_km,
+        places_per_day_by_day=places_per_day_by_day,
     )
     return tuple(
         replace(slot, template_source="tourapi_only_fallback")
@@ -418,7 +548,7 @@ def add_meal_slots(
     *,
     radius_km: float = 8.0,
 ) -> tuple[SlotRequest, ...]:
-    """Add meal retrieval slots while preserving three tourism slots per day."""
+    """Add meal retrieval slots without counting them as tourism slots."""
 
     resolved_radius_km = conditions.meal_search_radius_km or radius_km
     if resolved_radius_km <= 0:
@@ -487,7 +617,11 @@ def slot_route_order(slot: SlotRequest) -> tuple[int, int]:
         3: 50,
         MEAL_SLOT_SEQUENCES["dinner"]: 60,
     }
-    return slot.day, order.get(slot.sequence, 100 + slot.sequence)
+    if slot.sequence in order:
+        return slot.day, order[slot.sequence]
+    if slot.slot_kind != "meal" and slot.sequence > 3:
+        return slot.day, 50 + min(slot.sequence - 3, 9)
+    return slot.day, 100 + slot.sequence
 
 
 def _nearest_route_anchor(
@@ -628,6 +762,10 @@ def build_slot_query(
         ]
         if menu_preferences:
             parts.append("원하는 메뉴 " + ", ".join(menu_preferences))
+        if conditions.preferred_meal_regions:
+            parts.append(
+                "식사 지역 " + ", ".join(conditions.preferred_meal_regions)
+            )
         if conditions.excluded_foods:
             parts.append("제외 음식 " + ", ".join(conditions.excluded_foods))
         return ". ".join(parts)
@@ -894,6 +1032,42 @@ def _parking_available(value: str) -> bool:
         token in normalized
         for token in ("가능", "있음", "주차장", "parking")
     )
+
+
+def _slot_travel_date(
+    conditions: TravelConditions,
+    day: int,
+) -> date:
+    if conditions.start_date:
+        try:
+            return date.fromisoformat(conditions.start_date) + timedelta(
+                days=day - 1
+            )
+        except ValueError:
+            pass
+    return date.today()
+
+
+def _format_opening_ranges(
+    ranges: Sequence[tuple[int, int]],
+) -> str:
+    return ", ".join(
+        f"{start // 60:02d}:{start % 60:02d}-"
+        f"{end // 60:02d}:{end % 60:02d}"
+        for start, end in ranges
+        if end > start
+    )
+
+
+def _format_parking_options(
+    options: Mapping[str, bool],
+) -> str:
+    if not options:
+        return ""
+    available = sorted(key for key, value in options.items() if value)
+    if available:
+        return "주차 가능 (Google Places: " + ", ".join(available) + ")"
+    return "주차 불가 (Google Places 확인)"
 
 
 def _is_food_or_cafe(place: RetrievedPlace) -> bool:
