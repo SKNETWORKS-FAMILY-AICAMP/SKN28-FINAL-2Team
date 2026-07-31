@@ -11,9 +11,12 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 import { getItinerary, getSharedItinerary, createShareLink, } from '../api/itinerary';
+import { useItineraries } from "../context/ItineraryContext";
+
 
 export default function ReviewPage() {
   const { id, token } = useParams();
+  const { regenerate, fetchRoute } = useItineraries();
   const navigate = useNavigate();
 
   const { activeDay, selectDay, dayRefs } = useDayNav();

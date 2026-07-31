@@ -1,24 +1,65 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { getItineraries } from '../api/itinerary'
-const ItineraryContext = createContext(null)
+import { createContext, useContext, useEffect, useState } from "react";
+import { getItineraries, createItinerary, updateItinerary, patchItinerary, 
+  deleteItinerary, regenerateItinerary, getRoute } from "../api/itinerary";
+
+const ItineraryContext = createContext(null);
 
 export function ItineraryProvider({ children }) {
-  const [itineraries, setItineraries] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [itineraries, setItineraries] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadItineraries()
-  }, [])
+    loadItineraries();
+  }, []);
 
   async function loadItineraries() {
     try {
-      const data = await getItineraries()
-      setItineraries(data)
+      const data = await getItineraries();
+      setItineraries(data);
     } catch (err) {
-      console.error("일정 조회 실패", err)
+      console.error("일정 조회 실패", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
+  }
+
+  // 일정 생성
+  async function create(data) {
+    const result = await createItinerary(data);
+    await loadItineraries();
+    return result;
+  }
+
+  // 일정 전체 수정
+  async function update(id, data) {
+    const result = await updateItinerary(id, data);
+    await loadItineraries();
+    return result;
+  }
+
+  // 일정 일부 수정
+  async function patch(id, data) {
+    const result = await patchItinerary(id, data);
+    await loadItineraries();
+    return result;
+  }
+
+  // 일정 삭제
+  async function remove(id) {
+    await deleteItinerary(id);
+    await loadItineraries();
+  }
+
+  // 일정 재생성
+  async function regenerate(id) {
+    const result = await regenerateItinerary(id);
+    await loadItineraries();
+    return result;
+  }
+
+  // 여행 경로 조회
+  async function fetchRoute(id) {
+    return await getRoute(id);
   }
 
   return (
@@ -27,15 +68,27 @@ export function ItineraryProvider({ children }) {
         itineraries,
         loading,
         refresh: loadItineraries,
+        create,
+        update,
+        patch,
+        remove,
+        regenerate,
+        fetchRoute,
       }}
     >
       {children}
     </ItineraryContext.Provider>
-  )
+  );
 }
 
 export function useItineraries() {
-  const ctx = useContext(ItineraryContext)
-  if (!ctx) throw new Error('useItineraries must be used within ItineraryProvider')
-  return ctx
+  const ctx = useContext(ItineraryContext);
+
+  if (!ctx) {
+    throw new Error(
+      "useItineraries must be used within ItineraryProvider"
+    );
+  }
+
+  return ctx;
 }
