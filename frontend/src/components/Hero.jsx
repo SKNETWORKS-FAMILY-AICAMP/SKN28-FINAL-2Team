@@ -6,7 +6,7 @@ export default function Hero() {
       <div className="wrap hero-grid">
         <div>
           <div className="eyebrow">
-            <span className="dot"></span>AI 대화 코치 · 제주 여행 전문
+            <span className="dot"></span>AI 맞춤 제주 여행
           </div>
           <h1>
             "부모님과 힐링 여행"
@@ -15,8 +15,8 @@ export default function Hero() {
             <span className="accent">일정이 완성</span>돼요
           </h1>
           <p className="lede">
-            기간과 스타일만 말해주세요. AI 코치가 동선까지 짜인 일정을 만들고, 대화로 바로
-            수정해드려요. 지도 확인부터 숙소·렌터카 예약까지 한 화면에서 끝나요.
+            여행 기간과 취향만 알려주세요. AI가 나만의 제주 여행 일정을 만들고, 일정과 가장 잘 맞는 탐라플랜 패키지를 추천해드려요. 
+            원하는 일정은 예약하거나 PDF 저장 및 공유도 가능해요.
           </p>
           <div className="hero-ctas">
             <Link to="/chat" className="btn primary" id="start">
