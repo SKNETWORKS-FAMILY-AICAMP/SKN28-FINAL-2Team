@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import {  useEffect, useState } from 'react'
 import { Link, useLocation } from "react-router-dom";
 import styles from './booking/booking.module.css'
 import cx from '../utils/cx.js'
@@ -8,38 +8,89 @@ import PaymentSummary from './booking/PaymentSummary.jsx'
 import { PACKAGES } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useReservations } from '../context/ReservationContext.jsx'
+import { useCart } from '../context/CartContext.jsx'
 
 export default function BookingPage() {
   const { addReservation } = useReservations()
   const { state } = useLocation();
-  const [selected, setSelected] = useState([1, 2]) // 오션뷰 힐링 숙소 + 렌터카 3일 기본 선택
+  const bookingSource = state?.bookingSource || 'itinerary'
+  const initialSelected =
+    bookingSource === 'package' && Array.isArray(state?.packageIds)
+      ? state.packageIds
+      : [1, 2]
+  const [selected, setSelected] = useState(initialSelected)
   const [visibility, setVisibility] = useState('비공개')
   const [submitting, setSubmitting] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const { isBookmarked, toggle: toggleBookmark } = useBookmarks()
+  const { cartPackages, refreshCart } = useCart()
+  const [confirmedTotal, setConfirmedTotal] = useState(0)
   const itineraryId = state?.itineraryId;
   const toggle = (id) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  const chosen = PACKAGES.filter((p) => selected.includes(p.id))
-  const total = chosen.reduce((sum, p) => sum + p.price, 0)
+  const isCartBooking = bookingSource === 'cart'
+  useEffect(() => {
+    if (isCartBooking) {
+      setSelected(
+        cartPackages.map((item) => item.package.id)
+      )
+    }
+  }, [isCartBooking, cartPackages])
+  const packageItems = PACKAGES.map((p) => ({
+    cartId: `package-${p.id}`,
+    package: p,
+    quantity: 1,
+  }))
+  const bookingItems = isCartBooking ? cartPackages : packageItems
+  const chosenItems = bookingItems.filter((item) =>
+      selected.includes(item.package.id)
+  )
+  const chosen = chosenItems.map((item) => item.package)
+
+  const total = chosenItems.reduce(
+    (sum, item) =>
+      sum + Number(item.package.price) * item.quantity,
+    0
+  )
 
   const handleConfirm = async () => {
-    setSubmitting(true)
-    try {
-      await addReservation(
-        chosen.map((p) => ({ packageId: p.id, name: p.name, price: p.price })),
-        '신용카드 (**** **** **** 1234)'
-      )
-      setConfirmed(true)
-    } catch (error) {
-      console.error('예약 생성 실패:', error)
-      alert(error.message || '예약에 실패했어요. 다시 시도해주세요.')
-    } finally {
-      setSubmitting(false)
+  setSubmitting(true)
+
+  try {
+    const reservation = await addReservation(
+      '신용카드 (**** **** **** 1234)',
+      {
+        packageIds: isCartBooking
+          ? undefined
+          : chosen.map((p) => p.id),
+        cartItemIds: isCartBooking
+          ? chosenItems.map((item) => item.cartId)
+          : undefined,
+        itineraryId,
+      }
+    )
+
+    setConfirmedTotal(
+      Number(reservation.total_price ?? total)
+    )
+
+    setConfirmed(true)
+
+    if (isCartBooking) {
+      await refreshCart()
     }
+  } catch (error) {
+    console.error('예약 생성 실패:', error)
+    alert(
+      error.message ||
+        '예약에 실패했어요. 다시 시도해주세요.'
+    )
+  } finally {
+    setSubmitting(false)
   }
+}
 
   return (
     <div className={styles.page}>
@@ -76,7 +127,7 @@ export default function BookingPage() {
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>결제 금액</span>
-                <span className={styles.v}>{total.toLocaleString('ko-KR')}원</span>
+                <span className={styles.v}>{confirmedTotal.toLocaleString('ko-KR')}원</span>
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>공개 설정</span>
@@ -96,6 +147,7 @@ export default function BookingPage() {
           <div className={styles.shell}>
             <div>
               <PackageList
+                items={bookingItems}
                 selected={selected}
                 onToggle={toggle}
                 isBookmarked={isBookmarked}
@@ -119,7 +171,12 @@ export default function BookingPage() {
               </div>
             </div>
 
-            <PaymentSummary selected={selected} onConfirm={handleConfirm} submitting={submitting} />
+            <PaymentSummary
+              items={chosenItems}
+              totalPrice={total}
+              onConfirm={handleConfirm}
+              submitting={submitting}
+            />
           </div>
         )}
       </div>

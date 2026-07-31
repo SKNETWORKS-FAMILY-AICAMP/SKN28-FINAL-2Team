@@ -163,7 +163,11 @@ export default function CartWidget() {
                     className={cx(styles.btn, styles.primary)}
                     onClick={() => {
                       closeCart()
-                      navigate('/booking')
+                      navigate('/booking', {
+                        state : {
+                          bookingSource: 'cart',
+                        },
+                      })
                     }}
                   >
                     예약하기 →
