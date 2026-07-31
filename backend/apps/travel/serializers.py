@@ -117,10 +117,10 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         days_data = validated_data.pop("days", [])
-        user = self.context["request"].user
-        itinerary = Itinerary.objects.create(user=user, **validated_data)
+        itinerary = Itinerary.objects.create(**validated_data)
         self._sync_days(itinerary, days_data)
         return itinerary
+
 
     def update(self, instance, validated_data):
         days_data = validated_data.pop("days", None)

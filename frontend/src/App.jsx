@@ -19,7 +19,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/chat" element={<ChatPage />} />
-      <Route path="/itinerary" element={<ItineraryPage />} />
+      <Route path="/itinerary/:id" element={<ItineraryPage />} />
       <Route path="/review/:id" element={<ReviewPage />} />
       <Route path="/share/:token" element={<ReviewPage />} />
       <Route path="/booking" element={<BookingPage />} />

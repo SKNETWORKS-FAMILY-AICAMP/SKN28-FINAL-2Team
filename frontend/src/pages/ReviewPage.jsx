@@ -223,12 +223,8 @@ export default function ReviewPage() {
                   </button>
 
                   <Link
-                    to="/itinerary"
-                    className={cx(
-                      styles.btn,
-                      styles.ghost,
-                      styles.sm
-                    )}
+                    to={`/itinerary/${id}`}
+                    className={cx(styles.btn, styles.ghost, styles.sm)}
                   >
                     ✏️ 일정 수정하기
                   </Link>
@@ -271,7 +267,7 @@ export default function ReviewPage() {
                 {!token && (
           <div className={styles.bottomActions}>
             <Link
-              to="/itinerary"
+              to={`/itinerary/${id}`}
               className={cx(styles.btn, styles.ghost)}
             >
               이전 단계로

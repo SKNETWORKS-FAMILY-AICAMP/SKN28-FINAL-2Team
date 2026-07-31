@@ -6,16 +6,15 @@ from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 
 
-from .models import Accommodation, Itinerary, Package, Restaurant, TouristSpot
-from .serializers import (
-    AccommodationSerializer,
-    ItineraryRouteSerializer,
-    ItinerarySerializer,
-    ItineraryShareSerializer,
-    PackageSerializer,
-    RestaurantSerializer,
-    TouristSpotSerializer,
+from .models import Accommodation, Itinerary, ItineraryDay, ItineraryItem, Package, Restaurant, TouristSpot
+from .serializers import ( AccommodationSerializer, ItineraryRouteSerializer, ItinerarySerializer, 
+        ItineraryShareSerializer, PackageSerializer, RestaurantSerializer, TouristSpotSerializer,
 )
+from .services import generate_itinerary
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 
 class TouristSpotViewSet(viewsets.ReadOnlyModelViewSet):
@@ -108,7 +107,7 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Package.objects.filter(is_active=True)
     serializer_class = PackageSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         tags=["Package"],
@@ -147,7 +146,7 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 class ItineraryViewSet(viewsets.ModelViewSet):
     queryset = Itinerary.objects.none()  
     serializer_class = ItinerarySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
     @extend_schema(
@@ -163,8 +162,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         summary="일정 상세 조회",
         responses=ItinerarySerializer,
     )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
 
     @extend_schema(
         tags=["Itinerary"],
@@ -174,13 +171,12 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     )
     
     @action(detail=True, methods=["post"])
+
     def regenerate(self, request, pk=None):
-
         itinerary = self.get_object()
-
+        generate_itinerary(itinerary)
         serializer = self.get_serializer(itinerary)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data)
 
     @extend_schema(
         tags=["Itinerary"],
@@ -188,8 +184,28 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         request=ItinerarySerializer,
         responses={201: ItinerarySerializer},
     )
+
     def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+
+        serializer = self.get_serializer(data=request.data)
+
+        if not serializer.is_valid():
+            print(serializer.errors)
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        itinerary = serializer.save(user=request.user)
+
+        generate_itinerary(itinerary)
+
+        serializer = self.get_serializer(itinerary)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED
+        )
 
     @extend_schema(
         tags=["Itinerary"],
@@ -225,6 +241,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         return Itinerary.objects.filter(
             user=self.request.user
         ).prefetch_related("days__items")
+    
     @extend_schema(
         tags=["Itinerary"],
         summary="여행 경로 조회",

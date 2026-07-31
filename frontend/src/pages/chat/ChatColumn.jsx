@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createItinerary } from "../../api/itinerary";
 import { useNavigate } from 'react-router-dom'
 import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
@@ -15,7 +16,7 @@ const READY_DELAY_MS = 1800
 let uid = 100
 const nextId = () => ++uid
 
-export default function ChatColumn({ answers, setAnswers, ready, onReady }) {
+export default function ChatColumn({ answers, setAnswers, ready, onReady, setItineraryId, itineraryId }) {
   const [history, setHistory] = useState([
     { id: nextId(), type: 'msg', me: false, lines: ['안녕하세요! 😊', '원하시는 제주 여행을 알려주세요.'] },
     { id: nextId(), type: 'question', stepIndex: 0 },
@@ -31,19 +32,87 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady }) {
     }
   }, [history, ready])
 
-  const finishFlow = (finalAnswers) => {
+  const finishFlow = async (finalAnswers) => {
+    try {
+      const itinerary = await createItinerary({
+
+  title: "제주 맞춤 여행",
+  subtitle: `${finalAnswers.companion} 여행`,
+
+  start_date: "2026-08-01",
+  end_date: "2026-08-03",
+
+  companion_count:
+    finalAnswers.companion === "가족"
+      ? 3
+      : finalAnswers.companion === "친구"
+      ? 2
+      : 2,
+
+  style:
+    finalAnswers.style === "힐링"
+      ? "healing"
+      : finalAnswers.style === "액티비티"
+      ? "activity"
+      : finalAnswers.style === "맛집"
+      ? "food"
+      : "family",
+
+  budget_per_person: 500000,
+
+  accommodation_cost:150000,
+  transport_cost:100000,
+  activity_cost:50000,
+  food_cost:100000,
+  etc_cost:50000,
+
+  status:"draft",
+  is_public:false
+});
+
+    console.log("생성된 일정:", itinerary);
+
+    // 생성된 일정 id 저장
+    setItineraryId(itinerary.id);
+
+
     setHistory((prev) => [
       ...prev,
-      { id: nextId(), type: 'msg', me: false, lines: ['완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉'] },
+
       {
         id: nextId(),
-        type: 'card',
-        title: '✅ 입력된 조건 확인',
-        rows: STEPS.map((s) => ({ ic: s.icon, label: s.label, value: finalAnswers[s.key] })),
+        type: 'msg',
+        me:false,
+        lines:[
+          '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉'
+        ]
       },
-    ])
-    setTimeout(onReady, READY_DELAY_MS)
+
+      {
+        id: nextId(),
+        type:'card',
+        title:'✅ 입력된 조건 확인',
+        rows: STEPS.map((s)=>({
+          ic:s.icon,
+          label:s.label,
+          value:finalAnswers[s.key]
+        }))
+      }
+    ]);
+
+
+    setTimeout(onReady, READY_DELAY_MS);
+
+
+  } catch(error){
+
+    console.error(
+      "일정 생성 실패:",
+      error
+    );
+
   }
+};
 
   const answerStep = (key, value) => {
     if (!value.trim()) return
@@ -168,7 +237,10 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady }) {
               <div className={styles.bubble}>
                 일정이 완성됐어요! 확인하러 가볼까요? 🎉
                 <br />
-                <span className={styles.miniBtn} onClick={() => navigate('/itinerary')}>
+                <span
+                  className={styles.miniBtn}
+                  onClick={() => navigate(`/itinerary/${itineraryId}`)}
+                >
                   일정 확인하기 →
                 </span>
               </div>
