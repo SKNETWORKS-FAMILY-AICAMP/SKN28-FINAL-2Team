@@ -44,9 +44,55 @@ const DAYS = [
 ]
 
 export default function ItineraryEditor() {
+  const [days, setDays] = useState(DAYS)
   const [activeDay, setActiveDay] = useState(1)
+  const [openMenuIndex, setOpenMenuIndex] = useState(null)
+  const [editingIndex, setEditingIndex] = useState(null)
+  const [editDraft, setEditDraft] = useState(null)
+  const [deleteIndex, setDeleteIndex] = useState(null)
   const navigate = useNavigate()
-  const current = DAYS.find((d) => d.dayNumber === activeDay)
+  const current = days.find((d) => d.dayNumber === activeDay)
+
+  const toggleMenu = (i) => setOpenMenuIndex((prev) => (prev === i ? null : i))
+
+  const startEdit = (i) => {
+    setEditDraft({ ...current.items[i] })
+    setEditingIndex(i)
+    setOpenMenuIndex(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingIndex(null)
+    setEditDraft(null)
+  }
+
+  const saveEdit = () => {
+    setDays((prev) =>
+      prev.map((d) =>
+        d.dayNumber !== activeDay
+          ? d
+          : { ...d, items: d.items.map((item, i) => (i === editingIndex ? editDraft : item)) }
+      )
+    )
+    setEditingIndex(null)
+    setEditDraft(null)
+  }
+
+  const askDelete = (i) => {
+    setDeleteIndex(i)
+    setOpenMenuIndex(null)
+  }
+
+  const cancelDelete = () => setDeleteIndex(null)
+
+  const confirmDelete = () => {
+    setDays((prev) =>
+      prev.map((d) =>
+        d.dayNumber !== activeDay ? d : { ...d, items: d.items.filter((_, i) => i !== deleteIndex) }
+      )
+    )
+    setDeleteIndex(null)
+  }
 
   return (
     <div className={styles.itCol}>
@@ -72,17 +118,96 @@ export default function ItineraryEditor() {
       </div>
 
       <div className={styles.timeline}>
-        {current.items.map((item, i) => (
-          <div className={styles.tItem} key={i}>
-            <div className={styles.tTime}>{item.time}</div>
-            <div className={styles.tThumb}>{item.thumbnail}</div>
-            <div className={styles.tBody}>
-              <h5>{item.title}</h5>
-              <p>{item.description}</p>
+        {current.items.map((item, i) =>
+          editingIndex === i ? (
+            <div className={styles.tEditCard} key={i}>
+              <div className={styles.tEditRow}>
+                <div className={styles.tEditField}>
+                  <label>시간</label>
+                  <input
+                    type="text"
+                    value={editDraft.time}
+                    onChange={(e) => setEditDraft({ ...editDraft, time: e.target.value })}
+                  />
+                </div>
+                <div className={cx(styles.tEditField, styles.tEditFieldGrow)}>
+                  <label>장소명</label>
+                  <input
+                    type="text"
+                    value={editDraft.title}
+                    onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className={styles.tEditField}>
+                <label>설명</label>
+                <input
+                  type="text"
+                  value={editDraft.description}
+                  onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
+                />
+              </div>
+              <div className={styles.tEditActions}>
+                <button className={cx(styles.btn, styles.ghost, styles.xs)} onClick={cancelEdit}>
+                  취소
+                </button>
+                <button className={cx(styles.btn, styles.primary, styles.xs)} onClick={saveEdit}>
+                  저장
+                </button>
+              </div>
             </div>
-            <button className={styles.tMenu}>⋮</button>
-          </div>
-        ))}
+          ) : (
+            <div className={styles.tItem} key={i}>
+              <div className={styles.tTime}>{item.time}</div>
+              <div className={styles.tThumb}>{item.thumbnail}</div>
+              <div className={styles.tBody}>
+                <h5>{item.title}</h5>
+                <p>{item.description}</p>
+              </div>
+              <div className={styles.tMenuWrap}>
+                <button
+                  className={styles.tMenu}
+                  onClick={() => toggleMenu(i)}
+                  aria-haspopup="true"
+                  aria-expanded={openMenuIndex === i}
+                >
+                  ⋮
+                </button>
+                {openMenuIndex === i && (
+                  <>
+                    <div className={styles.tMenuBackdrop} onClick={() => setOpenMenuIndex(null)} />
+                    <div className={styles.tMenuDropdown}>
+                      <button className={styles.tMenuItem} onClick={() => startEdit(i)}>
+                        ✏️ 수정
+                      </button>
+                      <button className={cx(styles.tMenuItem, styles.tMenuItemDanger)} onClick={() => askDelete(i)}>
+                        🗑️ 삭제
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {deleteIndex === i && (
+                <div className={styles.tDeleteConfirmOverlay}>
+                  <div className={styles.tDeleteConfirm}>
+                    <p>
+                      <b>{item.title}</b> 일정을 삭제할까요?
+                    </p>
+                    <div className={styles.tEditActions}>
+                      <button className={cx(styles.btn, styles.ghost, styles.xs)} onClick={cancelDelete}>
+                        취소
+                      </button>
+                      <button className={cx(styles.btn, styles.dangerBtn, styles.xs)} onClick={confirmDelete}>
+                        삭제하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        )}
         <button className={styles.addSpot}>+ 장소 추가</button>
         <div className={styles.itTotal}>
           <div className={styles.lbl}>Day {current.dayNumber} 예상 비용</div>
