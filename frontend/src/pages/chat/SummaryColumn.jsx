@@ -72,7 +72,7 @@ export default function SummaryColumn({ answers, ready, itineraryId }) {
           <Link
             to={`/itinerary/${itineraryId}`}
             className={cx(styles.btn, styles.primary)}
-            style={{ marginTop: 22, position: 'relative', zIndex: 2 }}
+            style={{ marginTop: 14, position: 'relative', zIndex: 2 }}
           >
             완성된 일정 보러가기 →
           </Link>

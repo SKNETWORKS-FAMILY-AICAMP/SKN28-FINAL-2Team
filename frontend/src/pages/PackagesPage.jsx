@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import styles from './packages/packages.module.css'
 import cx from '../utils/cx.js'
 import AccountMenu from '../components/AccountMenu.jsx'
+import PackageDetailModal from '../components/PackageDetailModal.jsx'
 import { PACKAGES, won, ratingLabel } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 
@@ -15,6 +16,7 @@ const FILTERS = [
 
 export default function PackagesPage() {
   const [filter, setFilter] = useState('all')
+  const [selectedPackage, setSelectedPackage] = useState(null)
   const { isBookmarked, toggle } = useBookmarks()
 
   const visible = filter === 'all' ? PACKAGES : PACKAGES.filter((p) => p.category === filter)
@@ -57,13 +59,16 @@ export default function PackagesPage() {
         ) : (
           <div className={styles.grid}>
             {visible.map((p) => (
-              <div className={styles.card} key={p.id}>
+              <div className={styles.card} key={p.id} onClick={() => setSelectedPackage(p)}>
                 <div className={styles.cardImg}>
                   {p.thumbnail}
                   <span className={styles.cardBadge}>{p.categoryLabel}</span>
                   <button
                     className={cx(styles.bookmarkBtn, isBookmarked(p.id) && styles.bookmarkBtnActive)}
-                    onClick={() => toggle(p.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggle(p.id)
+                    }}
                     aria-label="찜하기"
                   >
                     {isBookmarked(p.id) ? '❤️' : '🤍'}
@@ -82,7 +87,7 @@ export default function PackagesPage() {
                   </div>
                   <div className={styles.cardFoot}>
                     <div className={styles.price}>{won(p.price)}</div>
-                    <Link to="/booking" className={styles.btn}>
+                    <Link to="/booking" className={styles.btn} onClick={(e) => e.stopPropagation()}>
                       예약하기 →
                     </Link>
                   </div>
@@ -92,6 +97,8 @@ export default function PackagesPage() {
           </div>
         )}
       </div>
+
+      <PackageDetailModal pkg={selectedPackage} onClose={() => setSelectedPackage(null)} />
     </div>
   )
 }
