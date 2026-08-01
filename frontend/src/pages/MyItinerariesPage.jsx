@@ -8,7 +8,7 @@ import { useItineraries } from "../context/ItineraryContext.jsx";
 const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
-  const { itineraries, loading, remove, regenerate } = useItineraries();
+  const { itineraries, loading, remove } = useItineraries();
 
   if (loading) {
     return <div>일정을 불러오는 중...</div>;
@@ -29,18 +29,6 @@ export default function MyItinerariesPage() {
     }
   };
 
-  const handleRegenerate = async (e, id) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    try {
-      await regenerate(id);
-      alert("일정을 다시 생성했습니다.");
-    } catch (err) {
-      console.error(err);
-      alert("재생성에 실패했습니다.");
-    }
-  };
 
   return (
     <div className={styles.page}>
@@ -126,13 +114,6 @@ export default function MyItinerariesPage() {
                     marginLeft: "16px",
                   }}
                 >
-                  <button
-                    type="button"
-                    className={styles.btn}
-                    onClick={(e) => handleRegenerate(e, it.id)}
-                  >
-                    다시 생성
-                  </button>
 
                   <button
                     type="button"

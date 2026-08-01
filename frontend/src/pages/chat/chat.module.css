@@ -34,10 +34,10 @@
 .avatar{ width:34px; height:34px; border-radius:50%; background: var(--green-soft); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-size:15px; }
 
 /* ---------- layout ---------- */
-.stage{ height: calc(100vh - 64px); display:grid; grid-template-columns: 400px 1fr; }
+.stage{ height: calc(100vh - 64px); display:grid; grid-template-columns: 400px 1fr; overflow:hidden; }
 
 /* ---------- chat column ---------- */
-.chatCol{ display:flex; flex-direction:column; border-right: 2px solid var(--line); background:#fff; min-width:0; }
+.chatCol{ display:flex; flex-direction:column; border-right: 2px solid var(--line); background:#fff; min-width:0; height:100%; overflow:hidden;  }
 .chatHead{ display:flex; align-items:center; gap:10px; padding:16px 22px; border-bottom:1px solid var(--line); flex-shrink:0; }
 .chatHead .mark{ width:36px; height:36px; border-radius:11px; background: var(--green-soft); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
 .chatHead h2{ font-family: var(--display); font-weight:700; font-size:16.5px; }
@@ -46,7 +46,7 @@
 .status .pulse{ width:7px; height:7px; border-radius:50%; background: var(--green); animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.4; transform:scale(1.3); } }
 
-.chatBody{ flex:1; overflow-y:auto; padding: 22px; display:flex; flex-direction:column; gap:14px; }
+.chatBody{ flex:1; min-height:0; overflow-y:auto; padding: 22px; display:flex; flex-direction:column; gap:14px; }
 .dayDivider{ text-align:center; font-size:11.5px; color: var(--muted); margin: 6px 0 4px; position:relative; }
 
 .msg{ display:flex; gap:10px; align-items:flex-start; max-width:88%; }
@@ -80,7 +80,7 @@
 .typing span:nth-child(3){ animation-delay:.3s; }
 @keyframes bounce{ 0%,60%,100%{ transform: translateY(0); opacity:.4; } 30%{ transform: translateY(-4px); opacity:1; } }
 
-.chatFoot{ padding: 14px 22px 20px; border-top:1px solid var(--line); flex-shrink:0; }
+.chatFoot{ padding: 14px 22px 20px; border-top:1px solid var(--line); flex-shrink:0; background:#fff; }
 .chips{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
 .chip{ font-size:12.5px; font-weight:600; color: var(--green-deep); background: var(--green-soft); border:1.5px solid var(--green-soft-2); padding:7px 13px; border-radius:100px; transition: background .15s, transform .15s; }
 .chip:hover{ background: var(--green-soft-2); transform: translateY(-1px); }
