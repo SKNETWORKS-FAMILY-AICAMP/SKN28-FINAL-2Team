@@ -278,15 +278,9 @@ export default function ReviewPage() {
 
             <button
               className={cx(styles.btn, styles.primary)}
-              onClick={() =>
-                navigate('/booking', {
-                  state: {
-                    itineraryId: id,
-                  },
-                })
-              }
+              onClick={() => navigate('/my/itineraries')}
             >
-              이 일정으로 확정하기 →
+              🎉 이 일정으로 확정하고 내 일정함으로
             </button>
           </div>
         )}

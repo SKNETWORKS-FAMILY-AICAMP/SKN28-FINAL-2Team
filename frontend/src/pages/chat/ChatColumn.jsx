@@ -5,12 +5,6 @@ import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
 
-const CHIPS = [
-  { text: '예산을 조금 낮추고 싶어요', label: '예산 낮추기' },
-  { text: '맛집도 일정에 넣어주세요', label: '맛집 알아보기' },
-  { text: '액티비티도 추가해주세요', label: '액티비티 추가' },
-]
-
 const READY_DELAY_MS = 1800
 
 let uid = 100
@@ -28,9 +22,15 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
 
   useEffect(() => {
     if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight
+      // rAF로 한 프레임 뒤에 스크롤해서, 방금 렌더된(타이핑 표시·완료 메시지 등) 말풍선의
+      // 실제 높이가 반영된 뒤 맨 아래로 이동하도록 함 → 마지막 버튼 클릭 시 내용이 화면 밖으로 밀려나지 않음
+      requestAnimationFrame(() => {
+        if (bodyRef.current) {
+          bodyRef.current.scrollTop = bodyRef.current.scrollHeight
+        }
+      })
     }
-  }, [history, ready])
+  }, [history, ready, stepIndex])
 
   const finishFlow = async (finalAnswers) => {
     try {
@@ -258,13 +258,6 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
       </div>
 
       <div className={styles.chatFoot}>
-        <div className={styles.chips}>
-          {CHIPS.map((c) => (
-            <button key={c.text} className={styles.chip} onClick={() => setInput(c.text)}>
-              {c.label}
-            </button>
-          ))}
-        </div>
         <div className={styles.inputBar}>
           <input
             type="text"

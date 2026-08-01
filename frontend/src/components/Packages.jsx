@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { PACKAGES, won, ratingLabel } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
+import PackageDetailModal from './PackageDetailModal.jsx'
 
 export default function Packages() {
   const { isBookmarked, toggle } = useBookmarks()
+  const [selectedPackage, setSelectedPackage] = useState(null)
 
   return (
     <section className="packages" id="packages">
@@ -18,12 +21,15 @@ export default function Packages() {
         </div>
         <div className="pkg-grid">
           {PACKAGES.map((p) => (
-            <div className="pkg reveal" key={p.id}>
+            <div className="pkg reveal" key={p.id} onClick={() => setSelectedPackage(p)} style={{ cursor: 'pointer' }}>
               <div className="pkg-img">
                 {p.thumbnail}
                 <button
                   className={`pkg-bookmark${isBookmarked(p.id) ? ' active' : ''}`}
-                  onClick={() => toggle(p.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggle(p.id)
+                  }}
                   aria-label="찜하기"
                 >
                   {isBookmarked(p.id) ? '❤️' : '🤍'}
@@ -43,6 +49,7 @@ export default function Packages() {
           </Link>
         </div>
       </div>
+      <PackageDetailModal pkg={selectedPackage} onClose={() => setSelectedPackage(null)} />
     </section>
   )
 }

@@ -17,8 +17,6 @@ export default function ItineraryEditor() {
   const [activeDay, setActiveDay] = useState(1);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editDraft, setEditDraft] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
 
   const current = days.find((d) => d.dayNumber === activeDay);
@@ -42,17 +40,6 @@ export default function ItineraryEditor() {
     setOpenMenuIndex((prev) => (prev === i ? null : i));
   };
 
-  const startEdit = (i) => {
-    setEditDraft({ ...current.items[i] });
-    setEditingIndex(i);
-    setOpenMenuIndex(null);
-  };
-
-  const cancelEdit = () => {
-    setEditingIndex(null);
-    setEditDraft(null);
-  };
-
   const toApiDays = (days) =>
     days.map((day) => ({
       day_number: day.dayNumber,
@@ -73,34 +60,6 @@ export default function ItineraryEditor() {
         memo: item.memo ?? "",
       })),
     }));
-
-  const saveEdit = async () => {
-    const updatedDays = days.map((d) =>
-      d.dayNumber !== activeDay
-        ? d
-        : {
-            ...d,
-            items: d.items.map((item, i) =>
-              i === editingIndex ? editDraft : item
-            ),
-          }
-    );
-
-    try {
-      const updated = await patch(itinerary.id, {
-        days: toApiDays(updatedDays),
-      });
-
-      setItinerary(updated);
-      setDays(updated.days);
-    } catch (err) {
-      console.error(err);
-      alert("저장에 실패했습니다.");
-    }
-
-    setEditingIndex(null);
-    setEditDraft(null);
-  };
 
   const askDelete = (i) => {
     setDeleteIndex(i);
@@ -187,164 +146,84 @@ export default function ItineraryEditor() {
       </div>
 
       <div className={styles.timeline}>
-        {current.items.map((item, i) =>
-          editingIndex === i ? (
-            <div className={styles.tEditCard} key={item.id ?? i}>
-              <div className={styles.tEditRow}>
-                <div className={styles.tEditField}>
-                  <label>시간</label>
-                  <input
-                    type="text"
-                    value={editDraft.time}
-                    onChange={(e) =>
-                      setEditDraft({
-                        ...editDraft,
-                        time: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+        {current.items.map((item, i) => (
+          <div className={styles.tItem} key={item.id ?? i}>
+            <div className={styles.tTime}>{item.time}</div>
 
-                <div
-                  className={cx(
-                    styles.tEditField,
-                    styles.tEditFieldGrow
-                  )}
-                >
-                  <label>장소명</label>
-                  <input
-                    type="text"
-                    value={editDraft.title}
-                    onChange={(e) =>
-                      setEditDraft({
-                        ...editDraft,
-                        title: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className={styles.tEditField}>
-                <label>설명</label>
-                <input
-                  type="text"
-                  value={editDraft.description}
-                  onChange={(e) =>
-                    setEditDraft({
-                      ...editDraft,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className={styles.tEditActions}>
-                <button
-                  className={cx(styles.btn, styles.ghost, styles.xs)}
-                  onClick={cancelEdit}
-                >
-                  취소
-                </button>
-
-                <button
-                  className={cx(styles.btn, styles.primary, styles.xs)}
-                  onClick={saveEdit}
-                >
-                  저장
-                </button>
-              </div>
+            <div className={styles.tThumb}>
+              {item.thumbnail || "📍"}
             </div>
-          ) : (
-            <div className={styles.tItem} key={item.id ?? i}>
-              <div className={styles.tTime}>{item.time}</div>
 
-              <div className={styles.tThumb}>
-                {item.thumbnail || "📍"}
-              </div>
+            <div className={styles.tBody}>
+              <h5>{item.title}</h5>
+              <p>{item.description}</p>
+            </div>
 
-              <div className={styles.tBody}>
-                <h5>{item.title}</h5>
-                <p>{item.description}</p>
-              </div>
+            <div className={styles.tMenuWrap}>
+              <button
+                className={styles.tMenu}
+                onClick={() => toggleMenu(i)}
+              >
+                ⋮
+              </button>
 
-              <div className={styles.tMenuWrap}>
-                <button
-                  className={styles.tMenu}
-                  onClick={() => toggleMenu(i)}
-                >
-                  ⋮
-                </button>
+              {openMenuIndex === i && (
+                <>
+                  <div
+                    className={styles.tMenuBackdrop}
+                    onClick={() => setOpenMenuIndex(null)}
+                  />
 
-                {openMenuIndex === i && (
-                  <>
-                    <div
-                      className={styles.tMenuBackdrop}
-                      onClick={() => setOpenMenuIndex(null)}
-                    />
-
-                    <div className={styles.tMenuDropdown}>
-                      <button
-                        className={styles.tMenuItem}
-                        onClick={() => startEdit(i)}
-                      >
-                        ✏️ 수정
-                      </button>
-
-                      <button
-                        className={cx(
-                          styles.tMenuItem,
-                          styles.tMenuItemDanger
-                        )}
-                        onClick={() => askDelete(i)}
-                      >
-                        🗑️ 삭제
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {deleteIndex === i && (
-                <div className={styles.tDeleteConfirmOverlay}>
-                  <div className={styles.tDeleteConfirm}>
-                    <p>
-                      <b>{item.title}</b> 일정을 삭제할까요?
-                    </p>
-
-                    <div className={styles.tEditActions}>
-                      <button
-                        className={cx(
-                          styles.btn,
-                          styles.ghost,
-                          styles.xs
-                        )}
-                        onClick={cancelDelete}
-                      >
-                        취소
-                      </button>
-
-                      <button
-                        className={cx(
-                          styles.btn,
-                          styles.dangerBtn,
-                          styles.xs
-                        )}
-                        onClick={confirmDelete}
-                      >
-                        삭제하기
-                      </button>
-                    </div>
+                  <div className={styles.tMenuDropdown}>
+                    <button
+                      className={cx(
+                        styles.tMenuItem,
+                        styles.tMenuItemDanger
+                      )}
+                      onClick={() => askDelete(i)}
+                    >
+                      🗑️ 삭제
+                    </button>
                   </div>
-                </div>
+                </>
               )}
             </div>
-          )
-        )}
 
-        <button className={styles.addSpot}>
-          + 장소 추가
-        </button>
+            {deleteIndex === i && (
+              <div className={styles.tDeleteConfirmOverlay}>
+                <div className={styles.tDeleteConfirm}>
+                  <p>
+                    <b>{item.title}</b> 일정을 삭제할까요?
+                  </p>
+
+                  <div className={styles.tEditActions}>
+                    <button
+                      className={cx(
+                        styles.btn,
+                        styles.ghost,
+                        styles.xs
+                      )}
+                      onClick={cancelDelete}
+                    >
+                      취소
+                    </button>
+
+                    <button
+                      className={cx(
+                        styles.btn,
+                        styles.dangerBtn,
+                        styles.xs
+                      )}
+                      onClick={confirmDelete}
+                    >
+                      삭제하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
 
         <div className={styles.itTotal}>
           <div className={styles.lbl}>

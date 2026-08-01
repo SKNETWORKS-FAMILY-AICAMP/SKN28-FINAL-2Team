@@ -27,7 +27,7 @@
 .card{
   background:#fff; border:2.5px solid var(--ink); border-radius:20px; overflow:hidden;
   box-shadow: 5px 5px 0 var(--green-soft-2); transition: transform .2s ease, box-shadow .2s ease;
-  display:flex; flex-direction:column;
+  display:flex; flex-direction:column; cursor:pointer;
 }
 .card:hover{ transform: translateY(-4px); box-shadow: 7px 7px 0 var(--green-soft-2); }
 
