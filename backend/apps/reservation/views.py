@@ -308,11 +308,9 @@ class ReservationDetailAPIView(RetrieveAPIView):
     },
 )
 class ReservationCancelAPIView(APIView):
-    """예약 취소."""
-
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, pk):
+    def patch(self, request, pk):
         reservation = get_object_or_404(
             Reservation.objects.prefetch_related("items"),
             pk=pk,
@@ -326,9 +324,7 @@ class ReservationCancelAPIView(APIView):
             )
 
         reservation.status = Reservation.Status.CANCELLED
-        reservation.save(
-            update_fields=["status", "updated_at"]
-        )
+        reservation.save(update_fields=["status", "updated_at"])
 
         return Response(
             ReservationSerializer(reservation).data,
