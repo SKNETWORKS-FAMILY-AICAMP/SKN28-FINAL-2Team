@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './packages/packages.module.css'
 import cx from '../utils/cx.js'
 import AccountMenu from '../components/AccountMenu.jsx'
 import PackageDetailModal from '../components/PackageDetailModal.jsx'
-import { PACKAGES, won, ratingLabel } from '../data/packages.js'
+import { won, ratingLabel } from '../data/packages.js'
+import { getPackages, getPackageDetail, } from '../api/packageApi.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 
 const FILTERS = [
@@ -14,12 +15,77 @@ const FILTERS = [
   { value: 'activity', label: '액티비티' },
 ]
 
+const PACKAGE_EMOJI = {
+  stay: '🏨',
+  car: '🚗',
+  activity: '🐴',
+}
+
+const normalizePackage = (pkg) => ({
+  id: pkg.id,
+  name: pkg.name,
+  category: pkg.category,
+  categoryLabel: pkg.category_display,
+  style: pkg.style,
+  styleLabel: pkg.style_display,
+  description: pkg.description,
+  thumbnailUrl: pkg.thumbnail_url,
+  thumbnail: PACKAGE_EMOJI[pkg.category] || '🎁',
+  price: Number(pkg.price),
+  durationDays: pkg.duration_days,
+  region: pkg.region,
+  accommodationIncluded: pkg.accommodation_included,
+  includedItems: Array.isArray(pkg.included_items)
+    ? pkg.included_items
+    : [],
+  course: Array.isArray(pkg.course)
+    ? pkg.course
+    : [],
+  rating: Number(pkg.rating),
+  reviewCount: pkg.review_count,
+  isActive: pkg.is_active,
+})
+
 export default function PackagesPage() {
   const [filter, setFilter] = useState('all')
   const [selectedPackage, setSelectedPackage] = useState(null)
+  const [packages, setPackages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const { isBookmarked, toggle } = useBookmarks()
+  useEffect(() => {
+  const loadPackages = async () => {
+    try {
+      setLoading(true)
+      setError('')
 
-  const visible = filter === 'all' ? PACKAGES : PACKAGES.filter((p) => p.category === filter)
+      const data = await getPackages()
+      const list = Array.isArray(data)
+        ? data
+        : data.results || []
+
+      setPackages(list.map(normalizePackage))
+    } catch (err) {
+      console.error('패키지 목록 조회 실패:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  loadPackages()
+}, [])
+
+  const handleOpenDetail = async (id) => {
+    try {
+      const data = await getPackageDetail(id)
+      setSelectedPackage(normalizePackage(data))
+    } catch (err) {
+      console.error('패키지 상세 조회 실패:', err)
+      alert(err.message || '패키지 상세 정보를 불러오지 못했습니다.')
+    }
+  }
+  const visible = filter === 'all' ? packages : packages.filter((p) => p.category === filter)
 
   return (
     <div className={styles.page}>
@@ -54,12 +120,16 @@ export default function PackagesPage() {
           ))}
         </div>
 
-        {visible.length === 0 ? (
+        {loading ? (
+          <div className={styles.empty}>패키지를 불러오는 중...</div>
+        ) : error ? (
+          <div className={styles.empty}>{error}</div>
+        ) : visible.length === 0 ? (
           <div className={styles.empty}>해당 카테고리의 패키지가 아직 없어요.</div>
         ) : (
           <div className={styles.grid}>
             {visible.map((p) => (
-              <div className={styles.card} key={p.id} onClick={() => setSelectedPackage(p)}>
+              <div className={styles.card} key={p.id} onClick={() => handleOpenDetail(p.id)}>
                 <div className={styles.cardImg}>
                   {p.thumbnail}
                   <span className={styles.cardBadge}>{p.categoryLabel}</span>
