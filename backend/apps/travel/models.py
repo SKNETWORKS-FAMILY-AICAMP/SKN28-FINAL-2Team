@@ -1,8 +1,8 @@
 import uuid
-
 from django.conf import settings
 from django.db import models
-
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 
 class TouristSpot(models.Model):
@@ -16,6 +16,7 @@ class TouristSpot(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    source_id = models.CharField( max_length=20, unique=True, null=True, blank=True, )
 
     def tag_list(self):
         return [t.strip() for t in self.tags.split(",") if t.strip()]
@@ -23,6 +24,30 @@ class TouristSpot(models.Model):
     def __str__(self):
         return self.name
 
+class Place(models.Model):
+    content_id = models.BigIntegerField(primary_key=True)
+    content_type_id = models.IntegerField()
+    lcls3_code = models.CharField(max_length=30)
+    title = models.CharField(max_length=255)
+    addr1 = models.CharField(max_length=500, blank=True, null=True)
+    addr2 = models.CharField(max_length=255, blank=True, null=True)
+    area_code = models.IntegerField(blank=True, null=True)
+    sigungu_code = models.IntegerField(blank=True, null=True)
+    zipcode = models.CharField(max_length=20, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=16, decimal_places=12)
+    latitude = models.DecimalField(max_digits=16, decimal_places=12)
+    location = models.BinaryField()
+    map_level = models.IntegerField(blank=True, null=True)
+    api_created_at = models.DateTimeField(blank=True, null=True)
+    api_modified_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = "places"
+
+    def __str__(self):
+        return self.title
+    
 
 class Accommodation(models.Model):
 
@@ -106,19 +131,32 @@ class Itinerary(models.Model):
         HEALING = "healing", "힐링여행"
         ACTIVITY = "activity", "액티비티"
         FOOD = "food", "맛집여행"
+        TREKKING = "trekking", "트레킹"
+
+    class Transport(models.TextChoices):
+        CAR = "car", "렌터카"
+        BUS = "bus", "버스"
 
     class Status(models.TextChoices):
         DRAFT = "draft", "임시저장"
         CONFIRMED = "confirmed", "확정"
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="itineraries")
+    class CompanionType(models.TextChoices):
+        SOLO = "solo", "혼자"
+        COUPLE = "couple", "연인"
+        FRIEND = "friend", "친구"
+        FAMILY = "family", "가족"
+
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
 
     title = models.CharField(max_length=150, default="제주 여행")
     subtitle = models.CharField(max_length=150, blank=True, help_text='예: "부모님과 함께"')
 
     start_date = models.DateField()
     end_date = models.DateField()
+    companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
     companion_count = models.PositiveSmallIntegerField(default=1)
+    transport = models.CharField(max_length=10, choices=Transport.choices, default=Transport.CAR)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
     budget_per_person = models.PositiveIntegerField(null=True, blank=True)
 
@@ -144,7 +182,7 @@ class Itinerary(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.title} ({self.user.email})"
+        return self.title
 
     @property
     def total_cost(self) -> int:

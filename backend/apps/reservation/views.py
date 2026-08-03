@@ -14,43 +14,75 @@ from .models import CartItem, Reservation, ReservationItem
 from .serializers import (
     CartItemCreateSerializer,
     CartItemSerializer,
+    CartItemUpdateSerializer,
     CartSerializer,
     ReservationCreateSerializer,
     ReservationSerializer,
 )
 
 
-
 class CartAPIView(APIView):
-    
+
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         tags=["Cart"],
         summary="장바구니 조회",
-        responses=CartSerializer
-        )
+        responses=CartSerializer,
+    )
     def get(self, request):
-        items = CartItem.objects.filter(user=request.user).select_related("package")
+        items = CartItem.objects.filter(
+            user=request.user
+        ).select_related("package")
+
         serializer = CartItemSerializer(items, many=True)
-        total = sum(item.package.price for item in items)
-        return Response({"items": serializer.data, "total_price": total})
+
+        total = sum(
+            item.package.price * item.quantity
+            for item in items
+        )
+
+        return Response({
+            "items": serializer.data,
+            "total_price": total,
+        })
 
     @extend_schema(
         tags=["Cart"],
-        summary="장바구니 추가",    
+        summary="장바구니 추가",
         request=CartItemCreateSerializer,
-        responses=CartItemSerializer
-        )
+        responses=CartItemSerializer,
+    )
     def post(self, request):
         serializer = CartItemCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         package = serializer.validated_data["package_id"]
 
-        item, created = CartItem.objects.get_or_create(user=request.user, package=package)
+        item, created = CartItem.objects.get_or_create(
+            user=request.user,
+            package=package,
+        )
+
         return Response(
             CartItemSerializer(item).data,
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            status=(
+                status.HTTP_201_CREATED
+                if created
+                else status.HTTP_200_OK
+            ),
+        )
+
+    @extend_schema(
+        tags=["Cart"],
+        summary="장바구니 전체 삭제",
+        responses={204: None},
+    )
+    def delete(self, request):
+        CartItem.objects.filter(user=request.user).delete()
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
         )
 
 
@@ -60,13 +92,46 @@ class CartItemDetailAPIView(APIView):
 
     @extend_schema(
         tags=["Cart"],
-        summary="장바구니 삭제",    
-        responses={204: None}
+        summary="장바구니 항목 수정",
+        request=CartItemUpdateSerializer,
+        responses=CartItemSerializer,
+    )
+    def patch(self, request, pk):
+        item = get_object_or_404(
+            CartItem,
+            pk=pk,
+            user=request.user,
         )
+
+        serializer = CartItemUpdateSerializer(
+            item,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            CartItemSerializer(item).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=["Cart"],
+        summary="장바구니 삭제",
+        responses={204: None},
+    )
     def delete(self, request, pk):
-        item = get_object_or_404(CartItem, pk=pk, user=request.user)
+        item = get_object_or_404(
+            CartItem,
+            pk=pk,
+            user=request.user,
+        )
         item.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
 
 class ReservationListCreateAPIView(ListAPIView):
@@ -75,62 +140,147 @@ class ReservationListCreateAPIView(ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Reservation.objects.filter(user=self.request.user).prefetch_related("items")
+        return Reservation.objects.filter(
+            user=self.request.user
+        ).prefetch_related("items")
 
     @extend_schema(
         tags=["Reservation"],
         summary="예약 생성",
         request=ReservationCreateSerializer,
-        responses={201: ReservationSerializer, 400: None},
+        responses={
+            201: ReservationSerializer,
+            400: None,
+        },
     )
     @transaction.atomic
     def post(self, request):
         serializer = ReservationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         data = serializer.validated_data
-
         package_ids = data.get("package_ids")
+        cart_item_ids = data.get("cart_item_ids")
 
-        if package_ids:
-            packages = list(Package.objects.filter(id__in=package_ids, is_active=True))
+        reservation_items_data = []
+
+        if cart_item_ids is not None:
+            cart_items = list(
+                CartItem.objects.filter(
+                    user=request.user,
+                    id__in=cart_item_ids,
+                ).select_related("package")
+            )
+
+            packages = [
+                cart_item.package
+                for cart_item in cart_items
+            ]
+
+            for cart_item in cart_items:
+                reservation_items_data.append({
+                    "package": cart_item.package,
+                    "quantity": cart_item.quantity,
+                    "option_date": cart_item.option_date,
+                    "option_people": cart_item.option_people,
+                })
+
+        elif package_ids:
+            packages = list(
+                Package.objects.filter(
+                    id__in=package_ids,
+                    is_active=True,
+                )
+            )
+
+            for package in packages:
+                reservation_items_data.append({
+                    "package": package,
+                    "quantity": 1,
+                    "option_date": None,
+                    "option_people": 2,
+                })
+
         else:
-            # package_ids가 없으면 장바구니 전체를 예약 요청으로 전환한다.
-            cart_items = CartItem.objects.filter(user=request.user).select_related("package")
-            packages = [ci.package for ci in cart_items]
+            cart_items = list(
+                CartItem.objects.filter(
+                    user=request.user
+                ).select_related("package")
+            )
+
+            packages = [
+                cart_item.package
+                for cart_item in cart_items
+            ]
+
+            for cart_item in cart_items:
+                reservation_items_data.append({
+                    "package": cart_item.package,
+                    "quantity": cart_item.quantity,
+                    "option_date": cart_item.option_date,
+                    "option_people": cart_item.option_people,
+                })
 
         if not packages:
             return Response(
-                {"detail": "예약할 패키지가 없습니다. 장바구니에 패키지를 담거나 package_ids를 지정해주세요."},
+                {
+                    "detail": (
+                        "예약할 패키지가 없습니다. "
+                        "장바구니에 패키지를 담거나 "
+                        "package_ids를 지정해주세요."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         itinerary = None
         itinerary_id = data.get("itinerary_id")
-        if itinerary_id:
-            itinerary = get_object_or_404(Itinerary, pk=itinerary_id, user=request.user)
 
-        total_price = sum(p.price for p in packages)
+        if itinerary_id:
+            itinerary = get_object_or_404(
+                Itinerary,
+                pk=itinerary_id,
+                user=request.user,
+            )
+
+        total_price = sum(
+            item["package"].price * item["quantity"]
+            for item in reservation_items_data
+        )
 
         reservation = Reservation.objects.create(
-
             user=request.user,
             itinerary=itinerary,
             total_price=total_price,
-            payment_method=data.get("payment_method") or "신용카드 (**** **** **** 1234)",
-            status=Reservation.Status.CONFIRMED,  # 시연: 결제 연동 없이 즉시 확정 처리
+            payment_method=(
+                data.get("payment_method")
+                or "신용카드 (**** **** **** 1234)"
+            ),
+            status=Reservation.Status.CONFIRMED,
         )
 
-        ReservationItem.objects.bulk_create(
-            [
-                ReservationItem(reservation=reservation, package=p, name=p.name, price=p.price, quantity=1)
-                for p in packages
-            ]
+        ReservationItem.objects.bulk_create([
+            ReservationItem(
+                reservation=reservation,
+                package=item["package"],
+                name=item["package"].name,
+                price=item["package"].price,
+                quantity=item["quantity"],
+                option_date=item["option_date"],
+                option_people=item["option_people"],
+            )
+            for item in reservation_items_data
+        ])
+
+        CartItem.objects.filter(
+            user=request.user,
+            package__in=packages,
+        ).delete()
+
+        return Response(
+            ReservationSerializer(reservation).data,
+            status=status.HTTP_201_CREATED,
         )
-
-        # 예약으로 전환된 패키지는 장바구니에서 제거한다.
-        CartItem.objects.filter(user=request.user, package__in=packages).delete()
-
-        return Response(ReservationSerializer(reservation).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(
