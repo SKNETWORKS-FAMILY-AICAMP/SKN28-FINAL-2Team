@@ -80,11 +80,13 @@ class ItineraryEngine:
     # ------------------------------------------------------------------
     def create_itinerary(self, user_text: str) -> ItineraryState:
         container = self._container
+
         condition = container.llm_service.extract_travel_condition(user_text)
         day_templates = self._build_day_structure(condition)
 
         slots: list[ItinerarySlot] = []
         used_content_ids: set[int] = set()
+
         for day in day_templates:
             for slot_template in day["slots"]:
                 slot = self._search_and_plan_slot(
@@ -93,13 +95,27 @@ class ItineraryEngine:
                     slot_template=slot_template,
                     exclude_content_ids=used_content_ids,
                 )
-                used_content_ids.update(candidate.content_id for candidate in slot.candidates)
+                used_content_ids.update(
+                    candidate.content_id for candidate in slot.candidates
+                )
                 slots.append(slot)
 
-        self._force_include_must_visit_places(condition, slots, used_content_ids)
+        self._force_include_must_visit_places(
+            condition,
+            slots,
+            used_content_ids,
+        )
 
         days_with_candidates = _group_slots_by_day(slots)
-        itinerary = container.llm_service.generate_itinerary(condition, days_with_candidates)
+
+        itinerary = container.llm_service.generate_itinerary(
+            condition,
+            days_with_candidates,
+        )
+
+        print("=" * 50)
+        print("LLM 결과 day 수:", len(itinerary["days"]))
+        print(itinerary)
 
         return ItineraryState(
             condition=condition,
@@ -107,7 +123,6 @@ class ItineraryEngine:
             itinerary=itinerary,
             used_content_ids=used_content_ids,
         )
-
     # ------------------------------------------------------------------
     # Free-chat modification
     # ------------------------------------------------------------------
@@ -298,16 +313,37 @@ class ItineraryEngine:
         return touched_slots
 
     def _build_day_structure(self, condition: TravelCondition) -> list[dict[str, Any]]:
+        print("=" * 50)
+        print("사용자 요청 일수:", condition.duration_days)
+
         matches = self._container.pattern_service.find_reference_trips(condition)
+
         if matches:
             context = self._container.pattern_service.build_llm_context(condition)
             reference_patterns = context.get("reference_trip_patterns") or []
+
             if reference_patterns:
                 days = reference_patterns[0].get("days") or []
-                if days:
-                    return days
-        return _default_day_structure(condition)
 
+                print("AIHub 패턴 일수:", len(days))
+                print(days)
+
+                if days:
+                    while len(days) < condition.duration_days:
+                        new_day = {
+                            **days[-1],
+                            "day": len(days) + 1,
+                        }
+                        days.append(new_day)
+
+                    days = days[:condition.duration_days]
+
+                    print("보정 후 Day 수:", len(days))
+
+                    return days
+
+        print("기본 구조 사용")
+        return _default_day_structure(condition)
 
 def _normalize_title(title: str) -> str:
     return _WHITESPACE_RE.sub("", title).strip().lower()
