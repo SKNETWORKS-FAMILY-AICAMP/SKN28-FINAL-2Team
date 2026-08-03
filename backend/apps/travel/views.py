@@ -106,7 +106,7 @@ class RestaurantViewSet(viewsets.ReadOnlyModelViewSet):
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
     serializer_class = PackageSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     @extend_schema(
         tags=["Package"],

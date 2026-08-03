@@ -1,7 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import AccountMenu from './AccountMenu.jsx'
 
 export default function Nav() {
+  const navigate = useNavigate()
+  const { isLoggedIn } = useAuth()
+
+  const handleStart = () => {
+    if (!isLoggedIn) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    navigate('/chat')
+  }
   return (
     <header className="nav">
       <div className="nav-inner">
@@ -24,9 +36,13 @@ export default function Nav() {
 
         <div className="nav-right">
           <AccountMenu />
-          <Link to="/chat" className="btn primary sm">
+          <button
+            type="button"
+            className="btn primary sm"
+            onClick={handleStart}
+          >
             무료로 일정 만들기
-          </Link>
+          </button>
         </div>
       </div>
     </header>

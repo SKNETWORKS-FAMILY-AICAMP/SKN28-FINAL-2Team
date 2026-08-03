@@ -1,6 +1,22 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function Hero() {
+  const navigate = useNavigate()
+
+  const handleStart = () => {
+    const token = localStorage.getItem('accessToken')
+
+    if (!token || 
+      token === 'null' ||
+      token ==='undefined'
+    ) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    navigate('/chat')
+  }
+
   return (
     <section className="hero">
       <div className="wrap hero-grid">
@@ -19,9 +35,14 @@ export default function Hero() {
             원하는 일정은 예약하거나 PDF 저장 및 공유도 가능해요.
           </p>
           <div className="hero-ctas">
-            <Link to="/chat" className="btn primary" id="start">
+            <button
+              type="button"
+              className="btn primary"
+              id="start"
+              onClick={handleStart}
+            >
               무료로 일정 만들기 →
-            </Link>
+            </button>
             <Link to="/how-to-use" className="btn ghost">
               이용 방법 보기
             </Link>

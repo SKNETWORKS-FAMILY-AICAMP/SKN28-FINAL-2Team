@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import styles from './packages/packages.module.css'
 import cx from '../utils/cx.js'
 import AccountMenu from '../components/AccountMenu.jsx'
@@ -10,9 +11,11 @@ import { useBookmarks } from '../context/BookmarkContext.jsx'
 
 const FILTERS = [
   { value: 'all', label: '전체' },
-  { value: 'stay', label: '숙소' },
-  { value: 'car', label: '렌터카' },
-  { value: 'activity', label: '액티비티' },
+  { value: 1, label: '당일' },
+  { value: 2, label: '1박 2일' },
+  { value: 3, label: '2박 3일' },
+  { value: 4, label: '3박 4일' },
+  { value: 5, label: '4박 5일' },
 ]
 
 const PACKAGE_EMOJI = {
@@ -47,6 +50,8 @@ const normalizePackage = (pkg) => ({
 })
 
 export default function PackagesPage() {
+  const navigate = useNavigate()
+  const { isLoggedIn } = useAuth()
   const [filter, setFilter] = useState('all')
   const [selectedPackage, setSelectedPackage] = useState(null)
   const [packages, setPackages] = useState([])
@@ -85,7 +90,24 @@ export default function PackagesPage() {
       alert(err.message || '패키지 상세 정보를 불러오지 못했습니다.')
     }
   }
-  const visible = filter === 'all' ? packages : packages.filter((p) => p.category === filter)
+  const handleDirectBooking = (e, pkg) => {
+    e.stopPropagation()
+
+    if (!isLoggedIn) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    navigate('/booking', {
+      state: {
+        bookingSource: 'package',
+        packageIds: [pkg.id],
+        packages: [pkg],
+      },
+    })
+  }
+
+  const visible = filter === 'all' ? packages : packages.filter((p) => Number(p.durationDays) === Number(filter))
 
   return (
     <div className={styles.page}>
@@ -105,7 +127,7 @@ export default function PackagesPage() {
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>✓ 추천 패키지</div>
           <h1>탐나플랜이 준비한 패키지 전체보기</h1>
-          <p>숙소·렌터카·액티비티를 한눈에 비교하고, 마음에 드는 패키지는 하트로 찜해보세요.</p>
+          <p>여행 기간에 맞는 패키지를 한눈에 비교하고, 마음에 드는 패키지는 하트로 찜해보세요.</p>
         </div>
 
         <div className={styles.filters}>
@@ -125,7 +147,7 @@ export default function PackagesPage() {
         ) : error ? (
           <div className={styles.empty}>{error}</div>
         ) : visible.length === 0 ? (
-          <div className={styles.empty}>해당 카테고리의 패키지가 아직 없어요.</div>
+          <div className={styles.empty}>해당 기간의 패키지가 아직 없어요.</div>
         ) : (
           <div className={styles.grid}>
             {visible.map((p) => (
@@ -156,9 +178,13 @@ export default function PackagesPage() {
                   </div>
                   <div className={styles.cardFoot}>
                     <div className={styles.price}>{won(p.price)}</div>
-                    <Link to="/booking" className={styles.btn} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={styles.btn}
+                      onClick={(e) => handleDirectBooking(e, p)}
+                    >
                       예약하기 →
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
