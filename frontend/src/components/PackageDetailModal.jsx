@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import styles from './PackageDetailModal.module.css'
 import cx from '../utils/cx.js'
-import { won, ratingLabel } from '../data/packages.js'
+import { won } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
 
@@ -44,7 +44,6 @@ export default function PackageDetailModal({ pkg, onClose }) {
         </div>
 
         <div className={styles.body}>
-          <div className={styles.rating}>{ratingLabel(pkg)}</div>
           <h2>{pkg.name}</h2>
           <p className={styles.desc}>{pkg.description}</p>
 
@@ -74,6 +73,50 @@ export default function PackageDetailModal({ pkg, onClose }) {
               ))}
             </ul>
           </div>
+          {pkg.course.length > 0 && (
+            <div className={styles.section}>
+              <h4>일정별 코스</h4>
+
+              <div className={styles.courseList}>
+                {pkg.course.map((dayCourse) => (
+                  <div className={styles.courseDay} key={dayCourse.day}>
+                    <div className={styles.dayTitle}>
+                      Day {dayCourse.day}
+                    </div>
+
+                    <div className={styles.courseItems}>
+                      {dayCourse.items.map((item) => (
+                        <div
+                          className={styles.courseItem}
+                          key={`${dayCourse.day}-${item.sequence}-${item.content_id}`}
+                        >
+                          <div className={styles.courseSequence}>
+                            {item.sequence}
+                          </div>
+
+                          <div className={styles.courseInfo}>
+                            <strong>{item.title}</strong>
+
+                            {item.address && (
+                              <span>{item.address}</span>
+                            )}
+
+                            <small>
+                              {item.item_type === 'restaurant'
+                                ? '🍽️ 음식점'
+                                : item.item_type === 'hotel'
+                                  ? '🏨 숙소'
+                                  : '📍 관광지'}
+                            </small>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={styles.footer}>

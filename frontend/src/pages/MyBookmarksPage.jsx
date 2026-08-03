@@ -4,11 +4,10 @@ import cx from '../utils/cx.js'
 import AccountHeader from './account/AccountHeader.jsx'
 import AccountTabs from './account/AccountTabs.jsx'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
-import { PACKAGES, won, ratingLabel } from '../data/packages.js'
+import { won } from '../data/packages.js'
 
 export default function MyBookmarksPage() {
-  const { bookmarkedIds, toggle } = useBookmarks()
-  const bookmarkedPackages = PACKAGES.filter((p) => bookmarkedIds.has(p.id))
+  const { bookmarks, toggle } = useBookmarks()
 
   return (
     <div className={styles.page}>
@@ -23,7 +22,7 @@ export default function MyBookmarksPage() {
         </div>
 
         <div className={styles.card}>
-          {bookmarkedPackages.length === 0 ? (
+          {bookmarks.length === 0 ? (
             <div className={styles.empty}>
               <div className={styles.icon}>🤍</div>
               <h4>아직 찜한 패키지가 없어요</h4>
@@ -33,28 +32,44 @@ export default function MyBookmarksPage() {
               </Link>
             </div>
           ) : (
-            bookmarkedPackages.map((p) => (
-              <div className={styles.listItem} key={p.id}>
-                <div className={styles.listThumb}>{p.thumbnail}</div>
-                <div className={styles.listInfo}>
-                  <h5>{p.name}</h5>
-                  <p>{p.description}</p>
-                  <span className={styles.badge} style={{ background: 'var(--bg-soft)', color: 'var(--muted)' }}>
-                    {ratingLabel(p)}
-                  </span>
+            bookmarks.map((bookmark) => {
+              const p = bookmark.package_detail
+
+              if (!p) return null
+
+              return (
+                <div className={styles.listItem} key={bookmark.id}>
+                  <div className={styles.listThumb}>🎁</div>
+
+                  <div className={styles.listInfo}>
+                    <h5>{p.name}</h5>
+                    <p>{p.description}</p>
+
+                    <span
+                      className={styles.badge}
+                      style={{
+                        background: 'var(--bg-soft)',
+                        color: 'var(--muted)',
+                      }}
+                    >
+                      {p.region} · {p.duration_days}일
+                    </span>
+                  </div>
+
+                  <div className={styles.listMeta}>
+                    <div className={styles.price}>{won(p.price)}</div>
+
+                    <button
+                      className={cx(styles.btn, styles.ghost, styles.sm)}
+                      style={{ marginTop: 8 }}
+                      onClick={() => toggle(p.id)}
+                    >
+                      찜 해제
+                    </button>
+                  </div>
                 </div>
-                <div className={styles.listMeta}>
-                  <div className={styles.price}>{won(p.price)}</div>
-                  <button
-                    className={cx(styles.btn, styles.ghost, styles.sm)}
-                    style={{ marginTop: 8 }}
-                    onClick={() => toggle(p.id)}
-                  >
-                    찜 해제
-                  </button>
-                </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>

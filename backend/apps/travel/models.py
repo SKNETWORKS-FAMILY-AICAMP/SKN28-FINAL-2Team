@@ -88,38 +88,50 @@ class Restaurant(models.Model):
 
 
 class Package(models.Model):
+    id = models.BigAutoField(primary_key=True)
 
-    class Category(models.TextChoices):
-        STAY = "stay", "숙소"
-        CAR = "car", "렌터카"
-        ACTIVITY = "activity", "액티비티"
-        TOUR = "tour", "투어"
+    package_id = models.CharField(
+        max_length=50,
+        unique=True,
+    )
 
-    class Style(models.TextChoices):
-        FAMILY = "family", "가족여행"
-        HEALING = "healing", "힐링여행"
-        ACTIVITY = "activity", "액티비티"
-        FOOD = "food", "맛집여행"
+    title = models.CharField(max_length=255)
 
-    name = models.CharField(max_length=150)
-    category = models.CharField(max_length=20, choices=Category.choices)
-    style = models.CharField(max_length=20, choices=Style.choices, blank=True)
-    description = models.TextField(blank=True)
-    thumbnail_url = models.URLField(blank=True)
-    price = models.PositiveIntegerField(default=0)
-    duration_days = models.PositiveSmallIntegerField(default=1, help_text="상품 이용 일수")
-    region = models.CharField(max_length=50, blank=True, default="제주")
-    accommodation_included = models.BooleanField(default=False)
-    included_items = models.JSONField(default=list, blank=True, help_text='예: ["자차보험","내비게이션"]')
-    course = models.JSONField(default=list, blank=True, help_text="코스 설명 리스트")
-    rating = models.DecimalField(max_digits=2, decimal_places=1, default=0)
-    review_count = models.PositiveIntegerField(default=0)
+    summary = models.TextField(
+        blank=True,
+        null=True,
+    )
+
+    region = models.CharField(
+        max_length=100,
+        db_index=True,
+    )
+
+    duration_days = models.PositiveSmallIntegerField()
+
+    estimated_price = models.PositiveIntegerField(
+        db_index=True,
+    )
+
+    match_profile = models.JSONField()
+
+    schema_version = models.CharField(
+        max_length=20,
+        default="1.0",
+    )
+
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "travel_packages"
+        ordering = ["id"]
 
     def __str__(self):
-        return self.name
+        return self.title
 
 
 # 최종 여행 일정
