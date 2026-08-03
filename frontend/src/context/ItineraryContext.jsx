@@ -17,7 +17,7 @@ export function ItineraryProvider({ children }) {
       const data = await getItineraries();
       setItineraries(data);
     } catch (err) {
-      console.error("일정 조회 실패", err);
+      console.error('일정 조회 실패', err)
     } finally {
       setLoading(false);
     }

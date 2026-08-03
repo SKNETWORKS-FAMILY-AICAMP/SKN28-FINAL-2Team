@@ -1,6 +1,6 @@
 import styles from './booking.module.css'
 import cx from '../../utils/cx.js'
-import { won, ratingLabel } from '../../data/packages.js'
+import { won } from '../../data/packages.js'
 
 export default function PackageList({
   items = [],
@@ -44,11 +44,6 @@ export default function PackageList({
             <div className={styles.pkgInfo} onClick={() => onToggle?.(p.id)}>
               <h5>{p.name}</h5>
               <div className={styles.desc}>{p.description}</div>
-              <div className={styles.rating}>
-                {p.review_count !== undefined
-                  ? `★ ${p.rating} (${p.review_count})`
-                  : ratingLabel(p)}
-              </div>
             </div>
 
             <button

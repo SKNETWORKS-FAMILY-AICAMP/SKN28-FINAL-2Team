@@ -5,7 +5,6 @@ import cx from '../utils/cx.js'
 import AppHeader from './booking/AppHeader.jsx'
 import PackageList from './booking/PackageList.jsx'
 import PaymentSummary from './booking/PaymentSummary.jsx'
-import { PACKAGES } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useReservations } from '../context/ReservationContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
@@ -25,6 +24,7 @@ export default function BookingPage() {
   const { isBookmarked, toggle: toggleBookmark } = useBookmarks()
   const { cartPackages, refreshCart } = useCart()
   const [confirmedTotal, setConfirmedTotal] = useState(0)
+  const [confirmedReservation, setConfirmedReservation] = useState(null)
   const itineraryId = state?.itineraryId;
   const toggle = (id) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -38,7 +38,11 @@ export default function BookingPage() {
       )
     }
   }, [isCartBooking, cartPackages])
-  const packageItems = PACKAGES.map((p) => ({
+  const directPackages = Array.isArray(state?.packages)
+    ? state.packages
+    : []
+
+  const packageItems = directPackages.map((p) => ({
     cartId: `package-${p.id}`,
     package: p,
     quantity: 1,
@@ -76,6 +80,7 @@ export default function BookingPage() {
       Number(reservation.total_price ?? total)
     )
 
+    setConfirmedReservation(reservation)
     setConfirmed(true)
 
     if (isCartBooking) {
@@ -91,6 +96,20 @@ export default function BookingPage() {
     setSubmitting(false)
   }
 }
+  const confirmedItemNames =
+    confirmedReservation?.items
+      ?.map((item) => item.name)
+      .filter(Boolean) ?? []
+
+  const confirmedTitle =
+    confirmedItemNames.length > 0
+      ? confirmedItemNames.join(', ')
+      : '예약한 제주 패키지'
+
+  const confirmedDate =
+    confirmedReservation?.created_at
+      ? new Date(confirmedReservation.created_at).toLocaleDateString('ko-KR')
+      : ''
 
   return (
     <div className={styles.page}>
@@ -116,14 +135,16 @@ export default function BookingPage() {
             <div className={styles.successBadge}>✓</div>
             <h2>예약이 확정됐어요 🎉</h2>
             <p>
-              제주 2박 3일 힐링 여행 예약이 완료됐어요.
+              {confirmedTitle} 예약이 완료됐어요.
               <br />
               "예약 내역"에서 언제든 다시 확인할 수 있어요.
             </p>
             <div className={styles.successMeta}>
               <div className={styles.row}>
-                <span className={styles.k}>여행 일정</span>
-                <span className={styles.v}>2024.07.25 – 07.27 · 2박 3일</span>
+                <span className={styles.k}>예약 일자</span>
+                <span className={styles.v}>
+                  {confirmedDate || '예약 완료'}
+                </span>
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>결제 금액</span>

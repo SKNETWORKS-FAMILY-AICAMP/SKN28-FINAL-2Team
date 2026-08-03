@@ -132,7 +132,14 @@ export default function PackageDetailModal({ pkg, onClose }) {
               className={cx(styles.btn, styles.primary)}
               onClick={() => {
                 onClose()
-                navigate('/booking')
+
+                navigate('/booking', {
+                  state: {
+                    bookingSource: 'package',
+                    packageIds: [pkg.id],
+                    packages: [pkg],
+                  },
+                })
               }}
             >
               예약하기 →

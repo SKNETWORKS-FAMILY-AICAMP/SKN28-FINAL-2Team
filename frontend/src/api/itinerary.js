@@ -119,6 +119,4 @@ export const getRoute = async (id) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/route/`
   );
-
-  return data;
 };
