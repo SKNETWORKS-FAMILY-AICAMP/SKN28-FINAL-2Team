@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import styles from './CartWidget.module.css'
 import cx from '../utils/cx.js'
 import { useCart } from '../context/CartContext.jsx'
-import { won, ratingLabel } from '../data/packages.js'
+import { won } from '../data/packages.js'
 
 export default function CartWidget() {
   const {
@@ -69,7 +69,6 @@ export default function CartWidget() {
                     <div className={styles.cartItemTop}>
                       <div className={styles.cartThumb}>{item.package.thumbnail}</div>
                       <div className={styles.cartInfo}>
-                        <div className={styles.rating}>{ratingLabel(item.package)}</div>
                         <h5>{item.package.name}</h5>
                         <div className={styles.price}>{won(item.package.price)}</div>
                       </div>

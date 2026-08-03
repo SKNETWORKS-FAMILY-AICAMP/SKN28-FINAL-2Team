@@ -33,14 +33,20 @@ class CartAPIView(APIView):
     def get(self, request):
         items = CartItem.objects.filter(
             user=request.user
-        ).select_related("package")
+        )
 
         serializer = CartItemSerializer(items, many=True)
 
-        total = sum(
-            item.package.price * item.quantity
-            for item in items
-        )
+        total = 0
+
+        for item in items:
+            package = Package.objects.using("travel").filter(
+                id=item.package_db_id,
+                is_active=True,
+            ).first()
+
+            if package:
+                total += package.estimated_price * item.quantity
 
         return Response({
             "items": serializer.data,
@@ -57,11 +63,11 @@ class CartAPIView(APIView):
         serializer = CartItemCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        package = serializer.validated_data["package_id"]
+        package_db_id = serializer.validated_data["package_id"]
 
         item, created = CartItem.objects.get_or_create(
             user=request.user,
-            package=package,
+            package_db_id=package_db_id,
         )
 
         return Response(
@@ -169,17 +175,34 @@ class ReservationListCreateAPIView(ListAPIView):
                 CartItem.objects.filter(
                     user=request.user,
                     id__in=cart_item_ids,
-                ).select_related("package")
+                )
             )
 
-            packages = [
-                cart_item.package
+            package_db_ids = [
+                cart_item.package_db_id
                 for cart_item in cart_items
             ]
 
+            packages = list(
+                Package.objects.using("travel").filter(
+                    id__in=package_db_ids,
+                    is_active=True,
+                )
+            )
+
+            package_map = {
+                package.id: package
+                for package in packages
+            }
+
             for cart_item in cart_items:
+                package = package_map.get(cart_item.package_db_id)
+
+                if package is None:
+                    continue
+
                 reservation_items_data.append({
-                    "package": cart_item.package,
+                    "package": package,
                     "quantity": cart_item.quantity,
                     "option_date": cart_item.option_date,
                     "option_people": cart_item.option_people,
@@ -187,7 +210,7 @@ class ReservationListCreateAPIView(ListAPIView):
 
         elif package_ids:
             packages = list(
-                Package.objects.filter(
+                Package.objects.using("travel").filter(
                     id__in=package_ids,
                     is_active=True,
                 )
@@ -205,17 +228,34 @@ class ReservationListCreateAPIView(ListAPIView):
             cart_items = list(
                 CartItem.objects.filter(
                     user=request.user
-                ).select_related("package")
+                )
             )
 
-            packages = [
-                cart_item.package
+            package_db_ids = [
+                cart_item.package_db_id
                 for cart_item in cart_items
             ]
 
+            packages = list(
+                Package.objects.using("travel").filter(
+                    id__in=package_db_ids,
+                    is_active=True,
+                )
+            )
+
+            package_map = {
+                package.id: package
+                for package in packages
+            }
+
             for cart_item in cart_items:
+                package = package_map.get(cart_item.package_db_id)
+
+                if package is None:
+                    continue
+
                 reservation_items_data.append({
-                    "package": cart_item.package,
+                    "package": package,
                     "quantity": cart_item.quantity,
                     "option_date": cart_item.option_date,
                     "option_people": cart_item.option_people,
@@ -244,7 +284,7 @@ class ReservationListCreateAPIView(ListAPIView):
             )
 
         total_price = sum(
-            item["package"].price * item["quantity"]
+            item["package"].estimated_price * item["quantity"]
             for item in reservation_items_data
         )
 
@@ -262,9 +302,10 @@ class ReservationListCreateAPIView(ListAPIView):
         ReservationItem.objects.bulk_create([
             ReservationItem(
                 reservation=reservation,
-                package=item["package"],
-                name=item["package"].name,
-                price=item["package"].price,
+                package_db_id=item["package"].id,
+                package_id=item["package"].package_id,
+                name=item["package"].title,
+                price=item["package"].estimated_price,
                 quantity=item["quantity"],
                 option_date=item["option_date"],
                 option_people=item["option_people"],
@@ -274,7 +315,7 @@ class ReservationListCreateAPIView(ListAPIView):
 
         CartItem.objects.filter(
             user=request.user,
-            package__in=packages,
+            package_db_id__in=[p.id for p in packages],
         ).delete()
 
         return Response(

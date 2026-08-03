@@ -122,3 +122,7 @@ export const createShareLink = async (id) => {
 
   return data;
 };
+
+export const deleteItinerary = async (id) => {
+  await api.delete(`/travel/itineraries/${id}/`);
+};

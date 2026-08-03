@@ -96,8 +96,11 @@ export default function MyReservationsPage() {
                       </div>
                       {r.items.map((item, i) => (
                         <div className={styles.detailItemRow} key={i}>
-                          <span>{item.name}</span>
-                          <span>{won(item.price)}</span>
+                          <span> {item.name}</span>
+
+                          <span>
+                            {won(item.price)} × {item.quantity}개
+                          </span>
                         </div>
                       ))}
                       <div className={styles.detailDivider}></div>
