@@ -4,6 +4,7 @@ import cx from '../utils/cx.js'
 import { won } from '../data/packages.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const STYLE_LABEL = {
   healing: '힐링',
@@ -15,13 +16,36 @@ export default function PackageDetailModal({ pkg, onClose }) {
   const { isBookmarked, toggle } = useBookmarks()
   const { addToCart, openCart } = useCart()
   const navigate = useNavigate()
+  const { isLoggedIn } = useAuth()
 
   if (!pkg) return null
 
   const handleAddToCart = () => {
+    if (!isLoggedIn) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
     addToCart(pkg.id)
     onClose()
     openCart()
+  }
+
+  const handleBooking = () => {
+    if (!isLoggedIn) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    onClose()
+
+    navigate('/booking', {
+      state: {
+        bookingSource: 'package',
+        packageIds: [pkg.id],
+        packages: [pkg],
+      },
+    })
   }
 
   return (
@@ -130,17 +154,7 @@ export default function PackageDetailModal({ pkg, onClose }) {
             </button>
             <button
               className={cx(styles.btn, styles.primary)}
-              onClick={() => {
-                onClose()
-
-                navigate('/booking', {
-                  state: {
-                    bookingSource: 'package',
-                    packageIds: [pkg.id],
-                    packages: [pkg],
-                  },
-                })
-              }}
+              onClick={handleBooking}
             >
               예약하기 →
             </button>

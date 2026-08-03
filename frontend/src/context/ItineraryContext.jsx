@@ -1,16 +1,25 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { getItineraries, createItinerary, updateItinerary, patchItinerary, 
-  deleteItinerary, regenerateItinerary, getRoute } from "../api/itinerary";
+import { createContext, useContext, useEffect, useState } from 'react'
+import { getItineraries, deleteItinerary } from '../api/itinerary'
+import { useAuth } from './AuthContext'
 
 const ItineraryContext = createContext(null);
 
 export function ItineraryProvider({ children }) {
-  const [itineraries, setItineraries] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [itineraries, setItineraries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { isLoggedIn, loading: authLoading } = useAuth()
 
   useEffect(() => {
-    loadItineraries();
-  }, []);
+    if (authLoading) return
+
+    if (!isLoggedIn) {
+      setItineraries([])
+      setLoading(false)
+      return
+    }
+
+    loadItineraries()
+  }, [isLoggedIn, authLoading])
 
   async function loadItineraries() {
     try {

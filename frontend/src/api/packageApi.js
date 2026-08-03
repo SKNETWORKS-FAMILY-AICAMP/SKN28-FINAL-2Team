@@ -5,10 +5,19 @@ const getAccessToken = () => localStorage.getItem('accessToken')
 const authHeaders = () => {
   const accessToken = getAccessToken()
 
-  return {
+  const headers = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${accessToken}`,
   }
+
+  if (
+    accessToken &&
+    accessToken !== 'null' &&
+    accessToken !== 'undefined'
+  ) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  return headers
 }
 
 const parseError = async (response, fallbackMessage) => {
