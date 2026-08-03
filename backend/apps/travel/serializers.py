@@ -39,19 +39,125 @@ class RestaurantSerializer(serializers.ModelSerializer):
 
 
 class PackageSerializer(serializers.ModelSerializer):
-    category_display = serializers.CharField(source="get_category_display", read_only=True)
-    style_display = serializers.CharField(source="get_style_display", read_only=True)
+    name = serializers.CharField(source="title", read_only=True)
+    description = serializers.CharField(source="summary", read_only=True)
+    price = serializers.IntegerField(source="estimated_price", read_only=True)
+
+    accommodation_included = serializers.SerializerMethodField()
+    style = serializers.SerializerMethodField()
+    style_display = serializers.SerializerMethodField()
+    course = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
         fields = (
-            "id", "name", "category", "category_display", "style", "style_display",
-            "description", "thumbnail_url", "price", "duration_days", "region",
-            "accommodation_included", "included_items", "course",
-            "rating", "review_count", "is_active",
+            "id", "package_id", "name", "description", "price", "region", "duration_days", "match_profile", 
+            "accommodation_included", "style", "style_display", "course", "is_active",
         )
 
+    def get_accommodation_included(self, obj):
+        from django.db import connections
 
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT EXISTS(
+                    SELECT 1
+                    FROM package_items
+                    WHERE package_db_id = %s
+                      AND item_type = 'hotel'
+                )
+                """,
+                [obj.id],
+            )
+            return bool(cursor.fetchone()[0])
+
+    def get_style(self, obj):
+        profile = obj.match_profile or {}
+        paces = profile.get("paces", [])
+        themes = profile.get("themes", [])
+        party_types = profile.get("party_types", [])
+
+        if "with_children" in party_types or "family_group" in party_types:
+            return "family"
+
+        if "relaxed" in paces:
+            return "healing"
+
+        if "experience" in themes:
+            return "activity"
+
+        if "food" in themes or "market_shopping" in themes:
+            return "food"
+
+        return ""
+
+    def get_style_display(self, obj):
+        labels = {
+            "family": "가족여행",
+            "healing": "힐링여행",
+            "activity": "액티비티",
+            "food": "맛집여행",
+        }
+        return labels.get(self.get_style(obj), "")
+    
+    def get_course(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    pi.day_no,
+                    pi.sequence,
+                    pi.item_type,
+                    pi.content_id,
+                    p.title,
+                    p.addr1,
+                    p.addr2
+                FROM package_items pi
+                LEFT JOIN places p
+                    ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                AND pi.day_no IS NOT NULL
+                ORDER BY pi.day_no, pi.sequence
+                """,
+                [obj.id],
+            )
+
+            rows = cursor.fetchall()
+
+        course_by_day = {}
+
+        for (
+            day_no,
+            sequence,
+            item_type,
+            content_id,
+            title,
+            addr1,
+            addr2,
+        ) in rows:
+            course_by_day.setdefault(day_no, []).append(
+                {
+                    "sequence": sequence,
+                    "item_type": item_type,
+                    "content_id": content_id,
+                    "title": title or f"장소 {content_id}",
+                    "address": " ".join(
+                        part for part in [addr1, addr2] if part
+                    ),
+                }
+            )
+
+        return [
+            {
+                "day": day_no,
+                "items": items,
+            }
+            for day_no, items in sorted(course_by_day.items())
+        ]
+    
 class ItineraryItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItineraryItem

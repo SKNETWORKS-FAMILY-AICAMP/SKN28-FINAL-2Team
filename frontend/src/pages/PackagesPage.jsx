@@ -4,7 +4,7 @@ import styles from './packages/packages.module.css'
 import cx from '../utils/cx.js'
 import AccountMenu from '../components/AccountMenu.jsx'
 import PackageDetailModal from '../components/PackageDetailModal.jsx'
-import { won, ratingLabel } from '../data/packages.js'
+import { won } from '../data/packages.js'
 import { getPackages, getPackageDetail, } from '../api/packageApi.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 
@@ -145,7 +145,6 @@ export default function PackagesPage() {
                   </button>
                 </div>
                 <div className={styles.cardBody}>
-                  <div className={styles.rating}>{ratingLabel(p)}</div>
                   <h4>{p.name}</h4>
                   <p className={styles.desc}>{p.description}</p>
                   <div className={styles.tags}>

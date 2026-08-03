@@ -105,7 +105,6 @@ class RestaurantViewSet(viewsets.ReadOnlyModelViewSet):
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
-    queryset = Package.objects.filter(is_active=True)
     serializer_class = PackageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -126,22 +125,22 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
         return super().retrieve(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        style = self.request.query_params.get("style")
-        category = self.request.query_params.get("category")
+        qs = (
+            Package.objects.using("travel")
+            .filter(is_active=True)
+            .order_by("id")
+        )
+
         duration_days = self.request.query_params.get("duration_days")
         max_price = self.request.query_params.get("max_price")
 
-        if style:
-            qs = qs.filter(style=style)
-        if category:
-            qs = qs.filter(category=category)
         if duration_days:
             qs = qs.filter(duration_days=duration_days)
-        if max_price:
-            qs = qs.filter(price__lte=max_price)
-        return qs
 
+        if max_price:
+            qs = qs.filter(estimated_price__lte=max_price)
+
+        return qs
 
 class ItineraryViewSet(viewsets.ModelViewSet):
     queryset = Itinerary.objects.none()  
