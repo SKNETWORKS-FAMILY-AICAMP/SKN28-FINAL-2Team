@@ -5,7 +5,6 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-
 class TouristSpot(models.Model):
 
     name = models.CharField(max_length=100)
@@ -132,10 +131,21 @@ class Itinerary(models.Model):
         HEALING = "healing", "힐링여행"
         ACTIVITY = "activity", "액티비티"
         FOOD = "food", "맛집여행"
+        TREKKING = "trekking", "트레킹"
+
+    class Transport(models.TextChoices):
+        CAR = "car", "렌터카"
+        BUS = "bus", "버스"
 
     class Status(models.TextChoices):
         DRAFT = "draft", "임시저장"
         CONFIRMED = "confirmed", "확정"
+
+    class CompanionType(models.TextChoices):
+        SOLO = "solo", "혼자"
+        COUPLE = "couple", "연인"
+        FRIEND = "friend", "친구"
+        FAMILY = "family", "가족"
 
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
 
@@ -144,7 +154,9 @@ class Itinerary(models.Model):
 
     start_date = models.DateField()
     end_date = models.DateField()
+    companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
     companion_count = models.PositiveSmallIntegerField(default=1)
+    transport = models.CharField(max_length=10, choices=Transport.choices, default=Transport.CAR)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
     budget_per_person = models.PositiveIntegerField(null=True, blank=True)
 
