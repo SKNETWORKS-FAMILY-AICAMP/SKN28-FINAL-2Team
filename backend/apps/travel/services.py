@@ -19,7 +19,7 @@ def generate_itinerary(itinerary: Itinerary):
         itinerary.days.all().delete()
         print("기존 일정 삭제 완료")
 
-        places = list(Place.objects.order_by("content_id"))
+        places = list(Place.objects.using("travel").order_by("content_id"))
         print(f"Place 개수: {len(places)}")
 
         if not places:
