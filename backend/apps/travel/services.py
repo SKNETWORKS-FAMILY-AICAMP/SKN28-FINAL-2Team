@@ -9,7 +9,33 @@ from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
 
-def _save_itinerary_result(itinerary: Itinerary, result: dict):
+def _build_place_coordinate_map(
+    state: ItineraryState,
+) -> dict[int, tuple[float | None, float | None]]:
+    """엔진 상태(state.slots[*].candidates)에서 content_id -> (위도, 경도) 맵을 만든다.
+
+    LLM이 최종 stops에 돌려주는 값은 sequence/title/notes/content_id 뿐이고
+    좌표는 포함하지 않으므로(할루시네이션 방지를 위해 일부러 요청하지 않음),
+    실제 좌표는 RAG 검색 결과가 담긴 슬롯 후보(candidate.place)에서 가져온다.
+    """
+
+    coordinate_map: dict[int, tuple[float | None, float | None]] = {}
+
+    for slot in state.slots:
+        for candidate in slot.candidates:
+            place = candidate.place or {}
+            coordinate_map[candidate.content_id] = (
+                place.get("latitude"),
+                place.get("longitude"),
+            )
+
+    return coordinate_map
+
+
+def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
+
+    result = state.itinerary
+    coordinate_map = _build_place_coordinate_map(state)
 
     # 기존 일정 삭제
     itinerary.days.all().delete()
@@ -25,6 +51,10 @@ def _save_itinerary_result(itinerary: Itinerary, result: dict):
 
         for stop in day_data.get("stops", []):
 
+            latitude, longitude = coordinate_map.get(
+                stop.get("content_id"), (None, None)
+            )
+
             ItineraryItem.objects.create(
                 day=itinerary_day,
                 order=stop.get("sequence", 1),
@@ -33,8 +63,8 @@ def _save_itinerary_result(itinerary: Itinerary, result: dict):
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
                 thumbnail="",
-                latitude=None,
-                longitude=None,
+                latitude=latitude,
+                longitude=longitude,
                 cost=0,
                 spot=None,
                 restaurant=None,
@@ -106,7 +136,7 @@ def generate_itinerary(itinerary: Itinerary):
         print("최종 JSON")
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
-        _save_itinerary_result(itinerary, result)
+        _save_itinerary_result(itinerary, state)
 
         print("=" * 80)
         print("===== generate_itinerary 완료 =====")
@@ -160,7 +190,7 @@ def revise_itinerary(
         # 수정된 일정 저장
         _save_itinerary_result(
             itinerary,
-            new_state.itinerary,
+            new_state,
         )
 
         print("=" * 80)

@@ -10,6 +10,9 @@ export default function ItineraryPage() {
   const { id } = useParams()
   const [activeDay, setActiveDay] = useState(1)
 
+  const [refreshKey, setRefreshKey] = useState(0)
+  const bumpRefreshKey = () => setRefreshKey((k) => k + 1)
+
   return (
     <div className={styles.page}>
       <AppHeader />
@@ -20,6 +23,7 @@ export default function ItineraryPage() {
         <ItineraryEditor
           activeDay={activeDay}
           setActiveDay={setActiveDay}
+          refreshKey={refreshKey}
         />
 
         <MapPanel

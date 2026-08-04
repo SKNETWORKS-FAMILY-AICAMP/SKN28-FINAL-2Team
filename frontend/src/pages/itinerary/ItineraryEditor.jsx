@@ -37,7 +37,7 @@ export default function ItineraryEditor({
     };
 
     fetchItinerary();
-  }, [id]);
+  }, [id, refreshKey]);
 
   const toggleMenu = (i) => {
     setOpenMenuIndex((prev) => (prev === i ? null : i));
@@ -226,7 +226,7 @@ export default function ItineraryEditor({
                       )}
                       onClick={cancelDelete}
                     >
-                      취소
+                      삭제하기
                     </button>
 
                     <button
