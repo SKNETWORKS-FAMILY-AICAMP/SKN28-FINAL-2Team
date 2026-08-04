@@ -82,7 +82,11 @@ export default function Packages() {
               style={{ cursor: 'pointer' }}
             >
               <div className="pkg-img">
-                {p.thumbnail}
+                {p.thumbnailUrl ? (
+                  <img src={p.thumbnailUrl} alt={p.name} />
+                ) : (
+                  p.thumbnail
+                )}
               </div>
 
               <div className="pkg-body">

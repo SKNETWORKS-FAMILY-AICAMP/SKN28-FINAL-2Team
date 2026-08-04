@@ -34,8 +34,11 @@ export default function PackageList({
             </div>
 
             <div className={styles.pkgThumb} onClick={() => onToggle?.(p.id)}>
-              {p.thumbnail_url ? (
-                <img src={p.thumbnail_url} alt={p.name} />
+              {p.thumbnailUrl || p.thumbnail_url ? (
+                <img
+                  src={p.thumbnailUrl || p.thumbnail_url}
+                  alt={p.name}
+                />
               ) : (
                 p.thumbnail || '🏝️'
               )}
