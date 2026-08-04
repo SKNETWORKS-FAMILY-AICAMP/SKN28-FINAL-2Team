@@ -11,7 +11,7 @@ const INITIAL_MESSAGES = [
   },
   { id: 2, me: true, text: '우도 대신 협재해변으로 바꿔주세요.' },
   { id: 3, me: false, text: '알겠습니다! 우도를 협재해변으로 바꿨어요. 이동 시간도 20분 줄었어요.' },
-  { id: 4, me: true, text: '자녀에 흑돼지 맛집 추천해줘.' },
+  { id: 4, me: true, text: '저녁에 흑돼지 맛집 추천해줘.' },
   { id: 5, me: false, text: '네! 오른쪽 일정에 흑돼지 맛집을 추가했어요 🐷' },
 ]
 

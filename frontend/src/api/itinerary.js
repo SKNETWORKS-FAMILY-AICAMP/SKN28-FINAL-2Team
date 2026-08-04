@@ -126,3 +126,38 @@ export const createShareLink = async (id) => {
 export const deleteItinerary = async (id) => {
   await api.delete(`/travel/itineraries/${id}/`);
 };
+// 일정 일부 수정
+export const patchItinerary = async (id, payload) => {
+  const { data } = await api.patch(
+    `/travel/itineraries/${id}/`,
+    payload
+  );
+
+  return {
+    id: data.id,
+    title: data.title,
+    subtitle: data.subtitle,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    durationLabel: data.duration_label,
+    companionCount: data.companion_count,
+    budgetPerPerson: data.budget_per_person,
+    totalCost: data.total_cost,
+    style: data.style_display,
+    costBreakdown: data.cost_breakdown,
+    days: data.days.map((day) => ({
+      dayNumber: day.day_number,
+      date: day.date,
+      items: day.items,
+    })),
+  };
+};
+
+// 여행 경로 조회
+export const getRoute = async (id) => {
+  const { data } = await api.get(
+    `/travel/itineraries/${id}/route/`
+  );
+
+  return data;
+};
