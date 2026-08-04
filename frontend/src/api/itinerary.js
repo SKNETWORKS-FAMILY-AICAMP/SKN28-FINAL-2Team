@@ -1,5 +1,35 @@
 import api from "./axios";
 
+const mapItinerary = (data) => ({
+  id: data.id,
+  title: data.title,
+  subtitle: data.subtitle,
+  startDate: data.start_date,
+  endDate: data.end_date,
+  durationLabel: data.duration_label,
+
+  companionType: data.companion_type,
+  companionTypeDisplay: data.companion_type_display,
+  companionCount: data.companion_count,
+
+  transport: data.transport,
+  transportDisplay: data.transport_display,
+
+  style: data.style_display,
+  styleCode: data.style,
+  styleDisplay: data.style_display,
+
+  budgetPerPerson: data.budget_per_person,
+  totalCost: data.total_cost,
+  costBreakdown: data.cost_breakdown,
+
+  days: data.days.map((day) => ({
+    dayNumber: day.day_number,
+    date: day.date,
+    items: day.items,
+  })),
+});
+
 export const getItineraries = async () => {
   const { data } = await api.get("/travel/itineraries/");
 
@@ -20,49 +50,16 @@ export const getItineraries = async () => {
 export const getItinerary = async (id) => {
   const { data } = await api.get(`/travel/itineraries/${id}/`);
 
-  return {
-    id: data.id,
-    title: data.title,
-    subtitle: data.subtitle,
-    startDate: data.start_date,
-    endDate: data.end_date,
-    durationLabel: data.duration_label,
-    companionCount: data.companion_count,
-    budgetPerPerson: data.budget_per_person,
-    totalCost: data.total_cost,
-    style: data.style_display,
-    costBreakdown: data.cost_breakdown,
-    days: data.days.map((day) => ({
-      dayNumber: day.day_number,
-      date: day.date,
-      items: day.items,
-    })),
-  };
+  return mapItinerary(data);
 };
+
 export const createItinerary = async (data) => {
   const { data: response } = await api.post(
     "/travel/itineraries/",
     data
   );
 
-  return {
-    id: response.id,
-    title: response.title,
-    subtitle: response.subtitle,
-    startDate: response.start_date,
-    endDate: response.end_date,
-    durationLabel: response.duration_label,
-    companionCount: response.companion_count,
-    budgetPerPerson: response.budget_per_person,
-    totalCost: response.total_cost,
-    style: response.style_display,
-    costBreakdown: response.cost_breakdown,
-    days: response.days.map((day) => ({
-      dayNumber: day.day_number,
-      date: day.date,
-      items: day.items,
-    })),
-  };
+  return mapItinerary(response);
 };
 
 export const regenerateItinerary = async (id) => {
@@ -70,24 +67,7 @@ export const regenerateItinerary = async (id) => {
     `/travel/itineraries/${id}/regenerate/`
   );
 
-  return {
-    id: data.id,
-    title: data.title,
-    subtitle: data.subtitle,
-    startDate: data.start_date,
-    endDate: data.end_date,
-    durationLabel: data.duration_label,
-    companionCount: data.companion_count,
-    budgetPerPerson: data.budget_per_person,
-    totalCost: data.total_cost,
-    style: data.style_display,
-    costBreakdown: data.cost_breakdown,
-    days: data.days.map((day) => ({
-      dayNumber: day.day_number,
-      date: day.date,
-      items: day.items,
-    })),
-  };
+  return mapItinerary(data);
 };
 
 export const getSharedItinerary = async (token) => {
@@ -95,24 +75,7 @@ export const getSharedItinerary = async (token) => {
     `/travel/itineraries/shared/${token}/`
   );
 
-  return {
-    id: data.id,
-    title: data.title,
-    subtitle: data.subtitle,
-    startDate: data.start_date,
-    endDate: data.end_date,
-    durationLabel: data.duration_label,
-    companionCount: data.companion_count,
-    budgetPerPerson: data.budget_per_person,
-    totalCost: data.total_cost,
-    style: data.style_display,
-    costBreakdown: data.cost_breakdown,
-    days: data.days.map((day) => ({
-      dayNumber: day.day_number,
-      date: day.date,
-      items: day.items,
-    })),
-  };
+  return mapItinerary(data);
 };
 
 export const createShareLink = async (id) => {
@@ -126,6 +89,7 @@ export const createShareLink = async (id) => {
 export const deleteItinerary = async (id) => {
   await api.delete(`/travel/itineraries/${id}/`);
 };
+
 // 일정 일부 수정
 export const patchItinerary = async (id, payload) => {
   const { data } = await api.patch(
@@ -133,24 +97,7 @@ export const patchItinerary = async (id, payload) => {
     payload
   );
 
-  return {
-    id: data.id,
-    title: data.title,
-    subtitle: data.subtitle,
-    startDate: data.start_date,
-    endDate: data.end_date,
-    durationLabel: data.duration_label,
-    companionCount: data.companion_count,
-    budgetPerPerson: data.budget_per_person,
-    totalCost: data.total_cost,
-    style: data.style_display,
-    costBreakdown: data.cost_breakdown,
-    days: data.days.map((day) => ({
-      dayNumber: day.day_number,
-      date: day.date,
-      items: day.items,
-    })),
-  };
+  return mapItinerary(data);
 };
 
 // 여행 경로 조회

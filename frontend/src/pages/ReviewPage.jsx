@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
 import AppHeader from './review/AppHeader.jsx';
-import { DayNav, DayColumns, useDayNav, } from './review/ItineraryOverview.jsx';
+import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 
 import { useEffect, useRef, useState } from 'react';
@@ -11,15 +11,11 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 import { getItinerary, getSharedItinerary, createShareLink, } from '../api/itinerary';
-import { useItineraries } from "../context/ItineraryContext";
 
 
 export default function ReviewPage() {
   const { id, token } = useParams();
-  const { regenerate, fetchRoute } = useItineraries();
   const navigate = useNavigate();
-
-  const { activeDay, selectDay, dayRefs } = useDayNav();
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +34,8 @@ export default function ReviewPage() {
         } else {
           data = await getItinerary(id);
         }
+
+        console.log('review itinerary data =', data);
 
         setItinerary(data);
       } catch (e) {
@@ -171,12 +169,6 @@ export default function ReviewPage() {
         </div>
 
         <div className={styles.shell}>
-          <DayNav
-            days={itinerary.days}
-            activeDay={activeDay}
-            onSelect={selectDay}
-          />
-
           <div
             className={styles.mainCard}
             ref={pdfRef}
@@ -189,7 +181,7 @@ export default function ReviewPage() {
                   {itinerary.subtitle}
                 </div>
               </div>
-                            {!token && (
+               {!token && (
                 <div
                   className={styles.actionRow}
                   data-html2canvas-ignore="true"
@@ -241,27 +233,20 @@ export default function ReviewPage() {
               </div>
 
               <div className={styles.metaItem}>
-                👥 {itinerary.companionCount}명
+                👥 {itinerary.companionTypeDisplay}
               </div>
 
               <div className={styles.metaItem}>
-                🍃 {itinerary.style}
+                🚌 {itinerary.transportDisplay}
               </div>
 
               <div className={styles.metaItem}>
-                💰 1인당{' '}
-                {(
-                  itinerary.budgetPerPerson ?? 0
-                ).toLocaleString()}
-                원
+                🍃 {itinerary.styleDisplay}
               </div>
             </div>
 
             <div className={styles.grid}>
-              <DayColumns
-                days={itinerary.days}
-                dayRefs={dayRefs}
-              />
+              <DayColumns days={itinerary.days} />
 
               <TripSummary itinerary={itinerary} />
             </div>

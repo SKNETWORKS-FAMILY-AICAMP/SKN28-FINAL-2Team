@@ -34,85 +34,113 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
 
   const finishFlow = async (finalAnswers) => {
     try {
-      const itinerary = await createItinerary({
-
-  title: "제주 맞춤 여행",
-  subtitle: `${finalAnswers.companion} 여행`,
-
-  start_date: "2026-08-01",
-  end_date: "2026-08-03",
-
-  companion_count:
-    finalAnswers.companion === "가족"
-      ? 3
-      : finalAnswers.companion === "친구"
-      ? 2
-      : 2,
-
-  style:
-    finalAnswers.style === "힐링"
-      ? "healing"
-      : finalAnswers.style === "액티비티"
-      ? "activity"
-      : finalAnswers.style === "맛집"
-      ? "food"
-      : "family",
-
-  budget_per_person: 500000,
-
-  accommodation_cost:150000,
-  transport_cost:100000,
-  activity_cost:50000,
-  food_cost:100000,
-  etc_cost:50000,
-
-  status:"draft",
-  is_public:false
-});
-
-    console.log("생성된 일정:", itinerary);
-
-    // 생성된 일정 id 저장
-    setItineraryId(itinerary.id);
-
-
-    setHistory((prev) => [
-      ...prev,
-
-      {
-        id: nextId(),
-        type: 'msg',
-        me:false,
-        lines:[
-          '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉'
-        ]
-      },
-
-      {
-        id: nextId(),
-        type:'card',
-        title:'✅ 입력된 조건 확인',
-        rows: STEPS.map((s)=>({
-          ic:s.icon,
-          label:s.label,
-          value:finalAnswers[s.key]
-        }))
+      const durationMap = {
+        '1박 2일': 2,
+        '2박 3일': 3,
+        '3박 4일': 4,
       }
-    ]);
 
+      const companionTypeMap = {
+        혼자: 'solo',
+        친구: 'friend',
+        가족: 'family',
+        연인: 'couple',
+      }
 
-    setTimeout(onReady, READY_DELAY_MS);
+      const transportMap = {
+        버스: 'bus',
+        렌터카: 'car',
+        자가용: 'car',
+        택시: 'taxi',
+      }
 
+      const styleMap = {
+        힐링: 'healing',
+        액티비티: 'activity',
+        맛집: 'food',
+        가족여행: 'family',
+      }
 
-  } catch(error){
+      const startDate = new Date('2026-08-01')
+      const durationDays =
+        durationMap[finalAnswers.duration] ?? 3
 
-    console.error(
-      "일정 생성 실패:",
-      error
-    );
+      const endDate = new Date(startDate)
+      endDate.setDate(
+        startDate.getDate() + durationDays - 1
+      )
 
+      const toDateString = (date) =>
+        date.toISOString().slice(0, 10)
+
+      const itinerary = await createItinerary({
+        title: '제주 맞춤 여행',
+        subtitle: `${finalAnswers.companion} 여행`,
+
+        start_date: toDateString(startDate),
+        end_date: toDateString(endDate),
+
+        companion_type:
+          companionTypeMap[finalAnswers.companion] ?? 'solo',
+
+        companion_count:
+          finalAnswers.companion === '가족'
+            ? 3
+            : finalAnswers.companion === '친구'
+              ? 2
+              : finalAnswers.companion === '연인'
+                ? 2
+                : 1,
+
+        transport:
+          transportMap[finalAnswers.transport] ?? 'bus',
+
+        style:
+          styleMap[finalAnswers.style] ?? 'healing',
+
+        budget_per_person: 500000,
+
+        accommodation_cost: 150000,
+        transport_cost: 100000,
+        activity_cost: 50000,
+        food_cost: 100000,
+        etc_cost: 50000,
+
+        status: 'draft',
+        is_public: false,
+      })
+
+      console.log('생성된 일정:', itinerary)
+
+      setItineraryId(itinerary.id)
+
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: [
+            '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉',
+          ],
+        },
+        {
+          id: nextId(),
+          type: 'card',
+          title: '✅ 입력된 조건 확인',
+          rows: STEPS.map((s) => ({
+            ic: s.icon,
+            label: s.label,
+            value: finalAnswers[s.key],
+          })),
+        },
+      ])
+
+      setTimeout(onReady, READY_DELAY_MS)
+    } catch (error) {
+      console.error('일정 생성 실패:', error)
+    }
   }
-};
 
   const answerStep = (key, value) => {
     if (!value.trim()) return
