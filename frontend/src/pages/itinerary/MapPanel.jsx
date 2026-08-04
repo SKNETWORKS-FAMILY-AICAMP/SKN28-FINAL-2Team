@@ -1,49 +1,215 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { getRoute } from '../../api/itinerary'
 import styles from './itinerary.module.css'
 
-export default function MapPanel() {
+export default function MapPanel({ itineraryId, activeDay }) {
+  const mapRef = useRef(null)
+  const mapInstanceRef = useRef(null)
+  const overlaysRef = useRef([])
+  const polylineRef = useRef(null)
+  const infoWindowsRef = useRef([])
+  const openedInfoWindowRef = useRef(null)
+  const openedMarkerContentRef = useRef(null)
+
+  const [routes, setRoutes] = useState([])
+
+  useEffect(() => {
+    if (!itineraryId) return
+
+    const loadRoute = async () => {
+      try {
+        const data = await getRoute(itineraryId)
+        setRoutes(data)
+      } catch (err) {
+        console.error('경로 조회 실패:', err)
+      }
+    }
+
+    loadRoute()
+  }, [itineraryId])
+
+  useEffect(() => {
+    if (!window.kakao?.maps || !mapRef.current) return
+
+    window.kakao.maps.load(() => {
+      const kakao = window.kakao
+
+      if (!mapInstanceRef.current) {
+        mapInstanceRef.current = new kakao.maps.Map(mapRef.current, {
+          center: new kakao.maps.LatLng(33.3617, 126.5292),
+          level: 9,
+        })
+
+        kakao.maps.event.addListener(
+          mapInstanceRef.current,
+          'click',
+          () => {
+            if (openedInfoWindowRef.current) {
+              openedInfoWindowRef.current.setMap(null)
+              openedInfoWindowRef.current = null
+              openedMarkerContentRef.current = null
+            }
+          }
+        )
+      }
+
+      const map = mapInstanceRef.current
+
+      overlaysRef.current.forEach((overlay) => overlay.setMap(null))
+      overlaysRef.current = []
+
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null)
+        polylineRef.current = null
+      }
+
+      infoWindowsRef.current.forEach((labelOverlay) => {
+        labelOverlay.setMap(null)
+      })
+
+      infoWindowsRef.current = []
+      openedInfoWindowRef.current = null
+      openedMarkerContentRef.current = null
+
+      const points = activeRoute?.points ?? []
+
+      if (points.length === 0) return
+
+      const bounds = new kakao.maps.LatLngBounds()
+      const path = []
+
+      points.forEach((point, index) => {
+        const latitude = Number(point.latitude)
+        const longitude = Number(point.longitude)
+
+        if (
+          !Number.isFinite(latitude) ||
+          !Number.isFinite(longitude)
+        ) {
+          return
+        }
+
+        const position = new kakao.maps.LatLng(
+          latitude,
+          longitude
+        )
+
+        bounds.extend(position)
+        path.push(position)
+
+        const markerContent = document.createElement('button')
+
+        markerContent.type = 'button'
+        markerContent.textContent = String(index + 1)
+        markerContent.title = point.title
+
+        Object.assign(markerContent.style, {
+          width: '30px',
+          height: '30px',
+          borderRadius: '50%',
+          border: '2px solid #1B211D',
+          background: '#2E9E62',
+          color: '#FFFFFF',
+          fontSize: '12px',
+          fontWeight: '800',
+          cursor: 'pointer',
+          boxShadow: '2px 2px 0 #1B211D',
+        })
+
+        const overlay = new kakao.maps.CustomOverlay({
+          position,
+          content: markerContent,
+          yAnchor: 1,
+          zIndex: 10,
+        })
+
+        overlay.setMap(map)
+        overlaysRef.current.push(overlay)
+
+        const labelContent = document.createElement('div')
+
+        labelContent.textContent = `${index + 1}. ${point.title}`
+
+        Object.assign(labelContent.style, {
+          minWidth: '130px',
+          maxWidth: '220px',
+          padding: '8px 10px',
+          border: '1.5px solid #1B211D',
+          background: '#FFFFFF',
+          color: '#1B211D',
+          fontSize: '12px',
+          fontWeight: '700',
+          lineHeight: '1.4',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          boxShadow: '2px 2px 0 rgba(27, 33, 29, 0.25)',
+          pointerEvents: 'none',
+        })
+
+        const labelOverlay = new kakao.maps.CustomOverlay({
+          position,
+          content: labelContent,
+          xAnchor: 0.5,
+          yAnchor: 1.9,
+          zIndex: 100,
+        })
+
+        infoWindowsRef.current.push(labelOverlay)
+
+        markerContent.addEventListener('click', () => {
+          const isSameMarker =
+            openedMarkerContentRef.current === markerContent
+
+          if (isSameMarker) {
+            labelOverlay.setMap(null)
+            openedInfoWindowRef.current = null
+            openedMarkerContentRef.current = null
+            return
+          }
+
+          if (openedInfoWindowRef.current) {
+            openedInfoWindowRef.current.setMap(null)
+          }
+
+          labelOverlay.setMap(map)
+
+          openedInfoWindowRef.current = labelOverlay
+          openedMarkerContentRef.current = markerContent
+        })
+      })
+
+      if (path.length >= 2) {
+        const polyline = new kakao.maps.Polyline({
+          path,
+          strokeWeight: 5,
+          strokeColor: '#2E9E62',
+          strokeOpacity: 0.9,
+          strokeStyle: 'solid',
+        })
+
+        polyline.setMap(map)
+        polylineRef.current = polyline
+      }
+
+      if (path.length > 0) {
+        map.setBounds(bounds)
+      }
+    })
+  }, [routes, activeDay])
+
+  const activeRoute = routes.find(
+    (route) => Number(route.day_number) === Number(activeDay)
+  )
+
   return (
     <div className={styles.mapCol}>
       <div className={styles.mapHead}>
-        <h4>🗺️ 전체 동선</h4>
-        <div className={styles.mapToggle}>
-          <button className={styles.mapToggleActive}>지도</button>
-          <button>목록</button>
-        </div>
+        <h4>🗺️ DAY {activeDay} 동선</h4>
       </div>
 
-      <div className={styles.mapPanel}>
-        <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
-          <rect width="300" height="220" fill="#CDE9F2" />
-          <path
-            d="M35 130c-6-30 20-58 60-64 30-4 46 8 70 4 30-6 60 4 78 26 14 17 12 42-6 56-22 18-58 20-92 14-34-6-58-2-80-14-18-10-26-14-30-22z"
-            fill="var(--green-soft)"
-            stroke="#1B211D"
-            strokeWidth="3"
-          />
-          <path
-            d="M60 118c10-4 22 6 34 2 14-5 20-16 34-14 16 2 20 14 34 16 12 2 24-6 34 0"
-            fill="none"
-            stroke="#2E9E62"
-            strokeWidth="2.5"
-            strokeDasharray="1 7"
-            strokeLinecap="round"
-          />
-          <circle cx="60" cy="118" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
-          <text x="60" y="121.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">1</text>
-          <circle cx="94" cy="120" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
-          <text x="94" y="123.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">2</text>
-          <circle cx="128" cy="106" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
-          <text x="128" y="109.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">3</text>
-          <circle cx="162" cy="122" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
-          <text x="162" y="125.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">4</text>
-          <circle cx="196" cy="122" r="9" fill="#F4B740" stroke="#1B211D" strokeWidth="2" />
-          <text x="196" y="125.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#1B211D" textAnchor="middle" fontWeight="700">5</text>
-          <circle cx="80" cy="70" r="3" fill="#fff" opacity=".8" />
-          <circle cx="220" cy="60" r="4" fill="#fff" opacity=".7" />
-          <circle cx="240" cy="150" r="3" fill="#fff" opacity=".8" />
-        </svg>
-      </div>
+      <div ref={mapRef} className={styles.mapPanel} />
 
       <div className={styles.pkgTitle}>
         <h4>AI 추천 패키지</h4>

@@ -5,8 +5,8 @@ import json
 from django.db import transaction
 
 from src.api import itinerary_engine
-from src.models.itinerary import ItineraryState
-from .models import Itinerary, ItineraryDay, ItineraryItem
+from src.models import ItineraryState
+from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
 
 def _save_itinerary_result(itinerary: Itinerary, result: dict):
