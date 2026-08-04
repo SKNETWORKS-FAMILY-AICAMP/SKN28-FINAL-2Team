@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('travel', '0002_place_alter_package_options_touristspot_source_id_and_more'),
+        ('travel', '0002_place_touristspot_source_id_alter_itinerary_user'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
