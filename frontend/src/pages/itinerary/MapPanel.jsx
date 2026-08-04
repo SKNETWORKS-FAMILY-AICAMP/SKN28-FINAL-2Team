@@ -1,0 +1,131 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import styles from './itinerary.module.css'
+import cx from '../../utils/cx.js'
+import { PACKAGES, won, ratingLabel } from '../../data/packages.js'
+import { useBookmarks } from '../../context/BookmarkContext.jsx'
+
+export default function MapPanel() {
+  const { isBookmarked, toggle } = useBookmarks()
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className={styles.mapCol}>
+      <div className={styles.mapHead}>
+        <h4>🗺️ 전체 동선</h4>
+        <div className={styles.mapToggle}>
+          <button className={styles.mapToggleActive}>지도</button>
+          <button>목록</button>
+        </div>
+      </div>
+
+      <div className={styles.mapPanel}>
+        <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+          <rect width="300" height="220" fill="#CDE9F2" />
+          <path
+            d="M35 130c-6-30 20-58 60-64 30-4 46 8 70 4 30-6 60 4 78 26 14 17 12 42-6 56-22 18-58 20-92 14-34-6-58-2-80-14-18-10-26-14-30-22z"
+            fill="var(--green-soft)"
+            stroke="#1B211D"
+            strokeWidth="3"
+          />
+          <path
+            d="M60 118c10-4 22 6 34 2 14-5 20-16 34-14 16 2 20 14 34 16 12 2 24-6 34 0"
+            fill="none"
+            stroke="#2E9E62"
+            strokeWidth="2.5"
+            strokeDasharray="1 7"
+            strokeLinecap="round"
+          />
+          <circle cx="60" cy="118" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
+          <text x="60" y="121.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">1</text>
+          <circle cx="94" cy="120" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
+          <text x="94" y="123.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">2</text>
+          <circle cx="128" cy="106" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
+          <text x="128" y="109.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">3</text>
+          <circle cx="162" cy="122" r="9" fill="#2E9E62" stroke="#1B211D" strokeWidth="2" />
+          <text x="162" y="125.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#fff" textAnchor="middle" fontWeight="700">4</text>
+          <circle cx="196" cy="122" r="9" fill="#F4B740" stroke="#1B211D" strokeWidth="2" />
+          <text x="196" y="125.5" fontFamily="IBM Plex Mono" fontSize="9" fill="#1B211D" textAnchor="middle" fontWeight="700">5</text>
+          <circle cx="80" cy="70" r="3" fill="#fff" opacity=".8" />
+          <circle cx="220" cy="60" r="4" fill="#fff" opacity=".7" />
+          <circle cx="240" cy="150" r="3" fill="#fff" opacity=".8" />
+        </svg>
+      </div>
+
+      <button
+        className={styles.pkgTitle}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        <h4>AI 추천 패키지</h4>
+        <span className={styles.badge}>일정 맞춤</span>
+        <span className={cx(styles.pkgTitleChevron, expanded && styles.pkgTitleChevronOpen)}>▾</span>
+      </button>
+
+      {PACKAGES.map((p) =>
+        expanded ? (
+          <div className={styles.pkgCardExpanded} key={p.id}>
+            <div className={styles.pkgCardExpandedTop}>
+              <div className={styles.pkgThumb}>{p.thumbnail}</div>
+              <div className={styles.pkgInfo}>
+                <div className={styles.rating}>{ratingLabel(p)}</div>
+                <h5>{p.name}</h5>
+                <div className={styles.price}>{won(p.price)}</div>
+              </div>
+              <button
+                className={cx(styles.pkgBookmark, isBookmarked(p.id) && styles.pkgBookmarkActive)}
+                onClick={() => toggle(p.id)}
+                aria-label="찜하기"
+              >
+                {isBookmarked(p.id) ? '❤️' : '🤍'}
+              </button>
+            </div>
+
+            <p className={styles.pkgDesc}>{p.description}</p>
+
+            <div className={styles.pkgTags}>
+              {p.includedItems.map((item) => (
+                <span className={styles.pkgTag} key={item}>
+                  #{item}
+                </span>
+              ))}
+            </div>
+
+            <div className={styles.pkgCardActions}>
+              <span className={styles.pkgDuration}>📅 {p.durationDays}일 이용 · {p.categoryLabel}</span>
+              <Link to="/booking" className={cx(styles.btn, styles.primary, styles.xs)}>
+                예약하기 →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.pkgRow} key={p.id}>
+            <div className={styles.pkgThumb}>{p.thumbnail}</div>
+            <div className={styles.pkgInfo}>
+              <div className={styles.rating}>{ratingLabel(p)}</div>
+              <h5>{p.name}</h5>
+              <div className={styles.price}>{won(p.price)}</div>
+            </div>
+            <button
+              className={cx(styles.pkgBookmark, isBookmarked(p.id) && styles.pkgBookmarkActive)}
+              onClick={() => toggle(p.id)}
+              aria-label="찜하기"
+            >
+              {isBookmarked(p.id) ? '❤️' : '🤍'}
+            </button>
+          </div>
+        )
+      )}
+
+      {expanded && (
+        <button className={styles.pkgCollapseBtn} onClick={() => setExpanded(false)}>
+          ▴ 접기
+        </button>
+      )}
+
+      <Link to="/packages" className={styles.pkgSeeAll}>
+        전체 패키지 보러가기 →
+      </Link>
+    </div>
+  )
+}
