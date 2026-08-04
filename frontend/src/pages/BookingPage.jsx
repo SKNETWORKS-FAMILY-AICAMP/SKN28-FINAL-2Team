@@ -116,8 +116,11 @@ export default function BookingPage() {
       <AppHeader />
 
       <div className={styles.wrap}>
-        <Link to={`/review/${itineraryId}`} className={styles.backLink}>
-          ← 일정으로 돌아가기
+        <Link
+          to={itineraryId ? `/review/${itineraryId}` : '/packages'}
+          className={styles.backLink}
+        >
+          ← {itineraryId ? '일정으로 돌아가기' : '패키지로 돌아가기'}
         </Link>
 
         <div className={styles.pageHead}>
@@ -126,7 +129,11 @@ export default function BookingPage() {
           <p>
             {confirmed
               ? '결제 확인 메일을 보내드렸어요. 즐거운 제주 여행 되세요 🌿'
-              : '제주 2박 3일 힐링 여행에 함께할 패키지를 선택하고 결제를 진행하세요.'}
+              : bookingSource === 'package'
+                ? '선택한 패키지의 예약 정보를 확인하고 결제를 진행하세요.'
+                : bookingSource === 'cart'
+                  ? '장바구니에 담은 패키지를 확인하고 결제를 진행하세요.'
+                  : '일정에 함께할 패키지를 선택하고 결제를 진행하세요.'}
           </p>
         </div>
 

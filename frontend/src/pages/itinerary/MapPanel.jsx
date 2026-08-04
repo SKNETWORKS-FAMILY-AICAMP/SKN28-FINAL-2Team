@@ -7,7 +7,6 @@ export default function MapPanel({ itineraryId, activeDay }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const overlaysRef = useRef([])
-  const polylineRef = useRef(null)
   const infoWindowsRef = useRef([])
   const openedInfoWindowRef = useRef(null)
   const openedMarkerContentRef = useRef(null)
@@ -58,11 +57,6 @@ export default function MapPanel({ itineraryId, activeDay }) {
 
       overlaysRef.current.forEach((overlay) => overlay.setMap(null))
       overlaysRef.current = []
-
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null)
-        polylineRef.current = null
-      }
 
       infoWindowsRef.current.forEach((labelOverlay) => {
         labelOverlay.setMap(null)
@@ -180,18 +174,6 @@ export default function MapPanel({ itineraryId, activeDay }) {
         })
       })
 
-      if (path.length >= 2) {
-        const polyline = new kakao.maps.Polyline({
-          path,
-          strokeWeight: 5,
-          strokeColor: '#2E9E62',
-          strokeOpacity: 0.9,
-          strokeStyle: 'solid',
-        })
-
-        polyline.setMap(map)
-        polylineRef.current = polyline
-      }
 
       if (path.length > 0) {
         map.setBounds(bounds)
