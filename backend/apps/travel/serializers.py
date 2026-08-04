@@ -194,6 +194,8 @@ class PackageSerializer(serializers.ModelSerializer):
         ]
     
 class ItineraryItemSerializer(serializers.ModelSerializer):
+    thumbnail = serializers.SerializerMethodField()
+
     class Meta:
         model = ItineraryItem
         fields = (
@@ -201,6 +203,34 @@ class ItineraryItemSerializer(serializers.ModelSerializer):
             "thumbnail", "cost", "spot", "restaurant", "accommodation",
             "latitude", "longitude", "memo",
         )
+    def get_thumbnail(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 
+                    p.content_id,
+                    img.image_url,
+                    img.thumbnail_url
+                FROM places p
+                LEFT JOIN place_images img
+                    ON img.content_id = p.content_id
+                WHERE p.title = %s
+                ORDER BY img.display_order
+                LIMIT 1
+                """,
+                [obj.title],
+            )
+
+            row = cursor.fetchone()
+
+        print("이미지 조회:", obj.title, row)
+
+        if row:
+            return row[1] or row[2] or ""
+
+        return ""
 
 
 class ItineraryDaySerializer(serializers.ModelSerializer):
