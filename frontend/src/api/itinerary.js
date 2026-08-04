@@ -1,7 +1,5 @@
 import api from "./axios";
 
-
-// 공통 변환 함수
 const mapItinerary = (data) => ({
   id: data.id,
   title: data.title,
@@ -9,12 +7,22 @@ const mapItinerary = (data) => ({
   startDate: data.start_date,
   endDate: data.end_date,
   durationLabel: data.duration_label,
+
+  companionType: data.companion_type,
+  companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
+
+  transport: data.transport,
+  transportDisplay: data.transport_display,
+
+  style: data.style_display,
+  styleCode: data.style,
+  styleDisplay: data.style_display,
+
   budgetPerPerson: data.budget_per_person,
   totalCost: data.total_cost,
-  style: data.style,
-  styleDisplay: data.style_display,
   costBreakdown: data.cost_breakdown,
+
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
     date: day.date,
@@ -22,8 +30,6 @@ const mapItinerary = (data) => ({
   })),
 });
 
-
-// 일정 목록 조회
 export const getItineraries = async () => {
   const { data } = await api.get("/travel/itineraries/");
 
@@ -44,9 +50,9 @@ export const getItineraries = async () => {
 // 일정 상세 조회
 export const getItinerary = async (id) => {
   const { data } = await api.get(`/travel/itineraries/${id}/`);
+
   return mapItinerary(data);
 };
-
 
 // 일정 생성
 export const createItinerary = async (payload) => {
@@ -105,9 +111,7 @@ export const updateItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
-
 // 일정 일부 수정
-
 export const patchItinerary = async (id, payload) => {
   const { data } = await api.patch(
     `/travel/itineraries/${id}/`,
@@ -130,4 +134,5 @@ export const getRoute = async (id) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/route/`
   );
+  return data;
 };
