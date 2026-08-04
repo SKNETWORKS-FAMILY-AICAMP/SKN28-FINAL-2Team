@@ -107,12 +107,49 @@
 .mapPanel{ border:2.5px solid var(--ink); border-radius:18px; overflow:hidden; box-shadow: 4px 4px 0 var(--green-soft-2); background: var(--sea); }
 .mapPanel svg{ width:100%; display:block; }
 
-.pkgTitle{ display:flex; align-items:center; gap:7px; margin: 24px 0 12px; }
+.pkgTitle{
+  display:flex; align-items:center; gap:7px; margin: 24px 0 12px; width:100%;
+  background:transparent; border:none; padding:0; cursor:pointer; text-align:left;
+}
 .pkgTitle h4{ font-family: var(--display); font-weight:700; font-size:14.5px; }
 .pkgTitle .badge{ font-size:10px; font-weight:700; color: var(--green-deep); background: var(--green-soft); padding:2px 8px; border-radius:100px; }
+.pkgTitleChevron{ margin-left:auto; color: var(--muted); font-size:12px; transition: transform .2s ease; }
+.pkgTitleChevronOpen{ transform: rotate(180deg); color: var(--ink); }
+
+/* 확장된 패키지 카드 */
+.pkgCardExpanded{
+  border:2px solid var(--ink); border-radius:14px; padding:12px; margin-bottom:10px;
+  background:#fff; box-shadow: 3px 3px 0 var(--green-soft-2);
+}
+.pkgCardExpandedTop{ display:flex; align-items:center; gap:12px; }
+.pkgDesc{ font-size:12px; color: var(--muted); margin-top:10px; line-height:1.6; }
+.pkgTags{ display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+.pkgTag{ font-size:10.5px; font-weight:600; color: var(--green-deep); background: var(--green-soft); padding:3px 9px; border-radius:100px; }
+.pkgCardActions{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; padding-top:10px; border-top:1px dashed var(--line); }
+.pkgDuration{ font-size:10.5px; color: var(--muted); }
+
+.pkgCollapseBtn{
+  display:block; width:100%; text-align:center; background:transparent; border:none;
+  font-family: var(--display); font-weight:700; font-size:12px; color: var(--muted);
+  padding:8px; cursor:pointer;
+}
+.pkgCollapseBtn:hover{ color: var(--ink); }
+
+.pkgSeeAll{
+  display:block; text-align:center; margin-top:6px; padding:10px; border-radius:100px;
+  border:2px dashed var(--line); font-family: var(--display); font-weight:700; font-size:12.5px;
+  color: var(--muted); transition: border-color .15s, color .15s, background .15s;
+}
+.pkgSeeAll:hover{ border-color: var(--green); color: var(--green-deep); background: var(--green-soft); }
 
 .pkgRow{ display:flex; align-items:center; gap:12px; padding:11px; border:2px solid var(--ink); border-radius:14px; margin-bottom:10px; transition: box-shadow .15s, transform .15s; }
 .pkgRow:hover{ transform: translateY(-2px); box-shadow: 3px 3px 0 var(--green-soft-2); }
+.pkgBookmark{
+  width:28px; height:28px; border-radius:50%; background:#fff; border:1.5px solid var(--line);
+  display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;
+}
+.pkgBookmark:hover{ border-color: var(--ink); }
+.pkgBookmarkActive{ background: var(--green-soft); border-color: var(--ink); }
 .pkgThumb{ width:44px; height:44px; border-radius:11px; background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2)); display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0; }
 .pkgInfo{ flex:1; min-width:0; }
 .pkgInfo .rating{ font-size:10.5px; color: var(--muted); font-weight:600; }

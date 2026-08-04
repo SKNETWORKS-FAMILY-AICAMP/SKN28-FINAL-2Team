@@ -1,8 +1,6 @@
 import styles from './booking.module.css'
 import cx from '../../utils/cx.js'
-import { PACKAGES } from './PackageList.jsx'
-
-const won = (n) => n.toLocaleString('ko-KR') + '원'
+import { PACKAGES, won } from '../../data/packages.js'
 
 export default function PaymentSummary({ selected, onConfirm, submitting }) {
   const chosen = PACKAGES.filter((p) => selected.includes(p.id))
@@ -17,7 +15,7 @@ export default function PaymentSummary({ selected, onConfirm, submitting }) {
 
       {PACKAGES.map((p) => (
         <div className={styles.payRow} key={p.id}>
-          <span className={styles.k}>{p.title.split(' ')[0]}</span>
+          <span className={styles.k}>{p.name.split(' ')[0]}</span>
           <span className={styles.v}>{selected.includes(p.id) ? won(p.price) : '—'}</span>
         </div>
       ))}

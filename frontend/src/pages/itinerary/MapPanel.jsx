@@ -1,13 +1,14 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import styles from './itinerary.module.css'
 import cx from '../../utils/cx.js'
-
-const PACKAGES = [
-  { icon: '🏨', rating: '★ 4.6 (321)', title: '오션뷰 힐링 숙소', price: '159,000원 ~' },
-  { icon: '🚗', rating: '★ 4.7 (532)', title: '렌터카 3일', price: '89,700원 ~' },
-  { icon: '🐴', rating: '★ 4.6 (218)', title: '제주 승마 체험', price: '70,000원 ~' },
-]
+import { PACKAGES, won, ratingLabel } from '../../data/packages.js'
+import { useBookmarks } from '../../context/BookmarkContext.jsx'
 
 export default function MapPanel() {
+  const { isBookmarked, toggle } = useBookmarks()
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div className={styles.mapCol}>
       <div className={styles.mapHead}>
@@ -51,21 +52,80 @@ export default function MapPanel() {
         </svg>
       </div>
 
-      <div className={styles.pkgTitle}>
+      <button
+        className={styles.pkgTitle}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
         <h4>AI 추천 패키지</h4>
         <span className={styles.badge}>일정 맞춤</span>
-      </div>
+        <span className={cx(styles.pkgTitleChevron, expanded && styles.pkgTitleChevronOpen)}>▾</span>
+      </button>
 
-      {PACKAGES.map((p) => (
-        <div className={styles.pkgRow} key={p.title}>
-          <div className={styles.pkgThumb}>{p.icon}</div>
-          <div className={styles.pkgInfo}>
-            <div className={styles.rating}>{p.rating}</div>
-            <h5>{p.title}</h5>
-            <div className={styles.price}>{p.price}</div>
+      {PACKAGES.map((p) =>
+        expanded ? (
+          <div className={styles.pkgCardExpanded} key={p.id}>
+            <div className={styles.pkgCardExpandedTop}>
+              <div className={styles.pkgThumb}>{p.thumbnail}</div>
+              <div className={styles.pkgInfo}>
+                <div className={styles.rating}>{ratingLabel(p)}</div>
+                <h5>{p.name}</h5>
+                <div className={styles.price}>{won(p.price)}</div>
+              </div>
+              <button
+                className={cx(styles.pkgBookmark, isBookmarked(p.id) && styles.pkgBookmarkActive)}
+                onClick={() => toggle(p.id)}
+                aria-label="찜하기"
+              >
+                {isBookmarked(p.id) ? '❤️' : '🤍'}
+              </button>
+            </div>
+
+            <p className={styles.pkgDesc}>{p.description}</p>
+
+            <div className={styles.pkgTags}>
+              {p.includedItems.map((item) => (
+                <span className={styles.pkgTag} key={item}>
+                  #{item}
+                </span>
+              ))}
+            </div>
+
+            <div className={styles.pkgCardActions}>
+              <span className={styles.pkgDuration}>📅 {p.durationDays}일 이용 · {p.categoryLabel}</span>
+              <Link to="/booking" className={cx(styles.btn, styles.primary, styles.xs)}>
+                예약하기 →
+              </Link>
+            </div>
           </div>
-        </div>
-      ))}
+        ) : (
+          <div className={styles.pkgRow} key={p.id}>
+            <div className={styles.pkgThumb}>{p.thumbnail}</div>
+            <div className={styles.pkgInfo}>
+              <div className={styles.rating}>{ratingLabel(p)}</div>
+              <h5>{p.name}</h5>
+              <div className={styles.price}>{won(p.price)}</div>
+            </div>
+            <button
+              className={cx(styles.pkgBookmark, isBookmarked(p.id) && styles.pkgBookmarkActive)}
+              onClick={() => toggle(p.id)}
+              aria-label="찜하기"
+            >
+              {isBookmarked(p.id) ? '❤️' : '🤍'}
+            </button>
+          </div>
+        )
+      )}
+
+      {expanded && (
+        <button className={styles.pkgCollapseBtn} onClick={() => setExpanded(false)}>
+          ▴ 접기
+        </button>
+      )}
+
+      <Link to="/packages" className={styles.pkgSeeAll}>
+        전체 패키지 보러가기 →
+      </Link>
     </div>
   )
 }

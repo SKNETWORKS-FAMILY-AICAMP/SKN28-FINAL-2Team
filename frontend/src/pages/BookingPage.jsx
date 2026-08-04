@@ -1,37 +1,52 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from "react-router-dom";
 import styles from './booking/booking.module.css'
 import cx from '../utils/cx.js'
 import AppHeader from './booking/AppHeader.jsx'
-import PackageList, { PACKAGES } from './booking/PackageList.jsx'
+import PackageList from './booking/PackageList.jsx'
 import PaymentSummary from './booking/PaymentSummary.jsx'
+import { PACKAGES } from '../data/packages.js'
+import { useBookmarks } from '../context/BookmarkContext.jsx'
+import { useReservations } from '../context/ReservationContext.jsx'
 
 export default function BookingPage() {
-  const [selected, setSelected] = useState(['stay', 'car'])
+  const { addReservation } = useReservations()
+  const { state } = useLocation();
+  const [selected, setSelected] = useState([1, 2]) // 오션뷰 힐링 숙소 + 렌터카 3일 기본 선택
   const [visibility, setVisibility] = useState('비공개')
   const [submitting, setSubmitting] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
-
+  const { isBookmarked, toggle: toggleBookmark } = useBookmarks()
+  const itineraryId = state?.itineraryId;
   const toggle = (id) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  const handleConfirm = () => {
-    setSubmitting(true)
-    setTimeout(() => {
-      setSubmitting(false)
-      setConfirmed(true)
-    }, 1200)
-  }
+  const chosen = PACKAGES.filter((p) => selected.includes(p.id))
+  const total = chosen.reduce((sum, p) => sum + p.price, 0)
 
-  const total = PACKAGES.filter((p) => selected.includes(p.id)).reduce((sum, p) => sum + p.price, 0)
+  const handleConfirm = async () => {
+    setSubmitting(true)
+    try {
+      await addReservation(
+        chosen.map((p) => ({ packageId: p.id, name: p.name, price: p.price })),
+        '신용카드 (**** **** **** 1234)'
+      )
+      setConfirmed(true)
+    } catch (error) {
+      console.error('예약 생성 실패:', error)
+      alert(error.message || '예약에 실패했어요. 다시 시도해주세요.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className={styles.page}>
       <AppHeader />
 
       <div className={styles.wrap}>
-        <Link to="/review" className={styles.backLink}>
+        <Link to={`/review/${itineraryId}`} className={styles.backLink}>
           ← 일정으로 돌아가기
         </Link>
 
@@ -52,7 +67,7 @@ export default function BookingPage() {
             <p>
               제주 2박 3일 힐링 여행 예약이 완료됐어요.
               <br />
-              "내 여행"에서 언제든 일정을 다시 확인할 수 있어요.
+              "예약 내역"에서 언제든 다시 확인할 수 있어요.
             </p>
             <div className={styles.successMeta}>
               <div className={styles.row}>
@@ -69,18 +84,23 @@ export default function BookingPage() {
               </div>
             </div>
             <div style={{ marginTop: 26, display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <Link to="/" className={cx(styles.btn, styles.ghost)}>
-                홈으로
+              <Link to="/my/reservations" className={cx(styles.btn, styles.ghost)}>
+                예약 내역 보기
               </Link>
-              <Link to="/review" className={cx(styles.btn, styles.primary)}>
-                일정 다시 보기
+              <Link to="/" className={cx(styles.btn, styles.primary)}>
+                홈으로
               </Link>
             </div>
           </div>
         ) : (
           <div className={styles.shell}>
             <div>
-              <PackageList selected={selected} onToggle={toggle} />
+              <PackageList
+                selected={selected}
+                onToggle={toggle}
+                isBookmarked={isBookmarked}
+                onToggleBookmark={toggleBookmark}
+              />
 
               <div className={cx(styles.card, styles.saveCard)}>
                 <h4>일정 저장</h4>
