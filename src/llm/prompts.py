@@ -159,13 +159,26 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   "pace": {PACE_VALUES} 중 하나 또는 null,
   "budget_per_person": 정수 또는 null,
   "affected_slots": ["visit","activity","food","shopping"] 중 다시 검색해야 하는 슬롯,
+  "add_slots": [{{"day": 정수 또는 null, "role": "visit"|"activity"|"food"|"shopping", "count": 정수}}] 배열,
   "notes": "짧은 설명 (예: 카페 하나 추가 요청)"
 }}
+
+"add_slots" 사용 규칙:
+- 특정 장소 이름을 지목하지 않고 "~를 N개 더/추가로 넣어줘"처럼 개수만 늘려달라는 요청일 때 사용하세요.
+  (이름 있는 장소를 지목한 요청은 add_must_visit_places를 사용하고 add_slots는 비워두세요.)
+- "role"은 반드시 "visit"(관광지) / "activity"(액티비티·체험) / "food"(맛집·카페) / "shopping"(쇼핑) 중 하나여야 합니다.
+- "day"는 사용자가 "1일차", "둘째 날"처럼 특정 일차를 명시한 경우에만 해당 정수(1부터 시작)를 넣고,
+  일차를 언급하지 않았다면 null로 두세요.
+- "count"는 사용자가 말한 개수(예: "3개" -> 3)를 넣고, 개수를 말하지 않았다면 1로 하세요.
+- add_slots를 채우는 요청이라면, 기존 일정을 바꾸라는 뜻이 아니므로 affected_slots는 빈 배열([])로 두세요.
+  (add_slots와 affected_slots를 동시에 같은 role로 채우면 안 됩니다 — 기존 슬롯까지 불필요하게 다시 검색됩니다.)
 
 예시:
 - "우도 대신 협재해변으로 바꿔줘" -> add_excluded_places=["우도"], add_must_visit_places=["협재해변"], affected_slots=["visit"]
 - "자녀를 위한 흑돼지 맛집 추천해줘" -> add_must_visit_places=["흑돼지 맛집"], affected_slots=["food"]
-- "카페를 하나 더 추가해줘" -> affected_slots=["food"], notes="카페 하나 추가 요청" """
+- "카페를 하나 더 추가해줘" -> add_slots=[{{"day": null, "role": "food", "count": 1}}], affected_slots=[], notes="카페 하나 추가 요청"
+- "액티비티 3개도 일정에 같이 넣어줘" -> add_slots=[{{"day": null, "role": "activity", "count": 3}}], affected_slots=[], notes="액티비티 3개 추가 요청"
+- "1일차에 액티비티 3개 추가로 넣어줘" -> add_slots=[{{"day": 1, "role": "activity", "count": 3}}], affected_slots=[], notes="1일차 액티비티 3개 추가 요청" """
 
 
 def build_chat_update_prompt(current_condition_dict: dict[str, Any], user_text: str) -> str:
@@ -185,7 +198,12 @@ ITINERARY_REVISION_SYSTEM_PROMPT = """당신은 이미 생성된 제주 여행 �
 
 반드시 지켜야 할 규칙:
 - 기존 일정은 최대한 그대로 유지하세요. changed_slots에 해당하지 않는 stop은 절대 수정하지 마세요.
-- changed_slots에 해당하는 day/role 조합만 그 슬롯의 후보(candidates) 안에서 새로 선택해 교체하거나 추가하세요.
+- changed_slots의 각 항목은 day/sequence로 식별됩니다.
+  - 해당 day의 기존 stops 중 같은 sequence를 가진 stop이 있다면, 그 슬롯의 후보(candidates) 안에서 새로 선택해 "교체"하세요.
+  - 해당 day의 기존 stops에 같은 sequence가 없다면, 이는 사용자가 개수를 늘려달라고 요청해 새로 만들어진 슬롯입니다.
+    그 슬롯의 후보 중 하나를 선택해 해당 day의 stops 배열에 "새로운 stop으로 추가"하세요 (기존 stop은 지우지 마세요).
+    새 stop의 순서(order)와 시간(start_time)은 같은 day의 다른 stop들과 자연스럽게 이어지도록 배치하고,
+    같은 day 안에서 시간 순서대로 stops를 정렬해서 반환하세요.
 - changed_slots 후보 중 "forced": true 로 표시된 장소는 사용자가 반드시 포함해달라고 요청한 장소입니다.
   해당 슬롯의 stop으로 반드시 선택하세요 (다른 후보로 대체하지 마세요).
 - 후보에 없는 장소를 만들어내지 마세요. 같은 content_id를 두 번 이상 사용하지 마세요.

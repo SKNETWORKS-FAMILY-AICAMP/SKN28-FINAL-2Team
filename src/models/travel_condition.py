@@ -17,6 +17,36 @@ from ..aihub.similarity import (
 # planner/LLM know which itinerary slot roles to re-search.
 SlotRole = str  # "visit" | "activity" | "food" | "shopping"
 
+VALID_SLOT_ROLES: tuple[str, ...] = ("visit", "activity", "food", "shopping")
+
+
+@dataclass(frozen=True)
+class SlotAddRequest:
+    """"~를 N개 더 추가해줘" 처럼 이름 있는 장소를 지목하지 않고 개수만
+    늘려달라는 요청. ``day`` 가 ``None`` 이면 특정 일차를 지목하지 않은
+    것이므로, 엔진이 기본 일차(1일차)로 처리한다.
+    """
+
+    role: SlotRole
+    count: int = 1
+    day: int | None = None
+
+    @classmethod
+    def from_mapping(cls, value: dict[str, Any]) -> "SlotAddRequest | None":
+        role = str(value.get("role") or "").strip()
+        if role not in VALID_SLOT_ROLES:
+            return None
+
+        count = _optional_int(value.get("count")) or 1
+        count = max(1, min(count, 10))  # 방어적으로 상한을 둔다.
+
+        day = _optional_int(value.get("day"))
+
+        return cls(role=role, count=count, day=day)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"role": self.role, "count": self.count, "day": self.day}
+
 
 @dataclass(frozen=True)
 class ConditionDelta:
@@ -39,6 +69,7 @@ class ConditionDelta:
     pace: Pace | None = None
     budget_per_person: int | None = None
     affected_slots: tuple[SlotRole, ...] = ()
+    add_slots: tuple[SlotAddRequest, ...] = ()
     notes: str = ""
 
     @classmethod
@@ -64,6 +95,7 @@ class ConditionDelta:
             pace=Pace(value["pace"]) if value.get("pace") else None,
             budget_per_person=_optional_int(value.get("budget_per_person")),
             affected_slots=_string_tuple(value.get("affected_slots")),
+            add_slots=_slot_add_request_tuple(value.get("add_slots")),
             notes=str(value.get("notes") or "").strip(),
         )
 
@@ -144,7 +176,19 @@ def infer_affected_slots(delta: ConditionDelta) -> tuple[SlotRole, ...]:
         # A named place with an unknown category could be anything; re-search
         # every itinerary-stop slot to be safe.
         roles.extend(["visit", "activity", "food", "shopping"])
-    return tuple(dict.fromkeys(roles)) if roles else ("visit", "activity", "food", "shopping")
+    # NOTE: add_slots (이름 없이 "N개 더 추가해줘" 요청)는 여기 포함시키지 않는다.
+    # 이건 기존 슬롯을 다시 검색/교체하라는 신호가 아니라 새 슬롯을 만들라는
+    # 신호이므로, engine.update_itinerary_from_chat에서 별도로 처리한다.
+    # 여기 포함시키면 "추가"만 요청했는데 같은 role의 기존 슬롯까지 불필요하게
+    # 교체돼버린다.
+    if roles:
+        return tuple(dict.fromkeys(roles))
+    if delta.add_slots:
+        # add_slots로 이미 요청 내용을 다 파악했으니, 기존 슬롯은 하나도
+        # 건드릴 필요가 없다 (아래 "전부 재검색" fallback을 타면 안 됨).
+        return ()
+    # 정말 아무 구조화된 신호도 없는 애매한 메시지일 때만 전부 재검색한다.
+    return ("visit", "activity", "food", "shopping")
 
 
 def _apply_set_ops(
@@ -179,6 +223,19 @@ def _visit_type_tuple(value: Any) -> tuple[VisitPreference, ...]:
     return tuple(items)
 
 
+def _slot_add_request_tuple(value: Any) -> tuple[SlotAddRequest, ...]:
+    if not value:
+        return ()
+    items: list[SlotAddRequest] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        request = SlotAddRequest.from_mapping(item)
+        if request is not None:
+            items.append(request)
+    return tuple(items)
+
+
 def _optional_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
@@ -190,6 +247,7 @@ __all__ = [
     "LocalTransport",
     "Pace",
     "PartyType",
+    "SlotAddRequest",
     "TravelCondition",
     "VisitPreference",
     "apply_delta",
