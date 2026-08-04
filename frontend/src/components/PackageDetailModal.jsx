@@ -56,7 +56,15 @@ export default function PackageDetailModal({ pkg, onClose }) {
         </button>
 
         <div className={styles.hero}>
-          <span className={styles.heroEmoji}>{pkg.thumbnail}</span>
+          {pkg.thumbnailUrl ? (
+            <img
+              src={pkg.thumbnailUrl}
+              alt={pkg.name}
+              className={styles.heroImage}
+            />
+          ) : (
+            <span className={styles.heroEmoji}>{pkg.thumbnail}</span>
+          )}
           <span className={styles.heroBadge}>{pkg.categoryLabel}</span>
           <button
             className={cx(styles.bookmarkBtn, isBookmarked(pkg.id) && styles.bookmarkBtnActive)}

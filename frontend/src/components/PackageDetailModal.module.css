@@ -25,9 +25,10 @@
 .hero{
   height: 170px; background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2));
   border-bottom: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center;
-  position: relative;
+  position: relative; overflow:hidden;
 }
 .heroEmoji{ font-size: 56px; }
+.heroImage{ width:100%; height:100%; object-fit:cover; display:block; }
 .heroBadge{
   position: absolute; top: 16px; left: 16px; font-size: 11.5px; font-weight: 700; color: var(--green-deep);
   background: #fff; border: 1.5px solid var(--ink); padding: 4px 11px; border-radius: 100px;

@@ -45,7 +45,6 @@ class RestaurantSerializer(serializers.ModelSerializer):
             "price_range", "rating", "review_count", "latitude", "longitude",
         )
 
-
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
     description = serializers.CharField(source="summary", read_only=True)
@@ -55,12 +54,13 @@ class PackageSerializer(serializers.ModelSerializer):
     style = serializers.SerializerMethodField()
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
         fields = (
             "id", "package_id", "name", "description", "price", "region", "duration_days", "match_profile", 
-            "accommodation_included", "style", "style_display", "course", "is_active",
+            "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
         )
 
     def get_accommodation_included(self, obj):
@@ -108,6 +108,41 @@ class PackageSerializer(serializers.ModelSerializer):
             "food": "맛집여행",
         }
         return labels.get(self.get_style(obj), "")
+
+    def get_thumbnail_url(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                FROM package_items pi
+                JOIN place_images img
+                ON img.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                AND pi.item_type = 'tourism'
+                AND (
+                    img.thumbnail_url IS NOT NULL
+                    OR img.image_url IS NOT NULL
+                )
+                ORDER BY
+                CASE
+                    WHEN pi.day_no IS NULL THEN 999
+                    ELSE pi.day_no
+                END,
+                CASE
+                    WHEN pi.sequence IS NULL THEN 999
+                    ELSE pi.sequence
+                END,
+                img.display_order
+                LIMIT 1
+                """,
+                [obj.id],
+            )
+
+            row = cursor.fetchone()
+
+        return row[0] if row else ""
     
     def get_course(self, obj):
         from django.db import connections

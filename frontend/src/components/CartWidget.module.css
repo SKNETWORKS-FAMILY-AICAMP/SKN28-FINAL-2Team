@@ -64,8 +64,9 @@
 .cartThumb{
   width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; font-size: 20px;
   background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2));
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
+.cartThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cartInfo{ flex: 1; min-width: 0; }
 .rating{ font-size: 10.5px; color: var(--muted); font-weight: 600; }
 .cartInfo h5{ font-size: 13.5px; font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -39,7 +39,17 @@ export default function MyBookmarksPage() {
 
               return (
                 <div className={styles.listItem} key={bookmark.id}>
-                  <div className={styles.listThumb}>🎁</div>
+                  <div className={styles.listThumb}>
+                    {p.thumbnail_url ? (
+                      <img
+                        src={p.thumbnail_url}
+                        alt={p.name}
+                        className={styles.listThumbImage}
+                      />
+                    ) : (
+                      '🎁'
+                    )}
+                  </div>
 
                   <div className={styles.listInfo}>
                     <h5>{p.name}</h5>

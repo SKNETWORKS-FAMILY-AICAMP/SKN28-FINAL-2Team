@@ -153,7 +153,16 @@ export default function PackagesPage() {
             {visible.map((p) => (
               <div className={styles.card} key={p.id} onClick={() => handleOpenDetail(p.id)}>
                 <div className={styles.cardImg}>
-                  {p.thumbnail}
+                  {p.thumbnailUrl ? (
+                    <img
+                      src={p.thumbnailUrl}
+                      alt={p.name}
+                      className={styles.cardImage}
+                    />
+                  ) : (
+                    p.thumbnail
+                  )}
+
                   <span className={styles.cardBadge}>{p.categoryLabel}</span>
                   <button
                     className={cx(styles.bookmarkBtn, isBookmarked(p.id) && styles.bookmarkBtnActive)}

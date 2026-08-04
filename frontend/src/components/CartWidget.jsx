@@ -67,7 +67,16 @@ export default function CartWidget() {
                 cartPackages.map((item) => (
                   <div className={styles.cartItem} key={item.cartId}>
                     <div className={styles.cartItemTop}>
-                      <div className={styles.cartThumb}>{item.package.thumbnail}</div>
+                      <div className={styles.cartThumb}>
+                        {item.package.thumbnailUrl || item.package.thumbnail_url ? (
+                          <img
+                            src={item.package.thumbnailUrl || item.package.thumbnail_url}
+                            alt={item.package.name}
+                          />
+                        ) : (
+                          item.package.thumbnail || '🎁'
+                        )}
+                      </div>
                       <div className={styles.cartInfo}>
                         <h5>{item.package.name}</h5>
                         <div className={styles.price}>{won(item.package.price)}</div>
