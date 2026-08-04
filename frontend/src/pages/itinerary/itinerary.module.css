@@ -130,12 +130,7 @@
 .mapCol{ height:100%; overflow:hidden; border-left: 2px solid var(--line); background:#fff; padding: 20px 18px 40px; }
 .mapHead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .mapHead h4{ font-family: var(--display); font-weight:700; font-size:14.5px; }
-.mapToggle{ display:flex; gap:5px; }
-.mapToggle button{ font-size:10.5px; font-weight:600; padding:5px 10px; border-radius:100px; border:1.5px solid var(--line); background:#fff; color: var(--muted); }
-.mapToggleActive{ background: var(--ink); color:#fff; border-color: var(--ink); }
-
-.mapPanel{ border:2.5px solid var(--ink); border-radius:18px; overflow:hidden; box-shadow: 4px 4px 0 var(--green-soft-2); background: var(--sea); }
-.mapPanel svg{ width:100%; display:block; }
+.mapPanel{ width:100%; height:320px; border:2.5px solid var(--ink); border-radius:18px; overflow:hidden; box-shadow:4px 4px 0 var(--green-soft-2); background:var(--sea); }
 
 .pkgTitle{
   display:flex; align-items:center; gap:7px; margin: 24px 0 12px; width:100%;

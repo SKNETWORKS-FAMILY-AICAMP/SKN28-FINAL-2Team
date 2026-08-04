@@ -6,7 +6,10 @@ import cx from "../../utils/cx.js";
 import { getItinerary } from "../../api/itinerary";
 import { useItineraries } from "../../context/ItineraryContext";
 
-export default function ItineraryEditor() {
+export default function ItineraryEditor({
+  activeDay,
+  setActiveDay,
+}) {
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -14,7 +17,6 @@ export default function ItineraryEditor() {
 
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
-  const [activeDay, setActiveDay] = useState(1);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);

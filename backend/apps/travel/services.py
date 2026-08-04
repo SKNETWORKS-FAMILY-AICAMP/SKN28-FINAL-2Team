@@ -6,7 +6,7 @@ from django.db import transaction
 
 from src.api import itinerary_engine
 
-from .models import Itinerary, ItineraryDay, ItineraryItem
+from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
 
 @transaction.atomic
@@ -88,8 +88,26 @@ def generate_itinerary(itinerary: Itinerary):
                 date=itinerary.start_date
                 + timedelta(days=day_data["day"] - 1),
             )
-
             for stop in day_data.get("stops", []):
+                content_id = stop.get("content_id")
+
+                place = None
+
+                if content_id:
+                    place = Place.objects.using("travel").filter(
+                        content_id=content_id
+                    ).first()
+
+                latitude = place.latitude if place else None
+                longitude = place.longitude if place else None
+
+                print(
+                    "장소 조회:",
+                    content_id,
+                    place.title if place else "없음",
+                    latitude,
+                    longitude,
+                )
 
                 ItineraryItem.objects.create(
                     day=itinerary_day,
@@ -99,8 +117,8 @@ def generate_itinerary(itinerary: Itinerary):
                     title=stop.get("title", ""),
                     description=stop.get("notes", ""),
                     thumbnail="",
-                    latitude=None,
-                    longitude=None,
+                    latitude=latitude,
+                    longitude=longitude,
                     cost=0,
                     spot=None,
                     restaurant=None,
