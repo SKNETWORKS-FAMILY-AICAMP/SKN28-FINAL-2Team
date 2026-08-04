@@ -1,5 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { getItineraries, deleteItinerary, patchItinerary, regenerateItinerary, } from '../api/itinerary'
+import {
+  getItineraries,
+  deleteItinerary,
+  patchItinerary,
+  regenerateItinerary,
+  reviseItinerary,
+  getRoute,
+} from '../api/itinerary'
 import { useAuth } from './AuthContext'
 
 const ItineraryContext = createContext(null)
@@ -52,6 +59,16 @@ export function ItineraryProvider({ children }) {
     return result
   }
 
+  async function revise(id, message) {
+    const result = await reviseItinerary(id, message)
+    await loadItineraries()
+    return result
+  }
+
+  async function fetchRoute(id) {
+    return await getRoute(id)
+  }
+
   return (
     <ItineraryContext.Provider
       value={{
@@ -61,6 +78,8 @@ export function ItineraryProvider({ children }) {
         removeItinerary,
         patch,
         regenerate,
+        revise,
+        fetchRoute,
       }}
     >
       {children}

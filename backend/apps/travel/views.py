@@ -8,9 +8,10 @@ from rest_framework.response import Response
 
 from .models import Accommodation, Itinerary, ItineraryDay, ItineraryItem, Package, Restaurant, TouristSpot
 from .serializers import ( AccommodationSerializer, ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, PackageSerializer, RestaurantSerializer, TouristSpotSerializer,
+        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer, RestaurantSerializer, TouristSpotSerializer,
 )
-from .services import generate_itinerary
+from .services import generate_itinerary, revise_itinerary
+
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -161,6 +162,8 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         summary="일정 상세 조회",
         responses=ItinerarySerializer,
     )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
     @extend_schema(
         tags=["Itinerary"],
@@ -170,12 +173,47 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     )
     
     @action(detail=True, methods=["post"])
-
     def regenerate(self, request, pk=None):
         itinerary = self.get_object()
         generate_itinerary(itinerary)
         serializer = self.get_serializer(itinerary)
         return Response(serializer.data)
+    
+
+
+    @extend_schema(
+        tags=["Itinerary"],
+        summary="채팅으로 일정 수정",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "협재해변도 가고 싶어",
+                    }
+                },
+                "required": ["message"],
+            }
+        },
+        responses={200: ItinerarySerializer},
+    )
+    @action(detail=True, methods=["post"])
+    def revise(self, request, pk=None):
+        itinerary = self.get_object()
+
+        serializer = ItineraryRevisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        revise_itinerary(
+            itinerary,
+            serializer.validated_data["message"],
+        )
+
+        return Response(
+            self.get_serializer(itinerary).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["Itinerary"],
@@ -183,9 +221,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         request=ItinerarySerializer,
         responses={201: ItinerarySerializer},
     )
-
     def create(self, request, *args, **kwargs):
-
         serializer = self.get_serializer(data=request.data)
 
         if not serializer.is_valid():

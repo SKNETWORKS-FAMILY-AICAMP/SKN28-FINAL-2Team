@@ -8,18 +8,26 @@ import MapPanel from './itinerary/MapPanel.jsx'
 
 export default function ItineraryPage() {
   const { id } = useParams()
+
   const [activeDay, setActiveDay] = useState(1)
+
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const bumpRefreshKey = () => {
+    setRefreshKey((prev) => prev + 1)
+  }
 
   return (
     <div className={styles.page}>
       <AppHeader />
 
       <div className={styles.stage}>
-        <ChatPanel />
+        <ChatPanel onRevised={bumpRefreshKey} />
 
         <ItineraryEditor
           activeDay={activeDay}
           setActiveDay={setActiveDay}
+          refreshKey={refreshKey}
         />
 
         <MapPanel
