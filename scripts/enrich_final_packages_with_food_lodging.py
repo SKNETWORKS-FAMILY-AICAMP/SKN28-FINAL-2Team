@@ -14,9 +14,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_PATH = ROOT / "data/package_evaluation/final_packages.30.json"
+PACKAGE_PATH = ROOT / "data/package_evaluation/final_packages.50.json"
 RAW_PATH = ROOT / "data/raw/korea_tour_openapi_jeju_places.csv"
-REPORT_PATH = ROOT / "data/package_evaluation/final_package_food_lodging_report.json"
+REPORT_PATH = ROOT / "data/package_evaluation/final_package_enrichment_report.json"
 PRICE_REPORT_PATH = ROOT / "data/package_evaluation/final_package_pricing_report.md"
 
 FOOD_TYPE_ID = "39"
@@ -32,6 +32,25 @@ FOOD_MENU_EXCLUDE_WORDS = (
     "케이크", "아이스크림", "디저트", "베이커리", "쿠키", "휘낭시에",
     "소금빵", "까눌레", "아메리카노", "스페셜티",
 )
+NON_MEAL_NAME_WORDS = (
+    "카페", "커피", "베이커리", "빵집", "다옥",
+    "축협", "농협", "수협", "축산물플라자", "정육",
+)
+NON_MEAL_FIRST_MENU_WORDS = (
+    "그릭요거트", "팬케이크", "에그타르트", "벽돌빵",
+    "피스타로쉐", "프리미엄 티", "수제차",
+)
+VERIFIED_NON_MEAL_CONTENT_IDS = {
+    1823088,  # 서귀포시축협 축산물플라자
+    3037925,  # 스페이스제로 (카페)
+    2905340,  # 살롱드라방 (카페)
+    3492149,  # 모아시 (카페)
+    3057498,  # 자드부팡 (카페)
+    2808238,  # 청춘부부 (베이커리 카페)
+    2864309,  # 오뚜기빵집
+    4057215,  # 회수다옥 (티하우스)
+    3434312,  # 연리지가든 (정육 판매 중심)
+}
 HOTEL_INCLUDE_WORDS = (
     "호텔", "리조트", "소노캄", "하얏트", "신라스테이", "메종글래드",
     "롯데", "켄싱턴", "라마다", "그랜드 조선", "해비치",
@@ -85,10 +104,34 @@ def coordinates(row: dict[str, str]) -> tuple[float, float] | None:
     return float(mapx), float(mapy)
 
 
-def load_raw() -> tuple[dict[int, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+def restaurant_exclusion_reason(record: dict[str, Any]) -> str | None:
+    if record["content_id"] in VERIFIED_NON_MEAL_CONTENT_IDS:
+        return "verified_non_meal_or_institutional_business"
+    if record["category_code"] == CAFE_CATEGORY:
+        return "tourapi_cafe_category"
+    if any(word in record["name"] for word in FOOD_EXCLUDE_WORDS):
+        return "cafe_or_dessert_name"
+    if any(word in record["name"] for word in NON_MEAL_NAME_WORDS):
+        return "non_meal_business_name"
+    if not record["first_menu"]:
+        return "missing_representative_menu"
+    if any(word in record["first_menu"] for word in FOOD_MENU_EXCLUDE_WORDS):
+        return "drink_or_dessert_representative_menu"
+    if any(word in record["first_menu"] for word in NON_MEAL_FIRST_MENU_WORDS):
+        return "brunch_or_bakery_representative_menu"
+    return None
+
+
+def load_raw() -> tuple[
+    dict[int, dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     all_places: dict[int, dict[str, Any]] = {}
     restaurants: list[dict[str, Any]] = []
     hotels: list[dict[str, Any]] = []
+    restaurant_exclusions: list[dict[str, Any]] = []
     with RAW_PATH.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.DictReader(handle):
             if not row.get("contentid"):
@@ -111,13 +154,15 @@ def load_raw() -> tuple[dict[int, dict[str, Any]], list[dict[str, Any]], list[di
             if point is None:
                 continue
             if record["content_type_id"] == FOOD_TYPE_ID:
-                if record["category_code"] == CAFE_CATEGORY:
-                    continue
-                if any(word in record["name"] for word in FOOD_EXCLUDE_WORDS):
-                    continue
-                if not record["first_menu"]:
-                    continue
-                if any(word in record["first_menu"] for word in FOOD_MENU_EXCLUDE_WORDS):
+                reason = restaurant_exclusion_reason(record)
+                if reason:
+                    restaurant_exclusions.append(
+                        {
+                            "content_id": record["content_id"],
+                            "name": record["name"],
+                            "reason": reason,
+                        }
+                    )
                     continue
                 restaurants.append(record)
             elif record["content_type_id"] == LODGING_TYPE_ID:
@@ -129,7 +174,7 @@ def load_raw() -> tuple[dict[int, dict[str, Any]], list[dict[str, Any]], list[di
                 ):
                     continue
                 hotels.append(record)
-    return all_places, restaurants, hotels
+    return all_places, restaurants, hotels, restaurant_exclusions
 
 
 def haversine(a: tuple[float, float], b: tuple[float, float]) -> float:
@@ -324,7 +369,7 @@ def write_pricing_report(pricing_entries: list[dict[str, Any]]) -> None:
         for entry in pricing_entries
     )
     all_amounts = [entry["pricing"]["amount"] for entry in pricing_entries]
-    report = f"""# 제주 가상 여행 패키지 30개 가격 산정 리포트
+    report = f"""# 제주 가상 여행 패키지 {len(pricing_entries)}개 가격 산정 리포트
 
 ## 1. 가격 표시 기준
 
@@ -403,13 +448,19 @@ TourAPI 대표 메뉴와 취급 메뉴를 기준으로 분류했다.
 
 def main() -> None:
     document = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
-    all_places, restaurant_candidates, hotel_candidates = load_raw()
+    previous_restaurants = {
+        (package["package_id"], int(day["day"])): day["restaurant"]
+        for package in document["packages"]
+        for day in package["days"]
+        if day.get("restaurant")
+    }
+    all_places, restaurant_candidates, hotel_candidates, restaurant_exclusions = load_raw()
     assignments = []
     pricing_entries = []
 
     for package in document["packages"]:
         package["match_profile"].pop("transports", None)
-        package["region"] = region_from_title(package["title"])
+        package["region"] = package.get("region") or region_from_title(package["title"])
         package.pop("hotel", None)
         package_day_points: list[list[tuple[float, float]]] = []
         used_restaurants: set[int] = set()
@@ -489,6 +540,7 @@ def main() -> None:
         "source": "TourAPI raw CSV",
         "candidate_counts": {
             "restaurants_after_cafe_and_metadata_filter": len(restaurant_candidates),
+            "restaurants_excluded_by_quality_filter": len(restaurant_exclusions),
             "hotels_and_resorts_after_filter": len(hotel_candidates),
         },
         "summary": {
@@ -521,6 +573,30 @@ def main() -> None:
             "region_distribution": dict(
                 sorted(Counter(package["region"] for package in document["packages"]).items())
             ),
+        },
+        "restaurant_quality_filter": {
+            "verified_excluded_content_ids": sorted(VERIFIED_NON_MEAL_CONTENT_IDS),
+            "excluded_candidates": restaurant_exclusions,
+            "changed_assignments": [
+                {
+                    "package_id": assignment["package_id"],
+                    "day": restaurant["day"],
+                    "previous": previous_restaurants.get(
+                        (assignment["package_id"], int(restaurant["day"]))
+                    ),
+                    "replacement": restaurant,
+                }
+                for assignment in assignments
+                for restaurant in assignment["restaurants"]
+                if previous_restaurants.get(
+                    (assignment["package_id"], int(restaurant["day"]))
+                )
+                and int(
+                    previous_restaurants[
+                        (assignment["package_id"], int(restaurant["day"]))
+                    ]["content_id"]
+                ) != int(restaurant["content_id"])
+            ],
         },
         "assignments": assignments,
     }

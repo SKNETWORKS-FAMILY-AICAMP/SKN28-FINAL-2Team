@@ -1,4 +1,4 @@
-"""Evaluate 100 virtual Jeju packages and select a balanced final set of 30."""
+"""Package quality helpers; direct execution builds the current final catalog."""
 
 from __future__ import annotations
 
@@ -567,27 +567,9 @@ def write_outputs(
 
 
 def main() -> None:
-    raw = load_raw()
-    packages = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))["packages"]
-    evaluations = [evaluate(package, raw) for package in packages]
-    selected, selection_details = select(evaluations)
-    write_outputs(evaluations, selected, selection_details)
-    print(
-        json.dumps(
-            {
-                "evaluated": len(evaluations),
-                "hard_failed": sum(bool(e.hard_fail_reasons) for e in evaluations),
-                "selected": len(selected),
-                "duration_distribution": dict(sorted(Counter(e.package["duration_days"] for e in selected).items())),
-                "party_distribution": dict(sorted(Counter(e.party_group for e in selected).items())),
-                "score_min": min(e.total_score for e in selected),
-                "score_average": round(sum(e.total_score for e in selected) / len(selected), 2),
-                "score_max": max(e.total_score for e in selected),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    from select_complete_package_matrix import main as build_current_catalog
+
+    raise SystemExit(build_current_catalog())
 
 
 if __name__ == "__main__":

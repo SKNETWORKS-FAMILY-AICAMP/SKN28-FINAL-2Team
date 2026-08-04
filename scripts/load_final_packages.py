@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -15,10 +16,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.settings import MySQLConfig
+from src.common.env import load_env_file
 from src.storage.mysql_repository import MySQLPlaceRepository
 
 
-DEFAULT_INPUT = PROJECT_ROOT / "data" / "package_evaluation" / "final_packages.30.json"
+DEFAULT_INPUT = PROJECT_ROOT / "data" / "package_evaluation" / "final_packages.50.json"
 DEFAULT_SCHEMA = PROJECT_ROOT / "src" / "storage" / "sql" / "package_schema.sql"
 
 
@@ -176,8 +178,19 @@ def _load(
     items: list[dict[str, Any]],
     schema_version: str,
     env_file: Path,
+    *,
+    replace_generated_set: bool = False,
 ) -> dict[str, Any]:
-    repository = MySQLPlaceRepository(MySQLConfig.from_env(env_file))
+    load_env_file(env_file)
+    for standard_name, admin_name in {
+        "MYSQL_HOST": "MYSQL_ADMIN_HOST",
+        "MYSQL_PORT": "MYSQL_ADMIN_PORT",
+        "MYSQL_USER": "MYSQL_ADMIN_USER",
+        "MYSQL_PASSWORD": "MYSQL_ADMIN_PASSWORD",
+    }.items():
+        if not os.environ.get(standard_name) and os.environ.get(admin_name):
+            os.environ[standard_name] = os.environ[admin_name]
+    repository = MySQLPlaceRepository(MySQLConfig.from_env())
     repository.apply_schema(DEFAULT_SCHEMA)
 
     package_sql = """
@@ -215,6 +228,14 @@ def _load(
         cursor = connection.cursor()
         try:
             _validate_tourapi_links(cursor, items)
+            removed_packages = 0
+            if replace_generated_set:
+                cursor.execute(
+                    "DELETE FROM travel_packages "
+                    "WHERE package_id LIKE 'VIRTUAL-JEJU-000%' "
+                    "OR package_id LIKE 'VIRTUAL-JEJU-D%'"
+                )
+                removed_packages = int(cursor.rowcount)
             cursor.execute(
                 "DELETE pi FROM package_items pi "
                 "JOIN travel_packages tp ON tp.id = pi.package_db_id "
@@ -268,7 +289,11 @@ def _load(
         finally:
             cursor.close()
 
-    return {"packages": stored_packages, "items": stored_items}
+    return {
+        "packages": stored_packages,
+        "items": stored_items,
+        "removed_previous_generated_packages": removed_packages,
+    }
 
 
 def main() -> int:
@@ -276,6 +301,11 @@ def main() -> int:
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--env-file", type=Path, default=PROJECT_ROOT / ".env")
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument(
+        "--replace-generated-set",
+        action="store_true",
+        help="replace only VIRTUAL-JEJU-000* and VIRTUAL-JEJU-D* packages",
+    )
     args = parser.parse_args()
 
     payload = json.loads(args.input.read_text(encoding="utf-8"))
@@ -293,6 +323,7 @@ def main() -> int:
             items,
             str(payload.get("schema_version", "1.0")),
             args.env_file,
+            replace_generated_set=args.replace_generated_set,
         )
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
