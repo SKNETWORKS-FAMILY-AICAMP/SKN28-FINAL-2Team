@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
 import AppHeader from './review/AppHeader.jsx';
@@ -15,7 +15,6 @@ import { getItinerary, getSharedItinerary, createShareLink, } from '../api/itine
 
 export default function ReviewPage() {
   const { id, token } = useParams();
-  const navigate = useNavigate();
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -223,6 +222,13 @@ export default function ReviewPage() {
                   >
                     ✏️ 일정 수정하기
                   </Link>
+
+                  <Link
+                    to="/my/itineraries"
+                    className={cx(styles.btn, styles.ghost, styles.sm)}
+                  >
+                    📅 내 일정
+                  </Link>
                 </div>
               )}
             </div>
@@ -252,23 +258,6 @@ export default function ReviewPage() {
             </div>
           </div>
         </div>
-                {!token && (
-          <div className={styles.bottomActions}>
-            <Link
-              to={`/itinerary/${id}`}
-              className={cx(styles.btn, styles.ghost)}
-            >
-              이전 단계로
-            </Link>
-
-            <button
-              className={cx(styles.btn, styles.primary)}
-              onClick={() => navigate('/my/itineraries')}
-            >
-              🎉 이 일정으로 확정하고 내 일정함으로
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

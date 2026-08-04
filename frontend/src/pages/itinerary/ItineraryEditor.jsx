@@ -172,7 +172,15 @@ export default function ItineraryEditor({
             <div className={styles.tTime}>{item.time}</div>
 
             <div className={styles.tThumb}>
-              {item.thumbnail || "📍"}
+              {item.thumbnail ? (
+                <img
+                  src={item.thumbnail}
+                  alt={item.title}
+                  className={styles.thumb}
+                />
+              ) : (
+                "📍"
+              )}
             </div>
 
             <div className={styles.tBody}>

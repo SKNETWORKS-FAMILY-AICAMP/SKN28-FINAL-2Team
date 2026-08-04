@@ -18,7 +18,6 @@ export default function BookingPage() {
       ? state.packageIds
       : [1, 2]
   const [selected, setSelected] = useState(initialSelected)
-  const [visibility, setVisibility] = useState('비공개')
   const [submitting, setSubmitting] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const { isBookmarked, toggle: toggleBookmark } = useBookmarks()
@@ -157,10 +156,6 @@ export default function BookingPage() {
                 <span className={styles.k}>결제 금액</span>
                 <span className={styles.v}>{confirmedTotal.toLocaleString('ko-KR')}원</span>
               </div>
-              <div className={styles.row}>
-                <span className={styles.k}>공개 설정</span>
-                <span className={styles.v}>{visibility}</span>
-              </div>
             </div>
             <div style={{ marginTop: 26, display: 'flex', gap: 10, justifyContent: 'center' }}>
               <Link to="/my/reservations" className={cx(styles.btn, styles.ghost)}>
@@ -184,30 +179,24 @@ export default function BookingPage() {
 
               <div className={cx(styles.card, styles.saveCard)}>
                 <h4>일정 저장</h4>
+
                 <div className={styles.saveRow}>
-                  <button className={cx(styles.btn, styles.ghost, styles.sm)}>💾 내 여행으로 저장</button>
-                  <div className={styles.visibility}>
-                    공개 설정
-                    <b
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setVisibility((v) => (v === '비공개' ? '공개' : '비공개'))}
-                    >
-                      {visibility}
-                    </b>
-                  </div>
+                  <button className={cx(styles.btn, styles.ghost, styles.sm)}>
+                    💾 내 여행으로 저장
+                  </button>
                 </div>
               </div>
-            </div>
+              </div>
 
-            <PaymentSummary
-              items={chosenItems}
-              totalPrice={total}
-              onConfirm={handleConfirm}
-              submitting={submitting}
-            />
-          </div>
-        )}
+              <PaymentSummary
+                items={chosenItems}
+                totalPrice={total}
+                onConfirm={handleConfirm}
+                submitting={submitting}
+              />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
