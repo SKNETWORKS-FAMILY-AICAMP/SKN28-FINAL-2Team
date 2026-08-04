@@ -186,7 +186,7 @@ class Itinerary(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     is_public = models.BooleanField(default=False, help_text="공개 설정 (선택)")
     share_token = models.UUIDField(null=True, blank=True, unique=True, help_text="공유 링크용 토큰")
-
+    engine_state = models.JSONField(null=True, blank=True, help_text="Serialized itinerary engine state")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -250,7 +250,7 @@ class ItineraryItem(models.Model):
 
     item_type = models.CharField(max_length=20, choices=ItemType.choices, default=ItemType.CUSTOM)
     title = models.CharField(max_length=150)
-    description = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
     thumbnail = models.CharField(max_length=10, blank=True, help_text="이모지 썸네일 (예: 🌋)")
     cost = models.PositiveIntegerField(default=0)
 

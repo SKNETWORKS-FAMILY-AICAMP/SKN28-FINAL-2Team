@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { getItineraries, deleteItinerary } from '../api/itinerary'
+import { getItineraries, createItinerary, updateItinerary, patchItinerary, 
+  deleteItinerary, regenerateItinerary, reviseItinerary, getRoute } from '../api/itinerary'
 import { useAuth } from './AuthContext'
 
 const ItineraryContext = createContext(null);
@@ -66,6 +67,13 @@ export function ItineraryProvider({ children }) {
     return result;
   }
 
+// 채팅으로 일정 수정
+  async function revise(id, message) {
+    const result = await reviseItinerary(id, message);
+    await loadItineraries();
+    return result;
+  }
+
   // 여행 경로 조회
   async function fetchRoute(id) {
     return await getRoute(id);
@@ -82,6 +90,7 @@ export function ItineraryProvider({ children }) {
         patch,
         remove,
         regenerate,
+        revise,
         fetchRoute,
       }}
     >

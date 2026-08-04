@@ -10,6 +10,38 @@ const READY_DELAY_MS = 1800
 let uid = 100
 const nextId = () => ++uid
 
+// '가족' | '친구' | '연인' → 백엔드 Itinerary.CompanionType 코드값
+const COMPANION_TYPE_MAP = {
+  '가족': 'family',
+  '친구': 'friend',
+  '연인': 'couple',
+  '혼자': 'solo',
+}
+
+// '버스' | '렌터카' → 백엔드 Itinerary.Transport 코드값
+const TRANSPORT_MAP = {
+  '렌터카': 'car',
+  '버스': 'bus',
+}
+
+// '1박 2일', '2박3일', '당일치기' 등 자유 입력 텍스트에서 숙박 일수(nights)를 추출
+const parseNights = (durationText) => {
+  if (!durationText) return 1
+  if (durationText.includes('당일')) return 0
+  const match = durationText.match(/(\d+)\s*박/)
+  if (match) return parseInt(match[1], 10)
+  return 1 // 패턴을 못 찾으면 1박 2일로 보정
+}
+
+// 오늘 날짜를 기준으로 'YYYY-MM-DD' 형식의 start/end 날짜를 계산
+const buildDateRange = (nights) => {
+  const start = new Date()
+  const end = new Date(start)
+  end.setDate(end.getDate() + nights)
+  const fmt = (d) => d.toISOString().slice(0, 10)
+  return { start_date: fmt(start), end_date: fmt(end) }
+}
+
 export default function ChatColumn({ answers, setAnswers, ready, onReady, setItineraryId, itineraryId }) {
   const [history, setHistory] = useState([
     { id: nextId(), type: 'msg', me: false, lines: ['안녕하세요! 😊', '원하시는 제주 여행을 알려주세요.'] },
@@ -34,13 +66,18 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
 
   const finishFlow = async (finalAnswers) => {
     try {
+      const nights = parseNights(finalAnswers.duration)
+      const { start_date, end_date } = buildDateRange(nights)
+
       const itinerary = await createItinerary({
 
   title: "제주 맞춤 여행",
   subtitle: `${finalAnswers.companion} 여행`,
 
-  start_date: "2026-08-01",
-  end_date: "2026-08-03",
+  start_date,
+  end_date,
+
+  companion_type: COMPANION_TYPE_MAP[finalAnswers.companion] ?? 'solo',
 
   companion_count:
     finalAnswers.companion === "가족"
@@ -49,6 +86,8 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
       ? 2
       : 2,
 
+  transport: TRANSPORT_MAP[finalAnswers.transport] ?? 'car',
+
   style:
     finalAnswers.style === "힐링"
       ? "healing"
@@ -56,6 +95,8 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
       ? "activity"
       : finalAnswers.style === "맛집"
       ? "food"
+      : finalAnswers.style === "트레킹"
+      ? "trekking"
       : "family",
 
   budget_per_person: 500000,
@@ -132,7 +173,7 @@ export default function ChatColumn({ answers, setAnswers, ready, onReady, setIti
     }
   }
 
-  const sendMsg = () => {
+  const sendMsg = async () => {
     const text = input.trim()
     if (!text) return
     setInput('')

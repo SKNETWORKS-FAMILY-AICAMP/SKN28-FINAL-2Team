@@ -6,11 +6,11 @@ import cx from "../../utils/cx.js";
 import { getItinerary } from "../../api/itinerary";
 import { useItineraries } from "../../context/ItineraryContext";
 
-export default function ItineraryEditor() {
+export default function ItineraryEditor({ refreshKey = 0 }) {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { patch, regenerate } = useItineraries();
+  const { patch, regenerate, revise } = useItineraries();
 
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
@@ -34,7 +34,7 @@ export default function ItineraryEditor() {
     };
 
     fetchItinerary();
-  }, [id]);
+  }, [id, refreshKey]);
 
   const toggleMenu = (i) => {
     setOpenMenuIndex((prev) => (prev === i ? null : i));
@@ -96,6 +96,12 @@ export default function ItineraryEditor() {
   };
 
   const handleRegenerate = async () => {
+    const confirmed = window.confirm(
+      "일정을 다시 생성하면 지금까지 직접 수정하거나 삭제한 내용이 모두 사라지고, 같은 조건(동행자·기간·교통수단·스타일)으로 새 일정을 처음부터 만들어요.\n계속할까요?"
+    );
+
+    if (!confirmed) return;
+
     try {
       const data = await regenerate(itinerary.id);
 
@@ -104,6 +110,18 @@ export default function ItineraryEditor() {
     } catch (err) {
       console.error(err);
       alert("일정 재생성 실패");
+    }
+  };
+
+  const handleRevise = async (message) => {
+    try {
+      const data = await revise(itinerary.id, message);
+
+      setItinerary(data);
+      setDays(data.days);
+    } catch (err) {
+      console.error(err);
+      alert("일정 수정 실패");
     }
   };
 

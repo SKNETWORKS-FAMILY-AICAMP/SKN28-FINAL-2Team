@@ -63,6 +63,17 @@ export const regenerateItinerary = async (id) => {
   return mapItinerary(data);
 };
 
+// 일정 수정(채팅)
+export const reviseItinerary = async (id, message) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/revise/`,
+    {
+      message,
+    }
+  );
+
+  return mapItinerary(data);
+};
 
 // 공유 일정 조회
 export const getSharedItinerary = async (token) => {

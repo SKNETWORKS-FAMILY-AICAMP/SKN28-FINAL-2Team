@@ -177,5 +177,6 @@ def create_llm_service(
             DEFAULT_CHAT_MODEL,
         ),
     )
+    
 
     return LLMService(client)

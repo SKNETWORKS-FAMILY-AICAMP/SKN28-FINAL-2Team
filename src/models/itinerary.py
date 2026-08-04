@@ -8,18 +8,12 @@ from .travel_condition import TravelCondition
 
 @dataclass
 class SlotCandidate:
-    """One RAG/Planner candidate offered to the LLM for a single slot."""
-
     content_id: int
     title: str
     final_score: float
     similarity_score: float | None
     place: dict[str, Any]
     forced: bool = False
-    """True when this candidate was injected because the traveller explicitly
-    asked for it (TravelCondition.must_visit_places), rather than because it
-    ranked highly in Planner's search-based scoring. The itinerary-generation
-    prompt is instructed to always include forced candidates."""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -30,12 +24,21 @@ class SlotCandidate:
             "place": self.place,
             "forced": self.forced,
         }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "SlotCandidate":
+        return cls(
+            content_id=data["content_id"],
+            title=data["title"],
+            final_score=data["final_score"],
+            similarity_score=data.get("similarity_score"),
+            place=data.get("place", {}),
+            forced=data.get("forced", False),
+        )
 
 
 @dataclass
 class ItinerarySlot:
-    """One AIHub-structure slot (a single stop) plus its search candidates."""
-
     day: int
     sequence: int
     role: str
@@ -45,6 +48,7 @@ class ItinerarySlot:
     location_hint: dict[str, float] | None
     query: str = ""
     candidates: list[SlotCandidate] = field(default_factory=list)
+
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -58,12 +62,28 @@ class ItinerarySlot:
             "query": self.query,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
         }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "ItinerarySlot":
+        return cls(
+            day=data["day"],
+            sequence=data["sequence"],
+            role=data["role"],
+            target_collections=tuple(data["target_collections"]),
+            itinerary_roles=tuple(data["itinerary_roles"]),
+            stay_minutes=data.get("stay_minutes"),
+            location_hint=data.get("location_hint"),
+            query=data.get("query", ""),
+            candidates=[
+                SlotCandidate.from_dict(c)
+                for c in data.get("candidates", [])
+            ],
+        )
 
+    
 
 @dataclass
 class ItineraryState:
-    """Everything the engine needs to keep editing one itinerary."""
-
     condition: TravelCondition
     slots: list[ItinerarySlot]
     itinerary: dict[str, Any]
@@ -76,3 +96,23 @@ class ItineraryState:
             "itinerary": self.itinerary,
             "used_content_ids": sorted(self.used_content_ids),
         }
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: dict,
+    ) -> "ItineraryState":
+
+        return cls(
+            condition=TravelCondition.from_mapping(
+                data["condition"]
+            ),
+            slots=[
+                ItinerarySlot.from_dict(slot)
+                for slot in data["slots"]
+            ],
+            itinerary=data["itinerary"],
+            used_content_ids=set(
+                data.get("used_content_ids", [])
+            ),
+        )

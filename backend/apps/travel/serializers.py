@@ -298,3 +298,6 @@ class ItineraryRouteSerializer(serializers.Serializer):
 class ItineraryShareSerializer(serializers.Serializer):
     share_token = serializers.UUIDField()
     share_path = serializers.CharField()
+
+class ItineraryRevisionSerializer(serializers.Serializer):
+    message = serializers.CharField()
