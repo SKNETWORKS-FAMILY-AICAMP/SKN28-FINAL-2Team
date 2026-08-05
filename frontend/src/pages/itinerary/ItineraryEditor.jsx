@@ -18,6 +18,7 @@ export default function ItineraryEditor({
 
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -103,9 +104,11 @@ export default function ItineraryEditor({
       "일정을 다시 생성하면 수정한 내용이 사라집니다. \n계속하시겠습니까?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed || isRegenerating) return;
 
     try {
+      setIsRegenerating(true);
+
       const data = await regenerate(itinerary.id);
 
       setItinerary(data);
@@ -113,6 +116,8 @@ export default function ItineraryEditor({
     } catch (err) {
       console.error(err);
       alert("일정 재생성 실패");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -138,16 +143,18 @@ export default function ItineraryEditor({
             <div className={styles.sectionTag}>✓ 일정 확인 및 수정</div>
             <h1>{itinerary.title}</h1>
             <p>
-              {itinerary.subtitle} · {itinerary.startDate} ~{" "}
-              {itinerary.endDate}
+              {itinerary.subtitle} · {itinerary.startDate} ~ {itinerary.endDate}
             </p>
           </div>
 
           <button
             className={cx(styles.btn, styles.ghost, styles.sm)}
             onClick={handleRegenerate}
+            disabled={isRegenerating}
           >
-            🔄 일정 다시 생성
+            {isRegenerating
+              ? "⏳ 일정 재생성 중..."
+              : "🔄 일정 다시 생성"}
           </button>
         </div>
 
@@ -171,9 +178,7 @@ export default function ItineraryEditor({
         <div className={styles.timeline}>
           {current.items.map((item, i) => (
             <div className={styles.tItem} key={item.id ?? i}>
-              <div className={styles.tTime}>
-                {item.time}
-              </div>
+              <div className={styles.tTime}>{item.time}</div>
 
               <div className={styles.tThumb}>
                 {item.thumbnail ? (
@@ -204,14 +209,10 @@ export default function ItineraryEditor({
                   <>
                     <div
                       className={styles.tMenuBackdrop}
-                      onClick={() =>
-                        setOpenMenuIndex(null)
-                      }
+                      onClick={() => setOpenMenuIndex(null)}
                     />
 
-                    <div
-                      className={styles.tMenuDropdown}
-                    >
+                    <div className={styles.tMenuDropdown}>
                       <button
                         className={cx(
                           styles.tMenuItem,
@@ -227,22 +228,13 @@ export default function ItineraryEditor({
               </div>
 
               {deleteIndex === i && (
-                <div
-                  className={
-                    styles.tDeleteConfirmOverlay
-                  }
-                >
-                  <div
-                    className={styles.tDeleteConfirm}
-                  >
+                <div className={styles.tDeleteConfirmOverlay}>
+                  <div className={styles.tDeleteConfirm}>
                     <p>
-                      <b>{item.title}</b> 일정을
-                      삭제할까요?
+                      <b>{item.title}</b> 일정을 삭제할까요?
                     </p>
 
-                    <div
-                      className={styles.tEditActions}
-                    >
+                    <div className={styles.tEditActions}>
                       <button
                         className={cx(
                           styles.btn,
@@ -293,5 +285,5 @@ export default function ItineraryEditor({
           </button>
         </div>
       </div>
-    );ㄷ
-  }
+    )
+  };

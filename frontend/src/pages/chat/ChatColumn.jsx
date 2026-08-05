@@ -220,6 +220,30 @@ export default function ChatColumn({
 
       setItineraryId(itinerary.id)
 
+      const initialMessages = [
+        {
+          id: crypto.randomUUID(),
+          me: false,
+          text: ['✅ 입력한 여행 조건입니다.',
+            '',
+            `👥 동행자: ${finalAnswers.companion}`,
+            `📅 기간: ${finalAnswers.duration}`,
+            `🚗 교통수단: ${finalAnswers.transport}`,
+            `🍃 여행 스타일: ${finalAnswers.style}`,
+          ].join('\n'),
+        },
+        {
+          id: crypto.randomUUID(),
+          me: false,
+          text: '짜잔! 고민없이 제주 여행 일정을 완성했어요 🎉',
+          mini: '일정 확인하기 →',
+        },
+      ]
+
+      sessionStorage.setItem(
+        `itinerary-chat-${itinerary.id}`,
+        JSON.stringify(initialMessages),
+      )
       setTimeout(onReady, READY_DELAY_MS)
     } catch (error) {
       console.error('일정 생성 실패:', error)
