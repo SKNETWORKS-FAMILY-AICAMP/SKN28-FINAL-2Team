@@ -132,154 +132,166 @@ export default function ItineraryEditor({
     return <div>일정을 불러오는 중...</div>;
   }
     return (
-    <div className={styles.itCol}>
-      <div className={styles.itTop}>
-        <div>
-          <div className={styles.sectionTag}>✓ 일정 확인 및 수정</div>
-          <h1>{itinerary.title}</h1>
-          <p>
-            {itinerary.subtitle} · {itinerary.startDate} ~ {itinerary.endDate}
-          </p>
+      <div className={styles.itCol}>
+        <div className={styles.itTop}>
+          <div>
+            <div className={styles.sectionTag}>✓ 일정 확인 및 수정</div>
+            <h1>{itinerary.title}</h1>
+            <p>
+              {itinerary.subtitle} · {itinerary.startDate} ~{" "}
+              {itinerary.endDate}
+            </p>
+          </div>
+
+          <button
+            className={cx(styles.btn, styles.ghost, styles.sm)}
+            onClick={handleRegenerate}
+          >
+            🔄 일정 다시 생성
+          </button>
         </div>
 
-        <button
-          className={cx(styles.btn, styles.ghost, styles.sm)}
-          onClick={handleRegenerate}
-        >
-          🔄 일정 다시 생성
-        </button>
-      </div>
-
-      <div className={styles.dayTabs}>
-        {days.map((day) => (
-          <button
-            key={day.dayNumber}
-            className={cx(
-              styles.dayTab,
-              activeDay === day.dayNumber && styles.dayTabActive
-            )}
-            onClick={() => setActiveDay(day.dayNumber)}
-          >
-            DAY {day.dayNumber}
-            <span>{day.date}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className={styles.timeline}>
-        {current.items.map((item, i) => (
-          <div className={styles.tItem} key={item.id ?? i}>
-            <div className={styles.tTime}>{item.time}</div>
-
-            <div className={styles.tThumb}>
-              {item.thumbnail ? (
-                <img
-                  src={item.thumbnail}
-                  alt={item.title}
-                  className={styles.thumb}
-                />
-              ) : (
-                "📍"
+        <div className={styles.dayTabs}>
+          {days.map((day) => (
+            <button
+              key={day.dayNumber}
+              className={cx(
+                styles.dayTab,
+                activeDay === day.dayNumber &&
+                  styles.dayTabActive
               )}
-            </div>
+              onClick={() => setActiveDay(day.dayNumber)}
+            >
+              DAY {day.dayNumber}
+              <span>{day.date}</span>
+            </button>
+          ))}
+        </div>
 
-            <div className={styles.tBody}>
-              <h5>{item.title}</h5>
-              <p>{item.description}</p>
-            </div>
+        <div className={styles.timeline}>
+          {current.items.map((item, i) => (
+            <div className={styles.tItem} key={item.id ?? i}>
+              <div className={styles.tTime}>
+                {item.time}
+              </div>
 
-            <div className={styles.tMenuWrap}>
-              <button
-                className={styles.tMenu}
-                onClick={() => toggleMenu(i)}
-              >
-                ⋮
-              </button>
-
-              {openMenuIndex === i && (
-                <>
-                  <div
-                    className={styles.tMenuBackdrop}
-                    onClick={() => setOpenMenuIndex(null)}
+              <div className={styles.tThumb}>
+                {item.thumbnail ? (
+                  <img
+                    src={item.thumbnail}
+                    alt={item.title}
+                    className={styles.thumb}
                   />
+                ) : (
+                  "📍"
+                )}
+              </div>
 
-                  <div className={styles.tMenuDropdown}>
-                    <button
-                      className={cx(
-                        styles.tMenuItem,
-                        styles.tMenuItemDanger
-                      )}
-                      onClick={() => askDelete(i)}
+              <div className={styles.tBody}>
+                <h5>{item.title}</h5>
+                <p>{item.description}</p>
+              </div>
+
+              <div className={styles.tMenuWrap}>
+                <button
+                  className={styles.tMenu}
+                  onClick={() => toggleMenu(i)}
+                >
+                  ⋮
+                </button>
+
+                {openMenuIndex === i && (
+                  <>
+                    <div
+                      className={styles.tMenuBackdrop}
+                      onClick={() =>
+                        setOpenMenuIndex(null)
+                      }
+                    />
+
+                    <div
+                      className={styles.tMenuDropdown}
                     >
-                      🗑️ 삭제
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                      <button
+                        className={cx(
+                          styles.tMenuItem,
+                          styles.tMenuItemDanger
+                        )}
+                        onClick={() => askDelete(i)}
+                      >
+                        🗑️ 삭제
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
 
-            {deleteIndex === i && (
-              <div className={styles.tDeleteConfirmOverlay}>
-                <div className={styles.tDeleteConfirm}>
-                  <p>
-                    <b>{item.title}</b> 일정을 삭제할까요?
-                  </p>
+              {deleteIndex === i && (
+                <div
+                  className={
+                    styles.tDeleteConfirmOverlay
+                  }
+                >
+                  <div
+                    className={styles.tDeleteConfirm}
+                  >
+                    <p>
+                      <b>{item.title}</b> 일정을
+                      삭제할까요?
+                    </p>
 
-                  <div className={styles.tEditActions}>
-                    <button
-                      className={cx(
-                        styles.btn,
-                        styles.ghost,
-                        styles.xs
-                      )}
-                      onClick={cancelDelete}
+                    <div
+                      className={styles.tEditActions}
                     >
-                      삭제하기
-                    </button>
+                      <button
+                        className={cx(
+                          styles.btn,
+                          styles.ghost,
+                          styles.xs
+                        )}
+                        onClick={cancelDelete}
+                      >
+                        취소
+                      </button>
 
-                    <button
-                      className={cx(
-                        styles.btn,
-                        styles.dangerBtn,
-                        styles.xs
-                      )}
-                      onClick={confirmDelete}
-                    >
-                      삭제하기
-                    </button>
+                      <button
+                        className={cx(
+                          styles.btn,
+                          styles.dangerBtn,
+                          styles.xs
+                        )}
+                        onClick={confirmDelete}
+                      >
+                        삭제하기
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.itActions}>
+          <Link
+            to="/chat"
+            className={cx(styles.btn, styles.ghost)}
+          >
+            이전 단계로
+          </Link>
+
+          <button
+            className={cx(
+              styles.btn,
+              styles.primary
             )}
-          </div>
-        ))}
-
-        <div className={styles.itTotal}>
-          <div className={styles.lbl}>
-            Day {current.dayNumber} 예상 비용
-          </div>
-
-          <div className={styles.val}>
-            {current.total}
-          </div>
+            onClick={() =>
+              navigate(`/review/${itinerary.id}`)
+            }
+          >
+            이 일정으로 확정하기 →
+          </button>
         </div>
       </div>
-
-      <div className={styles.itActions}>
-        <Link
-          to="/chat"
-          className={cx(styles.btn, styles.ghost)}
-        >
-          이전 단계로
-        </Link>
-
-        <button
-          className={cx(styles.btn, styles.primary)}
-          onClick={() => navigate(`/review/${itinerary.id}`)}
-        >
-          이 일정으로 확정하기 →
-        </button>
-      </div>
-    </div>
-  );
-}
+    );ㄷ
+  }

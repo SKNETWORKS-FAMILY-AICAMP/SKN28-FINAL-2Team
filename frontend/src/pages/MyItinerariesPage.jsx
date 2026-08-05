@@ -96,14 +96,6 @@ export default function MyItinerariesPage() {
                       {it.statusDisplay}
                     </span>
                   </div>
-
-                  <div className={styles.listMeta}>
-                    <div className={styles.price}>
-                      {won(it.totalCost)}
-                    </div>
-
-                    <div className={styles.sub}>예상 비용</div>
-                  </div>
                 </Link>
 
                 <div
