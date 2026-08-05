@@ -145,6 +145,11 @@ class LLMService:
         changed_slots: list[dict[str, Any]],
     ) -> dict[str, Any]:
 
+        print("=" * 80)
+        print("changed_slots")
+        print(changed_slots)
+        print("=" * 80)
+
         raw = self._client.complete_json(
             system_prompt=prompts.ITINERARY_REVISION_SYSTEM_PROMPT,
             user_prompt=prompts.build_itinerary_revision_prompt(
@@ -154,6 +159,11 @@ class LLMService:
             ),
         )
 
+        print("=" * 80)
+        print("LLM revise raw")
+        print(raw)
+        print("=" * 80)
+        
         if "days" not in raw:
             raise LLMClientError(
                 "itinerary revision response is missing 'days'"

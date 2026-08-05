@@ -3,18 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-from ..aihub.similarity import (
-    LocalTransport,
-    Pace,
-    PartyType,
-    TravelCondition,
-    VisitPreference,
-)
+from ..aihub.similarity import LocalTransport, Pace, PartyType, TravelCondition, VisitPreference
 
-# Free-chat requests that only ask for "one more X" without naming a place
-# (e.g. "카페를 하나 더 추가해줘") don't map to must_visit_places/excluded_places;
-# they widen the slot search itself. These are surfaced separately so the
-# planner/LLM know which itinerary slot roles to re-search.
 SlotRole = str  # "visit" | "activity" | "food" | "shopping"
 
 VALID_SLOT_ROLES: tuple[str, ...] = ("visit", "activity", "food", "shopping")
@@ -22,10 +12,6 @@ VALID_SLOT_ROLES: tuple[str, ...] = ("visit", "activity", "food", "shopping")
 
 @dataclass(frozen=True)
 class SlotAddRequest:
-    """"~를 N개 더 추가해줘" 처럼 이름 있는 장소를 지목하지 않고 개수만
-    늘려달라는 요청. ``day`` 가 ``None`` 이면 특정 일차를 지목하지 않은
-    것이므로, 엔진이 기본 일차(1일차)로 처리한다.
-    """
 
     role: SlotRole
     count: int = 1
@@ -50,13 +36,6 @@ class SlotAddRequest:
 
 @dataclass(frozen=True)
 class ConditionDelta:
-    """What changed, as extracted by the free-chat intent-extraction prompt.
-
-    Only additive/subtractive changes are represented for list fields so
-    that :func:`apply_delta` can update the existing ``TravelCondition``
-    in place (functionally) instead of rebuilding it from scratch.
-    """
-
     add_must_visit_places: tuple[str, ...] = ()
     remove_must_visit_places: tuple[str, ...] = ()
     add_excluded_places: tuple[str, ...] = ()
@@ -100,16 +79,10 @@ class ConditionDelta:
         )
 
     def is_empty(self) -> bool:
-        return self == ConditionDelta()
+        return replace(self, notes="") == ConditionDelta()
 
 
 def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCondition:
-    """Return a new ``TravelCondition`` with ``delta`` merged in.
-
-    ``TravelCondition`` is a frozen dataclass, so "updating in place" means
-    replacing only the fields the delta touches; every field the person
-    hasn't mentioned again is carried over untouched.
-    """
 
     must_visit = _apply_set_ops(
         condition.must_visit_places, delta.add_must_visit_places, delta.remove_must_visit_places
@@ -117,7 +90,7 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
     excluded = _apply_set_ops(
         condition.excluded_places, delta.add_excluded_places, delta.remove_excluded_places
     )
-    # A place that becomes must-visit can no longer be excluded, and vice versa.
+    
     must_visit = tuple(place for place in must_visit if place not in excluded)
     excluded = tuple(place for place in excluded if place not in must_visit)
 
@@ -149,10 +122,6 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
 
 
 def infer_affected_slots(delta: ConditionDelta) -> tuple[SlotRole, ...]:
-    """Fall back to guessing which itinerary slots need re-search.
-
-    Used when the chat-update prompt didn't fill ``affected_slots`` itself.
-    """
 
     if delta.affected_slots:
         return tuple(dict.fromkeys(delta.affected_slots))
@@ -173,8 +142,6 @@ def infer_affected_slots(delta: ConditionDelta) -> tuple[SlotRole, ...]:
         roles.append("visit")
         roles.append("activity")
     if delta.add_must_visit_places or delta.remove_must_visit_places:
-        # A named place with an unknown category could be anything; re-search
-        # every itinerary-stop slot to be safe.
         roles.extend(["visit", "activity", "food", "shopping"])
     # NOTE: add_slots (이름 없이 "N개 더 추가해줘" 요청)는 여기 포함시키지 않는다.
     # 이건 기존 슬롯을 다시 검색/교체하라는 신호가 아니라 새 슬롯을 만들라는

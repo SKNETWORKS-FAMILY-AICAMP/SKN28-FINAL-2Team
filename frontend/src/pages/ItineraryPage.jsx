@@ -18,7 +18,9 @@ export default function ItineraryPage() {
       <AppHeader />
 
       <div className={styles.stage}>
-        <ChatPanel />
+        <ChatPanel
+          onRevised={bumpRefreshKey}
+        />
 
         <ItineraryEditor
           activeDay={activeDay}
