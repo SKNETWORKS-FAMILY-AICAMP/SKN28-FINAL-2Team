@@ -21,7 +21,6 @@ export default function MyPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     nickname: user.nickname,
-    phone: user.phone || '',
     preferredStyle: user.preferredStyle || '',
     preferredBudget: user.preferredBudget || '',
   })
@@ -55,7 +54,6 @@ export default function MyPage() {
           },
           body: JSON.stringify({
             nickname: form.nickname,
-            phone: form.phone,
             preferred_style: form.preferredStyle,
             preferred_budget: form.preferredBudget
               ? Number(form.preferredBudget)
@@ -77,7 +75,6 @@ export default function MyPage() {
 
       updateProfile({
         nickname: data.nickname,
-        phone: data.phone,
         preferredStyle: data.preferred_style,
         preferredBudget: data.preferred_budget,
         profileImage: data.profile_image,
@@ -137,16 +134,6 @@ export default function MyPage() {
           <div className={styles.field}>
             <label>이메일</label>
             <input type="email" value={user.email} disabled />
-          </div>
-
-          <div className={styles.field}>
-            <label>연락처</label>
-            <input
-              type="tel"
-              placeholder="010-0000-0000"
-              value={form.phone}
-              onChange={handleChange('phone')}
-            />
           </div>
 
           <div className={styles.fieldRow}>

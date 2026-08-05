@@ -27,7 +27,7 @@ export default function KakaoCallback() {
         await login('kakao', code)
 
         const next =
-          sessionStorage.getItem('kakaoLoginNext') || '/mypage'
+          sessionStorage.getItem('kakaoLoginNext') || '/'
 
         sessionStorage.removeItem('kakaoLoginNext')
         navigate(next, { replace: true })
