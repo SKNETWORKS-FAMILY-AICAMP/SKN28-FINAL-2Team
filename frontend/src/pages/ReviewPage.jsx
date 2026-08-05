@@ -251,8 +251,9 @@ export default function ReviewPage() {
             </div>
 
             <div className={styles.grid}>
-              <DayColumns days={itinerary.days} />
-
+              <div className={styles.dayArea}>
+                <DayColumns days={itinerary.days} />
+              </div>
               <TripSummary itinerary={itinerary} />
             </div>
           </div>
