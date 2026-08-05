@@ -225,8 +225,6 @@ class ItineraryItemSerializer(serializers.ModelSerializer):
 
             row = cursor.fetchone()
 
-        print("이미지 조회:", obj.title, row)
-
         if row:
             return row[1] or row[2] or ""
 

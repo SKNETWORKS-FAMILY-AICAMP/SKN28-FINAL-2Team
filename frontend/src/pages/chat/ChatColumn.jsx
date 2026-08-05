@@ -49,6 +49,35 @@ const parseNights = (durationText) => {
   return 1
 }
 
+const normalizeDuration = (text) => {
+  const value = text.trim().replace(/\s+/g, '');
+
+  if (value === '당일' || value === '당일치기') {
+    return '당일';
+  }
+
+  const nightOnlyMatch = value.match(/^(\d+)박$/);
+
+  if (nightOnlyMatch) {
+    const nights = Number(nightOnlyMatch[1]);
+
+    if (nights < 1) return null;
+
+    return `${nights}박 ${nights + 1}일`;
+  }
+
+  const nightDayMatch = value.match(/^(\d+)박(\d+)일$/);
+
+  if (!nightDayMatch) return null;
+
+  const nights = Number(nightDayMatch[1]);
+  const days = Number(nightDayMatch[2]);
+
+  if (nights < 1 || days !== nights + 1) return null;
+
+  return `${nights}박 ${days}일`;
+};
+
 const formatLocalDate = (date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -211,6 +240,8 @@ export default function ChatColumn({
 
     const answerStep = (key, value) => {
       if (!value.trim()) return
+    
+      let finalValue = value.trim();
 
       setHistory((prev) => [
         ...prev,
@@ -218,13 +249,37 @@ export default function ChatColumn({
           id: nextId(),
           type: 'msg',
           me: true,
-          lines: [value],
+          lines: [finalValue],
         },
       ])
 
+      if (key === 'duration') {
+        const normalized = normalizeDuration(finalValue);
+
+        if (!normalized) {
+          setHistory((prev) => [
+            ...prev,
+            {
+              id: nextId(),
+              type: 'msg',
+              me: false,
+              lines: [
+                '여행 기간 형식이 올바르지 않아요.',
+                '(예: 당일, 1박 2일, 2박 3일)',
+              ],
+            },
+          ]);
+
+          return;
+        }
+
+        finalValue = normalized;
+      }
+
+
     const nextAnswers = {
       ...answers,
-      [key]: value,
+      [key]: finalValue,
     }
 
     setAnswers(nextAnswers)
@@ -260,6 +315,23 @@ export default function ChatColumn({
       currentStep.type === 'text'
     ) {
       answerStep(currentStep.key, text)
+      return
+    }
+
+    if (
+      currentStep &&
+      currentStep.type === 'toggle'
+    ) {
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: ['버튼을 눌러 선택해주세요.'],
+        },
+      ])
+
       return
     }
 
@@ -473,14 +545,18 @@ export default function ChatColumn({
         <div className={styles.inputBar}>
           <input
             type="text"
-            placeholder={
+            disabled={
               !flowDone &&
-              STEPS[stepIndex]?.type ===
-                'text'
-                ? STEPS[stepIndex]
-                    .placeholder
-                : '메시지를 입력하세요...'
+              STEPS[stepIndex]?.type === 'toggle'
             }
+            placeholder={
+              !flowDone && STEPS[stepIndex]?.type === 'toggle'
+                ? '위 버튼을 눌러 선택해주세요'
+                : !flowDone && STEPS[stepIndex]?.type === 'text'
+                  ? STEPS[stepIndex].placeholder
+                  : '메시지를 입력하세요...'
+            }
+                          
             value={input}
             onChange={(event) =>
               setInput(event.target.value)
@@ -496,6 +572,10 @@ export default function ChatColumn({
             type="button"
             className={styles.sendBtn}
             onClick={sendMsg}
+            disabled={
+              !flowDone &&
+              STEPS[stepIndex]?.type === 'toggle'
+            }
           >
             →
           </button>
