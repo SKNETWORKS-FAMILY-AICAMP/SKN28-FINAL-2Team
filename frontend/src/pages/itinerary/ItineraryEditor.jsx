@@ -18,6 +18,7 @@ export default function ItineraryEditor({
 
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -103,9 +104,11 @@ export default function ItineraryEditor({
       "일정을 다시 생성하면 수정한 내용이 사라집니다. \n계속하시겠습니까?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed || isRegenerating) return;
 
     try {
+      setIsRegenerating(true);
+
       const data = await regenerate(itinerary.id);
 
       setItinerary(data);
@@ -113,6 +116,8 @@ export default function ItineraryEditor({
     } catch (err) {
       console.error(err);
       alert("일정 재생성 실패");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -145,8 +150,11 @@ export default function ItineraryEditor({
         <button
           className={cx(styles.btn, styles.ghost, styles.sm)}
           onClick={handleRegenerate}
+          disabled={isRegenerating}
         >
-          🔄 일정 다시 생성
+          {isRegenerating
+            ? "⏳ 일정 재생성 중..."
+            : "🔄 일정 다시 생성"}
         </button>
       </div>
 
