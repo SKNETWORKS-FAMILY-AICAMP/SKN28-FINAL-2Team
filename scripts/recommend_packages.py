@@ -17,7 +17,6 @@ from src.common.env import load_env_file
 from src.config.settings import MySQLConfig
 from src.recommender import (
     MySQLPackageRepository,
-    OpenAIPackageRanker,
     PackageRecommendationService,
 )
 from src.recommender.models import PackageCandidate
@@ -34,7 +33,6 @@ def main() -> int:
     )
     parser.add_argument("--env-file", type=Path, default=PROJECT_ROOT / ".env")
     parser.add_argument("--top-k", type=int, default=3)
-    parser.add_argument("--use-llm", action="store_true")
     parser.add_argument(
         "--smoke-duration",
         type=int,
@@ -57,16 +55,7 @@ def main() -> int:
     if not os.environ.get("MYSQL_DATABASE") and os.environ.get("TRAVEL_DB_NAME"):
         os.environ["MYSQL_DATABASE"] = os.environ["TRAVEL_DB_NAME"]
     repository = MySQLPackageRepository(MySQLConfig.from_env())
-    ranker = None
-    if args.use_llm:
-        api_key = os.environ.get("OPENAI_API_KEY", "")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY is required with --use-llm")
-        ranker = OpenAIPackageRanker(
-            api_key,
-            os.environ.get("OPENAI_PACKAGE_RECOMMENDATION_MODEL", "gpt-4.1-mini"),
-        )
-    service = PackageRecommendationService(repository, ranker=ranker)
+    service = PackageRecommendationService(repository)
     if args.smoke_test:
         candidates = repository.find_active_by_duration(args.smoke_duration)
         if not candidates:

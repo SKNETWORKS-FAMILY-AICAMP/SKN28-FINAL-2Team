@@ -44,12 +44,39 @@ DB 조회, 점수 계산, 결과 직렬화가 정상이라는 의미다.
 python scripts/recommend_packages.py --input itinerary.json --top-k 3
 ```
 
-LLM의 동률 판단과 추천 문구를 사용하려면 `OPENAI_API_KEY`와 `OPENAI_PACKAGE_RECOMMENDATION_MODEL`을 설정하고 `--use-llm`을 추가한다.
-
-```powershell
-python scripts/recommend_packages.py --input itinerary.json --top-k 3 --use-llm
-```
+추천 순위와 추천 이유는 모두 코드로 계산하며 외부 LLM API를 호출하지 않는다.
 
 ## 백엔드 연결
 
 백엔드에서는 `MySQLPackageRepository`와 `PackageRecommendationService`를 한 번 생성한 뒤 일정 생성 결과 전체를 `recommend(payload, top_k=3)`에 전달하면 된다. 반환값에는 패키지 기본 정보, 가격, 일자별 관광지·음식점, 숙소, 일치 관광지 ID, 세부 점수와 추천 이유가 포함된다.
+
+현재 Django 백엔드에는 기존 일정·회원 모델과 분리된 추천 전용 API가 연결되어 있다.
+
+```http
+POST /api/travel/package-recommendations/
+Content-Type: application/json
+```
+
+요청 본문은 RAG 일정 결과를 그대로 사용하며 `top_k`를 생략하면 3개를 반환한다.
+
+```json
+{
+  "conditions": {
+    "duration_days": 1,
+    "party_type": "with_parents",
+    "preferred_visit_types": ["nature", "culture"]
+  },
+  "itinerary": [
+    {
+      "day": 1,
+      "sequence": 1,
+      "content_id": 126470,
+      "title": "외돌개",
+      "slot_kind": "tourism"
+    }
+  ],
+  "top_k": 3
+}
+```
+
+추천 API는 `TRAVEL_DB_*` 환경변수를 우선 사용하고, 없으면 기존 `MYSQL_*` 값을 사용한다. 추천 순위는 LLM 없이 관광지 `content_id` 정확 일치 개수부터 비교한다.

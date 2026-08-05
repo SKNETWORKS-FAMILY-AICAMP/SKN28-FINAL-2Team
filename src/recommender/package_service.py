@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .llm_ranker import PackageRanker, deterministic_reason
 from .models import ScoredPackage
 from .normalization import normalize_itinerary, with_place_coordinates
 from .package_repository import PackageRepository
@@ -14,13 +13,11 @@ class PackageRecommendationService:
         self,
         repository: PackageRepository,
         *,
-        ranker: PackageRanker | None = None,
         shortlist_size: int = 8,
     ) -> None:
         if shortlist_size <= 0:
             raise ValueError("shortlist_size must be greater than zero")
         self._repository = repository
-        self._ranker = ranker
         self._shortlist_size = shortlist_size
 
     def recommend(self, payload: dict[str, Any], *, top_k: int = 3) -> dict[str, Any]:
@@ -48,39 +45,11 @@ class PackageRecommendationService:
             key=deterministic_sort_key,
         )
         shortlist = scored[: max(top_k, self._shortlist_size)]
-        reasons = {
-            row.package.package_id: deterministic_reason(row) for row in shortlist
-        }
-        llm_used = False
-        llm_fallback_reason: str | None = None
-        llm_positions: dict[str, int] = {}
-        if self._ranker is not None:
-            try:
-                decisions = self._ranker.rank(itinerary, shortlist)
-                llm_positions = {
-                    decision.package_id: index
-                    for index, decision in enumerate(decisions)
-                }
-                reasons.update(
-                    {decision.package_id: decision.reason for decision in decisions}
-                )
-                llm_used = True
-            except Exception as exc:  # recommendation must survive an LLM outage
-                llm_fallback_reason = f"{type(exc).__name__}: {exc}"
-
-        if llm_used:
-            shortlist.sort(
-                key=lambda row: (
-                    -row.exact_match_count,
-                    llm_positions[row.package.package_id],
-                    *deterministic_sort_key(row)[1:],
-                )
-            )
         selected = shortlist[:top_k]
         return {
             "status": "completed",
             "recommendations": [
-                _serialize_recommendation(index, row, reasons[row.package.package_id])
+                _serialize_recommendation(index, row, _deterministic_reason(row))
                 for index, row in enumerate(selected, start=1)
             ],
             "meta": {
@@ -97,10 +66,28 @@ class PackageRecommendationService:
                     "user_profile": 10,
                     "nearby_places": 5,
                 },
-                "llm_used": llm_used,
-                "llm_fallback_reason": llm_fallback_reason,
             },
         }
+
+
+def _deterministic_reason(candidate: ScoredPackage) -> str:
+    matched = candidate.exact_match_count
+    total = candidate.itinerary_place_count
+    if matched:
+        names = [
+            item.title
+            for item in candidate.package.tourism_items
+            if item.content_id in candidate.matched_content_ids
+        ][:3]
+        place_text = ", ".join(names) if names else "일정 관광지"
+        return (
+            f"일정 관광지 {total}곳 중 {matched}곳({place_text})이 정확히 겹치고, "
+            f"동선·사용자 조건을 포함한 점수는 {candidate.score.total:.2f}점입니다."
+        )
+    return (
+        "정확히 겹치는 관광지는 없지만 사용자 조건과 인접 관광지 근거를 "
+        f"반영한 점수가 {candidate.score.total:.2f}점입니다."
+    )
 
 
 def _serialize_recommendation(

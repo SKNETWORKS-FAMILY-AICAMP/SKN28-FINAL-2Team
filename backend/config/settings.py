@@ -21,6 +21,10 @@ ROOT_DIR = BASE_DIR.parent
 
 load_dotenv(ROOT_DIR / ".env", override=True)
 
+# Local development fallback used by the project data scripts.  A regular
+# project .env still takes precedence when it exists.
+load_dotenv(ROOT_DIR.parent / ".mysql-local-admin.env", override=False)
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -54,6 +58,7 @@ INSTALLED_APPS = [
     "apps.bookmark",
     "apps.history",
     "apps.reservation",
+    "apps.package_recommendation",
 
 
 ]
@@ -104,10 +109,10 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
         "NAME": os.getenv("MYSQL_DATABASE"),
-        "USER": os.getenv("MYSQL_USER"),
-        "PASSWORD": os.getenv("MYSQL_PASSWORD"),
-        "HOST": os.getenv("MYSQL_HOST", "localhost"),
-        "PORT": os.getenv("MYSQL_PORT", "3306"),
+        "USER": os.getenv("MYSQL_USER") or os.getenv("MYSQL_ADMIN_USER"),
+        "PASSWORD": os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_ADMIN_PASSWORD"),
+        "HOST": os.getenv("MYSQL_HOST") or os.getenv("MYSQL_ADMIN_HOST", "localhost"),
+        "PORT": os.getenv("MYSQL_PORT") or os.getenv("MYSQL_ADMIN_PORT", "3306"),
     }
 }
 

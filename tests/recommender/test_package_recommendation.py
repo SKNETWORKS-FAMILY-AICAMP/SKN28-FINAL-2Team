@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 
 from scripts.recommend_packages import _build_smoke_payload
-from src.recommender.llm_ranker import RankDecision
 from src.recommender.models import PackageCandidate, PackageItem
 from src.recommender.normalization import normalize_itinerary
 from src.recommender.package_service import PackageRecommendationService
@@ -68,19 +67,6 @@ class FakeRepository:
         }
 
 
-class ReverseRanker:
-    def rank(self, itinerary, candidates):
-        return [
-            RankDecision(row.package.package_id, "LLM 테스트 설명")
-            for row in reversed(candidates)
-        ]
-
-
-class FailingRanker:
-    def rank(self, itinerary, candidates):
-        raise RuntimeError("temporary failure")
-
-
 class PackageRecommendationTests(unittest.TestCase):
     def test_smoke_payload_uses_stored_tourism_items_only(self):
         candidate = package(
@@ -113,7 +99,7 @@ class PackageRecommendationTests(unittest.TestCase):
         )
         self.assertEqual([101], [row.content_id for row in normalized.tourism_stops])
 
-    def test_more_exact_matches_always_rank_first_even_when_llm_reverses(self):
+    def test_more_exact_matches_always_rank_first(self):
         repository = FakeRepository(
             [
                 package("one-match", [101, 201, 202]),
@@ -121,13 +107,12 @@ class PackageRecommendationTests(unittest.TestCase):
                 package("no-match", [401, 402, 403]),
             ]
         )
-        service = PackageRecommendationService(repository, ranker=ReverseRanker())
+        service = PackageRecommendationService(repository)
         result = service.recommend(current_payload(), top_k=3)
         self.assertEqual(
             ["two-matches", "one-match", "no-match"],
             [row["package_id"] for row in result["recommendations"]],
         )
-        self.assertTrue(result["meta"]["llm_used"])
 
     def test_profile_breaks_tie_without_overriding_overlap(self):
         repository = FakeRepository(
@@ -146,16 +131,6 @@ class PackageRecommendationTests(unittest.TestCase):
         )
         result = PackageRecommendationService(repository).recommend(current_payload())
         self.assertEqual("solo-nature", result["recommendations"][0]["package_id"])
-
-    def test_llm_failure_falls_back_to_deterministic_result(self):
-        repository = FakeRepository([package("safe", [101, 102, 201])])
-        result = PackageRecommendationService(
-            repository, ranker=FailingRanker()
-        ).recommend(current_payload())
-        self.assertFalse(result["meta"]["llm_used"])
-        self.assertIn("temporary failure", result["meta"]["llm_fallback_reason"])
-        self.assertEqual("safe", result["recommendations"][0]["package_id"])
-
 
 if __name__ == "__main__":
     unittest.main()
