@@ -3,6 +3,14 @@ from __future__ import annotations
 import unittest
 
 from scripts.recommend_packages import _build_smoke_payload
+from src.models import (
+    ItineraryState,
+    LocalTransport,
+    Pace,
+    PartyType,
+    TravelCondition,
+    VisitPreference,
+)
 from src.recommender.models import PackageCandidate, PackageItem
 from src.recommender.normalization import normalize_itinerary
 from src.recommender.package_service import PackageRecommendationService
@@ -68,6 +76,28 @@ class FakeRepository:
 
 
 class PackageRecommendationTests(unittest.TestCase):
+    def test_latest_rag_engine_state_is_supported(self):
+        state = ItineraryState(
+            condition=TravelCondition(
+                duration_days=1,
+                party_type=PartyType.SOLO,
+                local_transport=LocalTransport.RENTAL_CAR,
+                preferred_visit_types=(VisitPreference.NATURE,),
+                pace=Pace.BALANCED,
+            ),
+            slots=[],
+            itinerary=current_payload()["itinerary"],
+            used_content_ids={101, 102, 103},
+        )
+
+        normalized = normalize_itinerary(state.to_dict())
+
+        self.assertEqual(PartyType.SOLO.value, normalized.conditions["party_type"])
+        self.assertEqual(
+            [101, 102, 103],
+            [row.content_id for row in normalized.tourism_stops],
+        )
+
     def test_smoke_payload_uses_stored_tourism_items_only(self):
         candidate = package(
             "smoke",

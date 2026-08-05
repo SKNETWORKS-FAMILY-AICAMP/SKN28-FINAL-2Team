@@ -52,6 +52,17 @@ python scripts/recommend_packages.py --input itinerary.json --top-k 3
 
 현재 Django 백엔드에는 기존 일정·회원 모델과 분리된 추천 전용 API가 연결되어 있다.
 
+최신 RAG가 생성해 `Itinerary.engine_state`에 저장한 일정은 일정 ID만으로 추천할 수 있다.
+
+```http
+GET /api/travel/itineraries/{itinerary_id}/package-recommendations/?top_k=3
+```
+
+이 엔드포인트는 저장된 `condition`과 `itinerary.days[].stops[]`를 그대로 추천 엔진에
+전달하므로 프론트엔드가 RAG 결과 JSON을 다시 조립할 필요가 없다.
+
+저장 전 결과나 독립 JSON을 직접 시험할 때는 아래 POST API를 사용한다.
+
 ```http
 POST /api/travel/package-recommendations/
 Content-Type: application/json

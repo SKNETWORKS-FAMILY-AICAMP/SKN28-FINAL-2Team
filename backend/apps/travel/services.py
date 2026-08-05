@@ -4,7 +4,6 @@ import json
 
 from django.db import transaction
 
-from src.api import itinerary_engine
 from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
@@ -90,7 +89,7 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         # 전체 파이프라인 실행
         # -------------------------------------------------
-        state = itinerary_engine.create_itinerary(user_text)
+        state = _get_itinerary_engine().create_itinerary(user_text)
 
 
         # -------------------------------------------------
@@ -148,7 +147,7 @@ def revise_itinerary(
         )
 
         # 엔진을 이용하여 일정 수정
-        new_state = itinerary_engine.update_itinerary_from_chat(
+        new_state = _get_itinerary_engine().update_itinerary_from_chat(
             state,
             user_text,
         )
@@ -177,3 +176,11 @@ def revise_itinerary(
         traceback.print_exc()
         print("=" * 80)
         raise
+
+
+def _get_itinerary_engine():
+    """Load the RAG/LLM engine only when itinerary generation is requested."""
+
+    from src.api import itinerary_engine
+
+    return itinerary_engine
