@@ -167,7 +167,6 @@ class Itinerary(models.Model):
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
     budget_per_person = models.PositiveIntegerField(null=True, blank=True)
 
-    # M004-F-005 예상 비용(평균) — 카테고리별로 직접 보관 후 합산
     accommodation_cost = models.PositiveIntegerField(default=0, help_text="숙소")
     activity_cost = models.PositiveIntegerField(default=0, help_text="액티비티")
     food_cost = models.PositiveIntegerField(default=0, help_text="식비")

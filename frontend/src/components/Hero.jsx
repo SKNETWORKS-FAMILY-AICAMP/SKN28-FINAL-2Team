@@ -135,7 +135,6 @@ export default function Hero() {
               <div className="mockup-cta">
                 <div>
                   <div className="lbl">제주 2박 3일 힐링 여행</div>
-                  <div className="val">1인당 약 50만원</div>
                 </div>
                 <button className="btn primary sm">일정 확정하기</button>
               </div>

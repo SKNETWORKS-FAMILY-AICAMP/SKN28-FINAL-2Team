@@ -49,7 +49,8 @@
 .metaItem{ display:flex; align-items:center; gap:6px; font-size:12.5px; color: var(--muted); font-weight:600; }
 
 /* day columns + summary grid */
-.grid{ margin-top:24px; display:grid; grid-template-columns: repeat(3, 1fr) 250px; gap:18px; align-items:start; }
+.grid{ margin-top:24px; display:grid; grid-template-columns:1fr 250px; gap:18px; align-items:start; }
+.dayArea{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; align-content:start; }
 .dayCol{ min-width:0; }
 .dayColBadge{ display:inline-flex; align-items:center; gap:6px; font-family: var(--display); font-weight:700; font-size:13.5px; background: var(--green); color:#fff; border:2px solid var(--ink); padding:6px 13px; border-radius:100px; margin-bottom:14px; }
 .dayColBadge span{ font-family: var(--mono); font-weight:500; font-size:10.5px; opacity:.85; }

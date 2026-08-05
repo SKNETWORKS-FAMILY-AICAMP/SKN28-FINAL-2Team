@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useItineraries } from "../../context/ItineraryContext";
+import { getItinerary } from "../../api/itinerary";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
-const INITIAL_MESSAGES = [
-  {
-    id: 1,
-    me: false,
-    text: "짜잔! 고민없이 제주 여행 일정을 완성했어요 🎉",
-    mini: "일정 확인하기 →",
-  },
-];
 
 const CHIPS = [
   "숙소도 추천해주세요",
@@ -29,33 +22,63 @@ export default function ChatPanel({ onRevised }) {
   const { id } = useParams();
   const { revise } = useItineraries();
   const storageKey = `itinerary-chat-${id}`;
-
-  const [messages, setMessages] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem(storageKey);
-
-      return saved
-        ? JSON.parse(saved)
-        : INITIAL_MESSAGES;
-    } catch (err) {
-      console.error("채팅 기록 불러오기 실패:", err);
-      return INITIAL_MESSAGES;
-    }
-  });
+  const [messages, setMessages] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [input, setInput] = useState("");
   const [isRevising, setIsRevising] = useState(false);
   const bodyRef = useRef(null);
 
+  
+
   useEffect(() => {
+    const initializeMessages = async () => {
+      try {
+        const saved = sessionStorage.getItem(storageKey)
+
+        if (saved) {
+          const parsed = JSON.parse(saved)
+
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed)
+            return
+          }
+        }
+
+        const itinerary = await getItinerary(id)
+
+        setMessages([
+          {
+            id: crypto.randomUUID(),
+            me: false,
+            text: `짜잔! ${itinerary.durationLabel} 여행 일정을 완성했어요 🎉`,
+            mini: "일정 확인하기 →",
+          },
+        ])
+      } catch (err) {
+        console.error("채팅 초기화 실패:", err)
+      } finally {
+        setIsInitialized(true)
+      }
+    }
+
+    if (id) {
+      initializeMessages()
+    }
+  }, [id, storageKey])
+
+
+  useEffect(() => {
+    if (!isInitialized) return
+
     try {
       sessionStorage.setItem(
         storageKey,
         JSON.stringify(messages)
-      );
+      )
     } catch (err) {
       console.error("채팅 기록 저장 실패:", err);
     }
-  }, [messages, storageKey]);
+  }, [messages, storageKey, isInitialized]);
 
   useEffect(() => {
     if (bodyRef.current) {
