@@ -24,10 +24,16 @@ def _build_place_coordinate_map(
     for slot in state.slots:
         for candidate in slot.candidates:
             place = candidate.place or {}
-            coordinate_map[candidate.content_id] = (
-                place.get("latitude"),
-                place.get("longitude"),
-            )
+
+            print(place)   # 추가
+
+            coordinate_map[candidate.content_id] = {
+                "latitude": place.get("latitude"),
+                "longitude": place.get("longitude"),
+                "thumbnail": place.get("image_url")
+                    or place.get("thumbnail_url")
+                    or "",
+            }
 
     return coordinate_map
 
@@ -51,9 +57,18 @@ def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
 
         for stop in day_data.get("stops", []):
 
-            latitude, longitude = coordinate_map.get(
-                stop.get("content_id"), (None, None)
+            info = coordinate_map.get(
+                stop.get("content_id"),
+                {
+                    "latitude": None,
+                    "longitude": None,
+                    "thumbnail": "",
+                },
             )
+
+            latitude = info["latitude"]
+            longitude = info["longitude"]
+            thumbnail = info["thumbnail"]
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
@@ -62,7 +77,7 @@ def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
                 item_type=ItineraryItem.ItemType.SPOT,
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
-                thumbnail="",
+                thumbnail=thumbnail,
                 latitude=latitude,
                 longitude=longitude,
                 cost=0,
