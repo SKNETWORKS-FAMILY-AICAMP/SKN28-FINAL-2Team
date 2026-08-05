@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema
 
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -6,103 +6,11 @@ from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 
 
-from .models import Accommodation, Itinerary, ItineraryDay, ItineraryItem, Package, Restaurant, TouristSpot
-from .serializers import ( AccommodationSerializer, ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer, RestaurantSerializer, TouristSpotSerializer,
+from .models import Itinerary, Package
+from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
+        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
-
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
-
-
-
-class TouristSpotViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = TouristSpot.objects.all()
-    serializer_class = TouristSpotSerializer
-    permission_classes = [permissions.AllowAny]
-
-    @extend_schema(
-        tags=["Tourist Spots"],
-        summary="관광지 목록 조회",
-        responses=TouristSpotSerializer(many=True),
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        tags=["Tourist Spots"],
-        summary="관광지 상세 조회",
-        responses=TouristSpotSerializer,
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        tag = self.request.query_params.get("tag")
-        keyword = self.request.query_params.get("q")
-
-        if tag:
-            qs = qs.filter(tags__icontains=tag)
-        if keyword:
-            qs = qs.filter(name__icontains=keyword)
-
-        return qs
-
-
-class AccommodationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Accommodation.objects.all()
-    serializer_class = AccommodationSerializer
-    permission_classes = [permissions.AllowAny]
-
-    @extend_schema(
-        tags=["Accommodation"],
-        summary="숙소 목록 조회",
-        responses=AccommodationSerializer(many=True),
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        tags=["Accommodation"],
-        summary="숙소 상세 조회",
-        responses=AccommodationSerializer,
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-
-class RestaurantViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Restaurant.objects.all()
-    serializer_class = RestaurantSerializer
-    permission_classes = [permissions.AllowAny]
-
-    @extend_schema(
-        tags=["Restaurant"],
-        summary="음식점 목록 조회",
-        responses=RestaurantSerializer(many=True),
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        tags=["Restaurant"],
-        summary="음식점 상세 조회",
-        responses=RestaurantSerializer,
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        category = self.request.query_params.get("category")
-        if category:
-            qs = qs.filter(category__icontains=category)
-        return qs
-
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -225,7 +133,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
 
         if not serializer.is_valid():
-            print(serializer.errors)
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
