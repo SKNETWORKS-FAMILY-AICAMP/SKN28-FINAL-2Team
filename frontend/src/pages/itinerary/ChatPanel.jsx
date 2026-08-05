@@ -43,6 +43,7 @@ export default function ChatPanel({ onRevised }) {
     }
   });
   const [input, setInput] = useState("");
+  const [isRevising, setIsRevising] = useState(false);
   const bodyRef = useRef(null);
 
   useEffect(() => {
@@ -64,19 +65,28 @@ export default function ChatPanel({ onRevised }) {
 
   const sendMsg = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isRevising) return;
+
+    const userMessageId = crypto.randomUUID();
+    const loadingMessageId = crypto.randomUUID();
 
     // 사용자 메시지 추가
     setMessages((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: userMessageId,
         me: true,
         text,
+      },
+      {
+        id: loadingMessageId,
+        me: false,
+        text: "일정을 수정하고 있어요...",
       },
     ]);
 
     setInput("");
+    setIsRevising(true);
 
     try {
       // 백엔드 일정 수정
@@ -86,27 +96,33 @@ export default function ChatPanel({ onRevised }) {
       onRevised?.();
 
       // AI 응답
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          me: false,
-          text: "일정을 수정했어요 ✨",
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === loadingMessageId
+            ? {
+                ...message,
+                text: "일정을 수정했어요 ✨",
+              }
+            : message
+        )
+      );
     } catch (err) {
       console.error(err);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          me: false,
-          text: "일정 수정에 실패했습니다.",
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === loadingMessageId
+            ? {
+                ...message,
+                text: "일정 수정에 실패했습니다.",
+              }
+            : message
+        )
+      );
+    } finally {
+      setIsRevising(false);
     }
-  };
+  }
 
   return (
     <div className={styles.chatCol}>

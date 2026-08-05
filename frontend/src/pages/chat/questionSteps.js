@@ -6,7 +6,7 @@ export const STEPS = [
     key: 'companion',
     question: '누구랑 가시나요?',
     type: 'toggle',
-    options: ['가족', '친구', '연인'],
+    options: ['혼자', '가족', '친구', '연인'],
     icon: '👥',
     label: '동행자',
   },
