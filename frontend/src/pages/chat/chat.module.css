@@ -132,6 +132,32 @@
 .tipNote .ic{ font-size:15px; }
 .tipNote p{ font-size:11px; color: var(--muted); line-height:1.5; }
 .tipNote b{ color: var(--ink); }
+.dateRange{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:14px;
+}
+
+.dateSummary {
+  padding: 10px 14px;
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  background: #fff;
+  text-align: center;
+}
+.dateText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.dateSummary strong{ display:block; margin-top:3px; color:var(--green-deep); font-size:17px; line-height: 1.2; }
+.dateInputs{ display:flex; gap:10px; }
+.dateField{ flex:1; display:flex; flex-direction:column; gap:6px; }
+.dateField span{ font-size:12px; color:var(--muted); }
+.dateField input{ height:42px; border:2px solid var(--ink); border-radius:12px; padding:0 12px; font-size:14px; }
+.dateCompleteBtn{ width:100%; height:46px; border:none; border-radius:999px; background:var(--green); color:#fff; font-weight:700; cursor:pointer; }
+.dateCompleteBtn:disabled{ background:#cfd6d1; cursor:not-allowed; }
 
 @media (max-width: 900px){
   .stage{ grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }

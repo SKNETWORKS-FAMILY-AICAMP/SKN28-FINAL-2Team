@@ -5,6 +5,7 @@ import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
 
+
 const READY_DELAY_MS = 1800
 
 let uid = 100
@@ -15,13 +16,6 @@ const COMPANION_TYPE_MAP = {
   친구: 'friend',
   연인: 'couple',
   혼자: 'solo',
-}
-
-const TRANSPORT_MAP = {
-  렌터카: 'car',
-  버스: 'bus',
-  자가용: 'car',
-  택시: 'taxi',
 }
 
 const STYLE_MAP = {
@@ -106,6 +100,31 @@ const getCompanionCount = (companion) => {
 
   return 1
 }
+const calculateTripDuration = (startDate, endDate) => {
+  if (!startDate || !endDate) return null;
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const diffTime = end.getTime() - start.getTime();
+  const nights = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (nights < 0) return null;
+
+  if (nights === 0) {
+    return {
+      label: "당일",
+      nights: 0,
+      days: 1,
+    };
+  }
+
+  return {
+    label: `${nights}박 ${nights + 1}일`,
+    nights,
+    days: nights + 1,
+  };
+};
 
 export default function ChatColumn({
   answers,
@@ -134,6 +153,8 @@ export default function ChatColumn({
 
   const [stepIndex, setStepIndex] = useState(0)
   const [input, setInput] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   const bodyRef = useRef(null)
   const navigate = useNavigate()
@@ -168,23 +189,26 @@ export default function ChatColumn({
         rows: STEPS.map((step) => ({
           ic: step.icon,
           label: step.label,
-          value: finalAnswers[step.key],
+          value:
+            step.key === 'travelDates'
+              ? finalAnswers.travelDates?.duration
+              : finalAnswers[step.key],
         })),
       },
     ])
 
     try {
-      const nights = parseNights(finalAnswers.duration)
-
-      const { start_date, end_date } =
-        buildDateRange(nights)
+      const {
+        startDate,
+        endDate,
+      } = finalAnswers.travelDates
 
       const itinerary = await createItinerary({
         title: '제주 맞춤 여행',
         subtitle: `${finalAnswers.companion} 여행`,
 
-        start_date,
-        end_date,
+        start_date: startDate,
+        end_date: endDate,
 
         companion_type:
           COMPANION_TYPE_MAP[
@@ -194,11 +218,6 @@ export default function ChatColumn({
         companion_count: getCompanionCount(
           finalAnswers.companion
         ),
-
-        transport:
-          TRANSPORT_MAP[
-            finalAnswers.transport
-          ] ?? 'car',
 
         style:
           STYLE_MAP[finalAnswers.style] ??
@@ -227,8 +246,7 @@ export default function ChatColumn({
           text: ['✅ 입력한 여행 조건입니다.',
             '',
             `👥 동행자: ${finalAnswers.companion}`,
-            `📅 기간: ${finalAnswers.duration}`,
-            `🚗 교통수단: ${finalAnswers.transport}`,
+            `📅 기간: ${finalAnswers.travelDates.duration}`,
             `🍃 여행 스타일: ${finalAnswers.style}`,
           ].join('\n'),
         },
@@ -336,9 +354,8 @@ export default function ChatColumn({
 
     if (
       currentStep &&
-      currentStep.type === 'text'
+      currentStep.type === 'dateRange'
     ) {
-      answerStep(currentStep.key, text)
       return
     }
 
@@ -483,16 +500,111 @@ export default function ChatColumn({
                       </div>
                     )}
 
-                  {step.type === 'text' &&
+                  {step.type === 'dateRange' &&
                     !alreadyAnswered && (
-                      <div
-                        className={
-                          styles.stepHint
-                        }
-                      >
-                        아래 입력창에 직접
-                        답해주세요 (
-                        {step.placeholder})
+                      <div className={styles.dateRange}>
+                        <div className={styles.dateInputs}>
+                          <label className={styles.dateField}>
+                            <span>출발일</span>
+
+                            <input
+                              type="date"
+                              value={startDate}
+                              min={new Date().toISOString().split('T')[0]}
+                              onChange={(event) => {
+                                const value = event.target.value
+
+                                setStartDate(value)
+
+                                if (endDate && value > endDate) {
+                                  setEndDate('')
+                                }
+                              }}
+                            />
+                          </label>
+
+                          <label className={styles.dateField}>
+                            <span>도착일</span>
+
+                            <input
+                              type="date"
+                              value={endDate}
+                              min={
+                                startDate ||
+                                new Date().toISOString().split('T')[0]
+                              }
+                              onChange={(event) =>
+                                setEndDate(event.target.value)
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        {startDate && endDate && (
+                          <div className={styles.dateSummary}>
+                            <div className={styles.dateText}>
+                              {startDate} ~ {endDate}
+                            </div>
+                            
+                            <strong>
+                              {calculateTripDuration(startDate, endDate)?.label}
+                            </strong>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          className={styles.dateCompleteBtn}
+                          disabled={!startDate || !endDate}
+                          onClick={() => {
+                            const duration = calculateTripDuration(startDate, endDate)
+
+                            if (!duration) return
+
+                            const value = {
+                              startDate,
+                              endDate,
+                              duration: duration.label,
+                            }
+
+                            setHistory((prev) => [
+                              ...prev,
+                              {
+                                id: nextId(),
+                                type: 'msg',
+                                me: true,
+                                lines: [
+                                  duration.label,
+                                ],
+                              },
+                            ])
+
+                            const nextAnswers = {
+                              ...answers,
+                              travelDates: value,
+                            }
+
+                            setAnswers(nextAnswers)
+
+                            const next = stepIndex + 1
+                            setStepIndex(next)
+
+                            if (next < STEPS.length) {
+                              setHistory((prev) => [
+                                ...prev,
+                                {
+                                  id: nextId(),
+                                  type: 'question',
+                                  stepIndex: next,
+                                },
+                              ])
+                            } else {
+                              finishFlow(nextAnswers)
+                            }
+                          }}
+                        >
+                          날짜 선택 완료
+                        </button>
                       </div>
                     )}
                 </div>
@@ -571,13 +683,16 @@ export default function ChatColumn({
             type="text"
             disabled={
               !flowDone &&
-              STEPS[stepIndex]?.type === 'toggle'
+              (
+                STEPS[stepIndex]?.type === 'toggle' ||
+                STEPS[stepIndex]?.type === 'dateRange'
+              )
             }
             placeholder={
               !flowDone && STEPS[stepIndex]?.type === 'toggle'
                 ? '위 버튼을 눌러 선택해주세요'
-                : !flowDone && STEPS[stepIndex]?.type === 'text'
-                  ? STEPS[stepIndex].placeholder
+                : !flowDone && STEPS[stepIndex]?.type === 'dateRange'
+                  ? '위 달력에서 날짜를 선택해주세요'
                   : '메시지를 입력하세요...'
             }
                           
@@ -598,7 +713,10 @@ export default function ChatColumn({
             onClick={sendMsg}
             disabled={
               !flowDone &&
-              STEPS[stepIndex]?.type === 'toggle'
+              (
+                STEPS[stepIndex]?.type === 'toggle' ||
+                STEPS[stepIndex]?.type === 'dateRange'
+              )
             }
           >
             →
