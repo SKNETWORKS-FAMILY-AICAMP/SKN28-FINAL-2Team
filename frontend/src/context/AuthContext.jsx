@@ -15,7 +15,6 @@ const normalizeUser = (user) => ({
   nickname: user.nickname,
   profileImage: user.profile_image,
   provider: user.provider,
-  phone: user.phone,
   preferredStyle: user.preferred_style,
   preferredBudget: user.preferred_budget,
   dateJoined: user.date_joined,
