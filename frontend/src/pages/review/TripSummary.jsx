@@ -2,8 +2,6 @@ import { useEffect, useRef } from "react";
 import { getRoute } from "../../api/itinerary";
 import styles from "./review.module.css";
 
-const won = (n) => (n ?? 0).toLocaleString("ko-KR") + "원";
-
 export default function TripSummary({ itinerary }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -177,33 +175,6 @@ export default function TripSummary({ itinerary }) {
         <span className={styles.v}>
           {itinerary.startDate} ~ {itinerary.endDate} ·{" "}
           {itinerary.durationLabel}
-        </span>
-      </div>
-
-      <div className={styles.summaryDivider}></div>
-
-      <div className={styles.summaryLabel}>
-        예상 비용 (1인 기준)
-      </div>
-
-      {(itinerary.costBreakdown ?? []).map((c) => (
-        <div
-          className={styles.summaryRow}
-          key={c.label}
-        >
-          <span className={styles.k}>{c.label}</span>
-          <span className={styles.v}>
-            {won(c.amount)}
-          </span>
-        </div>
-      ))}
-
-      <div className={styles.summaryDivider}></div>
-
-      <div className={styles.summaryTotal}>
-        <span className={styles.k}>총 합계</span>
-        <span className={styles.v}>
-          {won(itinerary.totalCost)}
         </span>
       </div>
     </div>
