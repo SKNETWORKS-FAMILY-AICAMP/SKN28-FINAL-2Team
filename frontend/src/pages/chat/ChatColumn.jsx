@@ -121,6 +121,29 @@ export default function ChatColumn({
   }, [history, ready, stepIndex])
 
   const finishFlow = async (finalAnswers) => {
+
+    setHistory((prev) => [
+      ...prev,
+      {
+        id: nextId(),
+        type: 'msg',
+        me: false,
+        lines: [
+          '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉',
+        ],
+      },
+      {
+        id: nextId(),
+        type: 'card',
+        title: '✅ 입력된 조건 확인',
+        rows: STEPS.map((step) => ({
+          ic: step.icon,
+          label: step.label,
+          value: finalAnswers[step.key],
+        })),
+      },
+    ])
+
     try {
       const nights = parseNights(finalAnswers.duration)
 
@@ -168,6 +191,10 @@ export default function ChatColumn({
 
       setItineraryId(itinerary.id)
 
+      setTimeout(onReady, READY_DELAY_MS)
+    } catch (error) {
+      console.error('일정 생성 실패:', error)
+      
       setHistory((prev) => [
         ...prev,
         {
@@ -175,39 +202,25 @@ export default function ChatColumn({
           type: 'msg',
           me: false,
           lines: [
-            '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉',
+            '일정을 생성하지 못했어요. 잠시 후 다시 시도해주세요.',
           ],
         },
-        {
-          id: nextId(),
-          type: 'card',
-          title: '✅ 입력된 조건 확인',
-          rows: STEPS.map((step) => ({
-            ic: step.icon,
-            label: step.label,
-            value: finalAnswers[step.key],
-          })),
-        },
       ])
-
-      setTimeout(onReady, READY_DELAY_MS)
-    } catch (error) {
-      console.error('일정 생성 실패:', error)
     }
   }
 
-  const answerStep = (key, value) => {
-    if (!value.trim()) return
+    const answerStep = (key, value) => {
+      if (!value.trim()) return
 
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        type: 'msg',
-        me: true,
-        lines: [value],
-      },
-    ])
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: true,
+          lines: [value],
+        },
+      ])
 
     const nextAnswers = {
       ...answers,
@@ -233,12 +246,12 @@ export default function ChatColumn({
     }
   }
 
-  const sendMsg = () => {
-    const text = input.trim()
+    const sendMsg = () => {
+      const text = input.trim()
 
-    if (!text) return
+      if (!text) return
 
-    setInput('')
+      setInput('')
 
     const currentStep = STEPS[stepIndex]
 

@@ -100,7 +100,7 @@ export default function ItineraryEditor({
 
   const handleRegenerate = async () => {
     const confirmed = window.confirm(
-      "일정을 다시 생성하면 지금까지 직접 수정하거나 삭제한 내용이 모두 사라지고, 같은 조건(동행자·기간·교통수단·스타일)으로 새 일정을 처음부터 만들어요.\n계속할까요?"
+      "일정을 다시 생성하면 수정한 내용이 사라집니다. \n계속하시겠습니까?"
     );
 
     if (!confirmed) return;
