@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getRoute } from '../../api/itinerary'
 import styles from './itinerary.module.css'
 
-export default function MapPanel({ itineraryId, activeDay }) {
+export default function MapPanel({ itineraryId, activeDay, refreshKey }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const overlaysRef = useRef([])
@@ -26,7 +26,7 @@ export default function MapPanel({ itineraryId, activeDay }) {
     }
 
     loadRoute()
-  }, [itineraryId])
+  }, [itineraryId, refreshKey])
 
   useEffect(() => {
     if (!window.kakao?.maps || !mapRef.current) return

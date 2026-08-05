@@ -28,10 +28,33 @@ const CHIP_LABELS = [
 export default function ChatPanel({ onRevised }) {
   const { id } = useParams();
   const { revise } = useItineraries();
+  const storageKey = `itinerary-chat-${id}`;
 
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+
+      return saved
+        ? JSON.parse(saved)
+        : INITIAL_MESSAGES;
+    } catch (err) {
+      console.error("채팅 기록 불러오기 실패:", err);
+      return INITIAL_MESSAGES;
+    }
+  });
   const [input, setInput] = useState("");
   const bodyRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(messages)
+      );
+    } catch (err) {
+      console.error("채팅 기록 저장 실패:", err);
+    }
+  }, [messages, storageKey]);
 
   useEffect(() => {
     if (bodyRef.current) {

@@ -33,6 +33,7 @@ export default function ItineraryPage() {
         <MapPanel
           itineraryId={id}
           activeDay={activeDay}
+          refreshKey={refreshKey}
         />
       </div>
     </div>
