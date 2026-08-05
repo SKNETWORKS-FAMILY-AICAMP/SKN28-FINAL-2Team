@@ -12,9 +12,6 @@ const mapItinerary = (data) => ({
   companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
 
-  transport: data.transport,
-  transportDisplay: data.transport_display,
-
   style: data.style_display,
   styleCode: data.style,
   styleDisplay: data.style_display,

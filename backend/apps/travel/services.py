@@ -100,17 +100,13 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         print("duration_label :", itinerary.duration_label)
         print("companion      :", itinerary.companion_type)
-        print("transport      :", itinerary.transport)
         print("style          :", itinerary.style)
 
         print(
             "display companion :",
             itinerary.get_companion_type_display(),
         )
-        print(
-            "display transport :",
-            itinerary.get_transport_display(),
-        )
+
         print(
             "display style     :",
             itinerary.get_style_display(),
@@ -122,7 +118,6 @@ def generate_itinerary(itinerary: Itinerary):
         user_text = (
             f"{itinerary.duration_label}, "
             f"{itinerary.get_companion_type_display()}, "
-            f"{itinerary.get_transport_display()}, "
             f"{itinerary.get_style_display()}"
         )
 
