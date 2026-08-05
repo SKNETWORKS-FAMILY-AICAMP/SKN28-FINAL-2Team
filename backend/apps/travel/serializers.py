@@ -219,7 +219,6 @@ class ItinerarySerializer(serializers.ModelSerializer):
     style_display = serializers.CharField(source="get_style_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
-    transport_display = serializers.CharField(source="get_transport_display", read_only=True)
     cost_breakdown = serializers.SerializerMethodField()
 
     class Meta:
@@ -227,8 +226,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
         fields = (
             "id", "title", "subtitle", "start_date", "end_date",
             "companion_type", "companion_type_display",
-            "companion_count", "transport", "transport_display", "style", "style_display", "budget_per_person",
-            "accommodation_cost", "transport_cost", "activity_cost",
+            "companion_count", "style", "style_display", "budget_per_person",
             "food_cost", "etc_cost", "total_cost", "cost_breakdown",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
@@ -240,7 +238,6 @@ class ItinerarySerializer(serializers.ModelSerializer):
     def get_cost_breakdown(self, obj):
         return [
             {"label": "숙소", "amount": obj.accommodation_cost},
-            {"label": "렌터카", "amount": obj.transport_cost},
             {"label": "액티비티", "amount": obj.activity_cost},
             {"label": "식비", "amount": obj.food_cost},
             {"label": "기타", "amount": obj.etc_cost},

@@ -226,7 +226,6 @@ export default function ChatColumn({
         budget_per_person: 500000,
 
         accommodation_cost: 150000,
-        transport_cost: 100000,
         activity_cost: 50000,
         food_cost: 100000,
         etc_cost: 50000,

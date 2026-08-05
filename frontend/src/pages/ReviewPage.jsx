@@ -242,10 +242,6 @@ export default function ReviewPage() {
               </div>
 
               <div className={styles.metaItem}>
-                🚌 {itinerary.transportDisplay}
-              </div>
-
-              <div className={styles.metaItem}>
                 🍃 {itinerary.styleDisplay}
               </div>
             </div>

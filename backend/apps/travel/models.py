@@ -144,10 +144,6 @@ class Itinerary(models.Model):
         FOOD = "food", "맛집여행"
         TREKKING = "trekking", "트레킹"
 
-    class Transport(models.TextChoices):
-        CAR = "car", "렌터카"
-        BUS = "bus", "버스"
-
     class Status(models.TextChoices):
         DRAFT = "draft", "임시저장"
         CONFIRMED = "confirmed", "확정"
@@ -167,12 +163,10 @@ class Itinerary(models.Model):
     end_date = models.DateField()
     companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
     companion_count = models.PositiveSmallIntegerField(default=1)
-    transport = models.CharField(max_length=10, choices=Transport.choices, default=Transport.CAR)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
     budget_per_person = models.PositiveIntegerField(null=True, blank=True)
 
     accommodation_cost = models.PositiveIntegerField(default=0, help_text="숙소")
-    transport_cost = models.PositiveIntegerField(default=0, help_text="렌터카/교통")
     activity_cost = models.PositiveIntegerField(default=0, help_text="액티비티")
     food_cost = models.PositiveIntegerField(default=0, help_text="식비")
     etc_cost = models.PositiveIntegerField(default=0, help_text="기타")
@@ -199,7 +193,6 @@ class Itinerary(models.Model):
         """카테고리별 비용 합산."""
         return (
             self.accommodation_cost
-            + self.transport_cost
             + self.activity_cost
             + self.food_cost
             + self.etc_cost
