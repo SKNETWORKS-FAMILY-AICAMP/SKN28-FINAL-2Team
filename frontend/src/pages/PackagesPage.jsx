@@ -169,7 +169,7 @@ export default function PackagesPage() {
                     className={styles.cardImage}
                   />
 
-                  <span className={styles.cardBadge}>{p.categoryLabel}</span>
+                  <span className={styles.cardBadge}> {p.styleLabel} </span>
 
                   <button
                     className={cx(
