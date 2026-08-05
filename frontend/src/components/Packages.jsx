@@ -4,12 +4,6 @@ import { won } from '../data/packages.js'
 import { getPackages } from '../api/packageApi.js'
 import PackageDetailModal from './PackageDetailModal.jsx'
 
-const PACKAGE_EMOJI = {
-  stay: '🏨',
-  car: '🚗',
-  activity: '🐴',
-}
-
 const normalizePackage = (pkg) => ({
   id: pkg.id,
   name: pkg.name,
@@ -19,7 +13,6 @@ const normalizePackage = (pkg) => ({
   styleLabel: pkg.style_display,
   description: pkg.description,
   thumbnailUrl: pkg.thumbnail_url,
-  thumbnail: PACKAGE_EMOJI[pkg.category] || '🎁',
   price: Number(pkg.price),
   durationDays: pkg.duration_days,
   region: pkg.region,
@@ -79,9 +72,13 @@ export default function Packages() {
               className="pkg"
               key={p.id}
               onClick={() => setSelectedPackage(p)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: "pointer" }}
             >
               <div className="pkg-img">
+                <div className="pkg-badge">
+                  ✨ {p.styleLabel}
+                </div>
+
                 {p.thumbnailUrl ? (
                   <img src={p.thumbnailUrl} alt={p.name} />
                 ) : (
@@ -91,7 +88,16 @@ export default function Packages() {
 
               <div className="pkg-body">
                 <h4>{p.name}</h4>
-                <div className="price">{won(p.price)}</div>
+
+                <div className="pkg-footer">
+                  <div className="price">
+                    {won(p.price)}
+                  </div>
+
+                  <span className="pkg-more">
+                    자세히 →
+                  </span>
+                </div>
               </div>
             </div>
           ))}
