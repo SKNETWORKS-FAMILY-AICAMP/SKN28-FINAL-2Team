@@ -1,23 +1,113 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import styles from './packages/packages.module.css'
 import cx from '../utils/cx.js'
 import AccountMenu from '../components/AccountMenu.jsx'
-import { PACKAGES, won, ratingLabel } from '../data/packages.js'
+import PackageDetailModal from '../components/PackageDetailModal.jsx'
+import { won } from '../data/packages.js'
+import { getPackages, getPackageDetail, } from '../api/packageApi.js'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 
 const FILTERS = [
   { value: 'all', label: '전체' },
-  { value: 'stay', label: '숙소' },
-  { value: 'car', label: '렌터카' },
-  { value: 'activity', label: '액티비티' },
+  { value: 1, label: '당일' },
+  { value: 2, label: '1박 2일' },
+  { value: 3, label: '2박 3일' },
+  { value: 4, label: '3박 4일' },
+  { value: 5, label: '4박 5일' },
 ]
 
-export default function PackagesPage() {
-  const [filter, setFilter] = useState('all')
-  const { isBookmarked, toggle } = useBookmarks()
+const PACKAGE_EMOJI = {
+  stay: '🏨',
+  car: '🚗',
+  activity: '🐴',
+}
 
-  const visible = filter === 'all' ? PACKAGES : PACKAGES.filter((p) => p.category === filter)
+const normalizePackage = (pkg) => ({
+  id: pkg.id,
+  name: pkg.name,
+  category: pkg.category,
+  categoryLabel: pkg.category_display,
+  style: pkg.style,
+  styleLabel: pkg.style_display,
+  description: pkg.description,
+  thumbnailUrl: pkg.thumbnail_url,
+  thumbnail: PACKAGE_EMOJI[pkg.category] || '🎁',
+  price: Number(pkg.price),
+  durationDays: pkg.duration_days,
+  region: pkg.region,
+  accommodationIncluded: pkg.accommodation_included,
+  includedItems: Array.isArray(pkg.included_items)
+    ? pkg.included_items
+    : [],
+  course: Array.isArray(pkg.course)
+    ? pkg.course
+    : [],
+  rating: Number(pkg.rating),
+  reviewCount: pkg.review_count,
+  isActive: pkg.is_active,
+})
+
+export default function PackagesPage() {
+  const navigate = useNavigate()
+  const { isLoggedIn } = useAuth()
+  const [filter, setFilter] = useState('all')
+  const [selectedPackage, setSelectedPackage] = useState(null)
+  const [packages, setPackages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const { isBookmarked, toggle } = useBookmarks()
+  useEffect(() => {
+  const loadPackages = async () => {
+    try {
+      setLoading(true)
+      setError('')
+
+      const data = await getPackages()
+      const list = Array.isArray(data)
+        ? data
+        : data.results || []
+
+      setPackages(list.map(normalizePackage))
+    } catch (err) {
+      console.error('패키지 목록 조회 실패:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  loadPackages()
+}, [])
+
+  const handleOpenDetail = async (id) => {
+    try {
+      const data = await getPackageDetail(id)
+      setSelectedPackage(normalizePackage(data))
+    } catch (err) {
+      console.error('패키지 상세 조회 실패:', err)
+      alert(err.message || '패키지 상세 정보를 불러오지 못했습니다.')
+    }
+  }
+  const handleDirectBooking = (e, pkg) => {
+    e.stopPropagation()
+
+    if (!isLoggedIn) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    navigate('/booking', {
+      state: {
+        bookingSource: 'package',
+        packageIds: [pkg.id],
+        packages: [pkg],
+      },
+    })
+  }
+
+  const visible = filter === 'all' ? packages : packages.filter((p) => Number(p.durationDays) === Number(filter))
 
   return (
     <div className={styles.page}>
@@ -37,7 +127,7 @@ export default function PackagesPage() {
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>✓ 추천 패키지</div>
           <h1>탐나플랜이 준비한 패키지 전체보기</h1>
-          <p>숙소·렌터카·액티비티를 한눈에 비교하고, 마음에 드는 패키지는 하트로 찜해보세요.</p>
+          <p>여행 기간에 맞는 패키지를 한눈에 비교하고, 마음에 드는 패키지는 하트로 찜해보세요.</p>
         </div>
 
         <div className={styles.filters}>
@@ -52,25 +142,40 @@ export default function PackagesPage() {
           ))}
         </div>
 
-        {visible.length === 0 ? (
-          <div className={styles.empty}>해당 카테고리의 패키지가 아직 없어요.</div>
+        {loading ? (
+          <div className={styles.empty}>패키지를 불러오는 중...</div>
+        ) : error ? (
+          <div className={styles.empty}>{error}</div>
+        ) : visible.length === 0 ? (
+          <div className={styles.empty}>해당 기간의 패키지가 아직 없어요.</div>
         ) : (
           <div className={styles.grid}>
             {visible.map((p) => (
-              <div className={styles.card} key={p.id}>
+              <div className={styles.card} key={p.id} onClick={() => handleOpenDetail(p.id)}>
                 <div className={styles.cardImg}>
-                  {p.thumbnail}
+                  {p.thumbnailUrl ? (
+                    <img
+                      src={p.thumbnailUrl}
+                      alt={p.name}
+                      className={styles.cardImage}
+                    />
+                  ) : (
+                    p.thumbnail
+                  )}
+
                   <span className={styles.cardBadge}>{p.categoryLabel}</span>
                   <button
                     className={cx(styles.bookmarkBtn, isBookmarked(p.id) && styles.bookmarkBtnActive)}
-                    onClick={() => toggle(p.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggle(p.id)
+                    }}
                     aria-label="찜하기"
                   >
                     {isBookmarked(p.id) ? '❤️' : '🤍'}
                   </button>
                 </div>
                 <div className={styles.cardBody}>
-                  <div className={styles.rating}>{ratingLabel(p)}</div>
                   <h4>{p.name}</h4>
                   <p className={styles.desc}>{p.description}</p>
                   <div className={styles.tags}>
@@ -82,9 +187,13 @@ export default function PackagesPage() {
                   </div>
                   <div className={styles.cardFoot}>
                     <div className={styles.price}>{won(p.price)}</div>
-                    <Link to="/booking" className={styles.btn}>
+                    <button
+                      type="button"
+                      className={styles.btn}
+                      onClick={(e) => handleDirectBooking(e, p)}
+                    >
                       예약하기 →
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -92,6 +201,8 @@ export default function PackagesPage() {
           </div>
         )}
       </div>
+
+      <PackageDetailModal pkg={selectedPackage} onClose={() => setSelectedPackage(null)} />
     </div>
   )
 }

@@ -35,16 +35,7 @@
 .pageHead p{ margin-top:6px; font-size:13px; color: var(--muted); }
 
 /* ---------- layout shell ---------- */
-.shell{ display:grid; grid-template-columns: 220px 1fr; gap:20px; align-items:start; }
-
-/* day nav card */
-.dayNav{ background:#fff; border:2.5px solid var(--ink); border-radius:18px; padding:14px; box-shadow: 4px 4px 0 var(--green-soft-2); position:sticky; top:84px; }
-.dayNavItem{ width:100%; text-align:left; padding:13px 14px; border-radius:13px; border:none; background:transparent; margin-bottom:6px; transition: background .15s; }
-.dayNavItem:last-child{ margin-bottom:0; }
-.dayNavItem:hover{ background: var(--bg-soft); }
-.dayNavItemActive{ background: var(--green-soft); }
-.dayNavItem .d{ font-family: var(--display); font-weight:700; font-size:14.5px; color: var(--ink); }
-.dayNavItem .dt{ font-family: var(--mono); font-size:11px; color: var(--muted); margin-top:2px; }
+.shell{ display: block; }
 
 /* main card */
 .mainCard{ background:#fff; border:2.5px solid var(--ink); border-radius:22px; padding: 26px 28px 30px; box-shadow: 6px 6px 0 var(--green-soft-2); }
@@ -73,8 +64,7 @@
 /* trip summary panel */
 .summary{ background: var(--bg-soft); border:2px solid var(--ink); border-radius:18px; padding:16px; }
 .summary h4{ font-family: var(--display); font-weight:700; font-size:14.5px; margin-bottom:12px; }
-.mapPanel{ border:2px solid var(--ink); border-radius:14px; overflow:hidden; background: var(--sea); margin-bottom:14px; box-shadow: 3px 3px 0 #fff; }
-.mapPanel svg{ width:100%; display:block; }
+.mapPanel{ width:100%; height:220px; border:2px solid var(--ink); border-radius:14px; overflow:hidden; background:var(--sea); margin-bottom:14px; box-shadow:3px 3px 0 #fff;}
 
 .summaryRow{ display:flex; justify-content:space-between; padding:5px 0; font-size:12px; }
 .summaryRow .k{ color: var(--muted); }
@@ -95,9 +85,6 @@
 @keyframes fadeInOut{ 0%{opacity:0;transform:translateY(8px);} 15%{opacity:1;transform:translateY(0);} 85%{opacity:1;} 100%{opacity:0;transform:translateY(-8px);} }
 
 @media (max-width: 1150px){
-  .shell{ grid-template-columns: 1fr; }
-  .dayNav{ position:static; display:flex; gap:8px; overflow-x:auto; }
-  .dayNavItem{ flex:0 0 auto; margin-bottom:0; }
   .grid{ grid-template-columns: 1fr 1fr; }
   .summary{ grid-column: span 2; }
 }

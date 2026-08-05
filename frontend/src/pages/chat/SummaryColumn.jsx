@@ -3,7 +3,7 @@ import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
 
-export default function SummaryColumn({ answers, ready }) {
+export default function SummaryColumn({ answers, ready, itineraryId }) {
   return (
     <div className={styles.summaryCol}>
       <div className={cx(styles.blob, styles.blob1)}></div>
@@ -69,7 +69,11 @@ export default function SummaryColumn({ answers, ready }) {
         </div>
 
         {ready && (
-          <Link to="/itinerary" className={cx(styles.btn, styles.primary)} style={{ marginTop: 22, position: 'relative', zIndex: 2 }}>
+          <Link
+            to={`/itinerary/${itineraryId}`}
+            className={cx(styles.btn, styles.primary)}
+            style={{ marginTop: 14, position: 'relative', zIndex: 2 }}
+          >
             완성된 일정 보러가기 →
           </Link>
         )}

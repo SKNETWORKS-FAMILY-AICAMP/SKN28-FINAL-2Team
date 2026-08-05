@@ -20,7 +20,7 @@
 html{ scroll-behavior:smooth; }
 body{ font-family: var(--body); background: var(--bg); color: var(--ink); overflow-x:hidden; }
 a{ color:inherit; text-decoration:none; }
-img,svg{ max-width:100%; display:block; }
+img { max-width:100%; display:block; }
 button{ font-family:inherit; cursor:pointer; }
 input{ font-family:inherit; }
 .wrap{ max-width:1180px; margin:0 auto; padding:0 32px; }
@@ -240,4 +240,14 @@ footer .flinks a:hover{ color: var(--ink); }
   .it-shell{ grid-template-columns:1fr; }
   .it-side{ border-right:none; border-bottom:1px solid var(--line); }
   .itinerary-head{ flex-direction:column; align-items:flex-start; }
+}
+
+.landing-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-main {
+  flex: 1;
 }

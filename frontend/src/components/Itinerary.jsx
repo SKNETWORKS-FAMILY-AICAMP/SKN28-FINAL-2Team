@@ -53,7 +53,6 @@ export default function Itinerary() {
               <br />— 부모님과 함께
             </h2>
           </div>
-          <p className="section-sub">2024.07.25(목) – 07.27(토) · 2박 3일 · 2인 · 힐링 여행</p>
         </div>
 
         <div className="it-shell reveal">
