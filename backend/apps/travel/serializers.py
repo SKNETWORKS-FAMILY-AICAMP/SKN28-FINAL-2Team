@@ -2,40 +2,8 @@ from rest_framework import serializers
 
 from drf_spectacular.utils import extend_schema_field
 
-from .models import Accommodation, Itinerary, ItineraryDay, ItineraryItem, Package, Restaurant, TouristSpot
+from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
-
-class TouristSpotSerializer(serializers.ModelSerializer):
-    tags = serializers.SerializerMethodField()
-
-    class Meta:
-        model = TouristSpot
-        fields = (
-            "id", "name", "address", "description", "image_url",
-            "tags", "latitude", "longitude",
-        )
-
-    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
-    def get_tags(self, obj):
-        return obj.tag_list()
-
-
-class AccommodationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Accommodation
-        fields = (
-            "id", "name", "address", "description", "image_url",
-            "price_per_night", "rating", "review_count", "latitude", "longitude",
-        )
-
-
-class RestaurantSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Restaurant
-        fields = (
-            "id", "name", "address", "description", "image_url", "category",
-            "price_range", "rating", "review_count", "latitude", "longitude",
-        )
 
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)

@@ -133,7 +133,6 @@ class Package(models.Model):
         return self.title
 
 
-# 최종 여행 일정
 
 class Itinerary(models.Model):
     """최종 여행 일정표 """
