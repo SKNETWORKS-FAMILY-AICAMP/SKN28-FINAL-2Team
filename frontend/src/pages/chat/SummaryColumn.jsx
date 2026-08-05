@@ -81,17 +81,31 @@ export default function SummaryColumn({ answers, ready, itineraryId }) {
 
       <div className={styles.summaryCard}>
         <h4>📋 입력된 조건 요약</h4>
-        {STEPS.map((s) => (
-          <div className={styles.condRow} key={s.key}>
-            <div className={styles.condIc}>{s.icon}</div>
-            <div className={styles.condBody}>
-              <div className={styles.lbl}>{s.label}</div>
-              <div className={cx(styles.val, !answers[s.key] && styles.valEmpty)}>
-                {answers[s.key] || '아직 정해지지 않았어요'}
+        {STEPS.map((s) => {
+          const value =
+            s.key === 'travelDates'
+              ? answers.travelDates?.duration
+              : answers[s.key]
+
+          return (
+            <div className={styles.condRow} key={s.key}>
+              <div className={styles.condIc}>{s.icon}</div>
+
+              <div className={styles.condBody}>
+                <div className={styles.lbl}>{s.label}</div>
+
+                <div
+                  className={cx(
+                    styles.val,
+                    !value && styles.valEmpty,
+                  )}
+                >
+                  {value || '아직 정해지지 않았어요'}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className={styles.tipNote}>
