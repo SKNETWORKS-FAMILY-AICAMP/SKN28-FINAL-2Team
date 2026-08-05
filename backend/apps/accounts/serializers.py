@@ -37,7 +37,6 @@ class UserMeSerializer(serializers.ModelSerializer):
             "nickname",
             "profile_image",
             "provider",
-            "phone",
             "preferred_style",
             "preferred_budget",
             "date_joined",
