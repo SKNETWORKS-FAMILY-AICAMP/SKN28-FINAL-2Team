@@ -7,6 +7,7 @@ import { STEPS } from './questionSteps.js'
 
 
 const READY_DELAY_MS = 1800
+const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
 let uid = 100
 const nextId = () => ++uid
@@ -134,27 +135,54 @@ export default function ChatColumn({
   setItineraryId,
   itineraryId,
 }) {
-  const [history, setHistory] = useState([
-    {
-      id: nextId(),
-      type: 'msg',
-      me: false,
-      lines: [
-        '안녕하세요! 😊',
-        '원하시는 제주 여행을 알려주세요.',
-      ],
-    },
-    {
-      id: nextId(),
-      type: 'question',
-      stepIndex: 0,
-    },
-  ])
+  const getSavedChatColumn = () => {
+    try {
+      const saved = sessionStorage.getItem(CHAT_COLUMN_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error("채팅 복원 실패:", error);
+      return null;
+    }
+  };
 
-  const [stepIndex, setStepIndex] = useState(0)
-  const [input, setInput] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const savedChatColumn = getSavedChatColumn();
+
+  const [history, setHistory] = useState(() => {
+    if (Array.isArray(savedChatColumn?.history)) {
+      return savedChatColumn.history;
+    }
+
+    return [
+      {
+        id: nextId(),
+        type: "msg",
+        me: false,
+        lines: [
+          "안녕하세요! 😊",
+          "원하시는 제주 여행을 알려주세요.",
+        ],
+      },
+      {
+        id: nextId(),
+        type: "question",
+        stepIndex: 0,
+      },
+    ];
+  });
+
+  const [stepIndex, setStepIndex] = useState(
+    savedChatColumn?.stepIndex ?? 0
+  );
+
+  const [input, setInput] = useState("");
+
+  const [startDate, setStartDate] = useState(
+    savedChatColumn?.startDate ?? ""
+  );
+
+  const [endDate, setEndDate] = useState(
+    savedChatColumn?.endDate ?? ""
+  );
 
   const bodyRef = useRef(null)
   const navigate = useNavigate()
@@ -169,6 +197,23 @@ export default function ChatColumn({
       }
     })
   }, [history, ready, stepIndex])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        CHAT_COLUMN_STORAGE_KEY,
+        JSON.stringify({
+          history,
+          stepIndex,
+          startDate,
+          endDate,
+        })
+      );
+    } catch (error) {
+      console.error("채팅 저장 실패:", error);
+    }
+  }, [history, stepIndex, startDate, endDate]);
+
 
   const finishFlow = async (finalAnswers) => {
 
