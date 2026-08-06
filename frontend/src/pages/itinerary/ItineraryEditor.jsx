@@ -134,15 +134,14 @@ export default function ItineraryEditor({
             </p>
           </div>
 
-          <button
-            className={cx(styles.btn, styles.ghost, styles.sm)}
-            onClick={handleRegenerate}
-            disabled={isRegenerating}
-          >
-            {isRegenerating
-              ? "⏳ 일정 재생성 중..."
-              : "🔄 일정 다시 생성"}
-          </button>
+          <h1>{itinerary.title}</h1>
+
+          <p>
+            {itinerary.subtitle} ·{" "}
+            {itinerary.startDate === itinerary.endDate
+              ? itinerary.startDate
+              : `${itinerary.startDate} ~ ${itinerary.endDate}`}
+          </p>
         </div>
 
         <div className={styles.dayTabs}>

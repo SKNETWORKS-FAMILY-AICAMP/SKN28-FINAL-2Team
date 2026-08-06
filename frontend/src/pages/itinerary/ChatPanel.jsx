@@ -139,9 +139,9 @@ export default function ChatPanel({ onRevised }) {
               {m.me ? "나" : "🌿"}
             </div>
 
-            <div 
+            <div
               className={styles.bubble}
-              style={{ whiteSpace: "pre-line"}}
+              style={{ whiteSpace: "pre-wrap" }}
             >
               {m.text}
 
