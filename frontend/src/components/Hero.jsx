@@ -6,13 +6,17 @@ export default function Hero() {
   const handleStart = () => {
     const token = localStorage.getItem('accessToken')
 
-    if (!token || 
+    if (
+      !token ||
       token === 'null' ||
-      token ==='undefined'
+      token === 'undefined'
     ) {
       alert('로그인 후 이용할 수 있습니다.')
       return
     }
+
+    sessionStorage.removeItem('travel-chat-page')
+    sessionStorage.removeItem('travel-chat-column')
 
     navigate('/chat')
   }
