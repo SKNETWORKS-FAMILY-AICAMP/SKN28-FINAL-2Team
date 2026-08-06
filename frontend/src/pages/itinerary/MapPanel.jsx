@@ -1,7 +1,33 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { getRoute } from '../../api/itinerary'
+import { getPackageRecommendations, getRoute } from '../../api/itinerary'
 import styles from './itinerary.module.css'
+import PackageDetailModal from '../../components/PackageDetailModal.jsx'
+import { getPackageDetail, getPackages } from '../../api/packageApi.js'
+const normalizePackage = (pkg) => ({
+  id: pkg.id,
+  packageId: pkg.package_id,
+  name: pkg.name,
+  category: pkg.category,
+  categoryLabel: pkg.category_display,
+  style: pkg.style,
+  styleLabel: pkg.style_display,
+  description: pkg.description,
+  thumbnailUrl: pkg.thumbnail_url,
+  price: Number(pkg.price),
+  durationDays: pkg.duration_days,
+  region: pkg.region,
+  accommodationIncluded: pkg.accommodation_included,
+  includedItems: Array.isArray(pkg.included_items)
+    ? pkg.included_items
+    : [],
+  course: Array.isArray(pkg.course)
+    ? pkg.course
+    : [],
+  rating: Number(pkg.rating),
+  reviewCount: pkg.review_count,
+  isActive: pkg.is_active,
+})
 
 export default function MapPanel({ itineraryId, activeDay }) {
   const mapRef = useRef(null)
@@ -11,7 +37,25 @@ export default function MapPanel({ itineraryId, activeDay }) {
   const openedInfoWindowRef = useRef(null)
   const openedMarkerContentRef = useRef(null)
 
+  const recommendationCacheKey = itineraryId ? `package-recommendations-${itineraryId}` : null
   const [routes, setRoutes] = useState([])
+  const [recommendedPackages, setRecommendedPackages] = useState(() => {
+    if (!itineraryId) return []
+
+    try {
+      const cached = sessionStorage.getItem(
+        `package-recommendations-${itineraryId}`
+      )
+
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [recommendationLoading, setRecommendationLoading] = useState(false)
+  const [recommendationError, setRecommendationError] = useState('')
+  const [packageCatalog, setPackageCatalog] = useState([])
+  const [selectedPackage, setSelectedPackage] = useState(null)
 
   useEffect(() => {
     if (!itineraryId) return
@@ -27,6 +71,77 @@ export default function MapPanel({ itineraryId, activeDay }) {
 
     loadRoute()
   }, [itineraryId])
+
+  useEffect(() => {
+  if (!itineraryId) return
+
+  let cancelled = false
+
+  const loadRecommendations = async () => {
+    setRecommendationLoading(
+      recommendedPackages.length === 0
+    )
+    setRecommendationError('')
+
+    try {
+      const data = await getPackageRecommendations(
+        itineraryId,
+        3
+      )
+
+      if (cancelled) return
+
+      const recommendations = data.recommendations ?? []
+
+      setRecommendedPackages(recommendations)
+
+      if (recommendationCacheKey) {
+        sessionStorage.setItem(
+          recommendationCacheKey,
+          JSON.stringify(recommendations)
+        )
+      }
+    } catch (err) {
+      if (cancelled) return
+
+      console.error('추천 패키지 조회 실패:', err)
+
+      setRecommendedPackages([])
+      setRecommendationError(
+        err.response?.data?.detail ??
+          '추천 패키지를 불러오지 못했어요.'
+      )
+    } finally {
+      if (!cancelled) {
+        setRecommendationLoading(false)
+      }
+    }
+  }
+
+  loadRecommendations()
+
+  return () => {
+    cancelled = true
+  }
+}, [itineraryId, refreshKey])
+
+  useEffect(() => {
+    const loadPackageCatalog = async () => {
+      try {
+        const data = await getPackages()
+
+        const list = Array.isArray(data)
+          ? data
+          : data.results ?? []
+
+        setPackageCatalog(list.map(normalizePackage))
+      } catch (err) {
+        console.error('패키지 목록 조회 실패:', err)
+      }
+    }
+
+    loadPackageCatalog()
+  }, [])
 
   useEffect(() => {
     if (!window.kakao?.maps || !mapRef.current) return
@@ -184,9 +299,39 @@ export default function MapPanel({ itineraryId, activeDay }) {
   const activeRoute = routes.find(
     (route) => Number(route.day_number) === Number(activeDay)
   )
+  const topRecommendation = recommendedPackages[0]
+  const matchedPackage = packageCatalog.find(
+    (pkg) => pkg.packageId === topRecommendation?.package_id
+  )
+  const formatPrice = (price) => {
+    const numericPrice = Number(price)
+
+    if (!Number.isFinite(numericPrice)) {
+      return '가격 정보 없음'
+    }
+
+    return `${numericPrice.toLocaleString('ko-KR')}원`
+  }
+
+  const handleOpenRecommendedPackage = async () => {
+    if (!matchedPackage?.id) return
+
+    try {
+      const data = await getPackageDetail(matchedPackage.id)
+      setSelectedPackage(normalizePackage(data))
+    } catch (err) {
+      console.error('추천 패키지 상세 조회 실패:', err)
+
+      alert(
+        err.message ||
+          '패키지 상세 정보를 불러오지 못했습니다.'
+      )
+    }
+  }
 
   return (
-    <div className={styles.mapCol}>
+    <>
+      <div className={styles.mapCol}>
       <div className={styles.mapHead}>
         <h4>🗺️ DAY {activeDay} 동선</h4>
       </div>
@@ -198,17 +343,77 @@ export default function MapPanel({ itineraryId, activeDay }) {
         <span className={styles.badge}>일정 맞춤</span>
       </div>
 
-      <div className={styles.pkgRecommendEmpty}>
-        <strong>추천 패키지를 준비 중이에요.</strong>
-        <p>
-          일정 생성이 완료되면 패키지 중 가장 유사한 패키지를
-          추천해드릴게요.
-        </p>
-      </div>
+      {recommendationLoading && (
+        <div className={styles.pkgRecommendEmpty}>
+          <strong>추천 패키지를 찾고 있어요.</strong>
+          <p>
+            생성된 일정과 가장 유사한 패키지를 비교하고 있어요.
+          </p>
+        </div>
+      )}
+
+      {!recommendationLoading && recommendationError && (
+        <div className={styles.pkgRecommendEmpty}>
+          <strong>추천 패키지를 불러오지 못했어요.</strong>
+          <p>{recommendationError}</p>
+        </div>
+      )}
+
+      {!recommendationLoading &&
+        !recommendationError &&
+        topRecommendation && (
+          <button
+            type="button"
+            className={styles.pkgRecommendCard}
+            onClick={handleOpenRecommendedPackage}
+            disabled={!matchedPackage}
+          >
+            {matchedPackage?.thumbnailUrl && (
+              <img
+                src={matchedPackage.thumbnailUrl}
+                alt={topRecommendation.title}
+                className={styles.pkgRecommendImage}
+              />
+            )}
+
+            <div className={styles.pkgRecommendBody}>
+              <strong>{topRecommendation.title}</strong>
+
+              <p>
+                {topRecommendation.region}
+                {' · '}
+                {topRecommendation.duration_days}일
+                {' · '}
+                {formatPrice(topRecommendation.estimated_price)}
+              </p>
+
+              <p>
+                현재 여행 일정과 잘 어울리는 추천 패키지예요.
+              </p>
+            </div>
+          </button>
+        )}
+
+      {!recommendationLoading &&
+        !recommendationError &&
+        !topRecommendation && (
+          <div className={styles.pkgRecommendEmpty}>
+            <strong>추천할 패키지가 아직 없어요.</strong>
+            <p>
+              일정에 맞는 패키지가 추가되면 이곳에 추천해드릴게요.
+            </p>
+          </div>
+        )}
 
       <Link to="/packages" className={styles.pkgSeeAll}>
         전체 패키지 보러가기 →
       </Link>
     </div>
+
+    <PackageDetailModal
+      pkg={selectedPackage}
+      onClose={() => setSelectedPackage(null)}
+    />
+  </>
   )
 }

@@ -129,3 +129,17 @@ export const getRoute = async (id) => {
   );
   return data;
 };
+
+// 생성된 일정 기반 패키지 추천 조회
+export const getPackageRecommendations = async (id, topK = 3) => {
+  const { data } = await api.get(
+    `/travel/itineraries/${id}/package-recommendations/`,
+    {
+      params: {
+        top_k: topK,
+      },
+    }
+  )
+
+  return data
+}

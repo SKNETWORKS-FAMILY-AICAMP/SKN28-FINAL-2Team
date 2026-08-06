@@ -1,3 +1,4 @@
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 
 from rest_framework import permissions, status, viewsets
@@ -5,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from apps.package_recommendation.services import recommend_packages
 
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
@@ -174,6 +176,60 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         return Itinerary.objects.filter(
             user=self.request.user
         ).prefetch_related("days__items")
+
+    @extend_schema(
+        tags=["Package Recommendation"],
+        summary="생성된 일정에 맞는 패키지 추천",
+        responses={200: OpenApiTypes.OBJECT},
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="package-recommendations",
+    )
+    def package_recommendations(self, request, pk=None):
+        itinerary = self.get_object()
+
+        if not itinerary.engine_state:
+            return Response(
+                {"detail": "추천에 필요한 일정 엔진 상태가 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            top_k = int(request.query_params.get("top_k", 3))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "top_k는 정수여야 합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not 1 <= top_k <= 10:
+            return Response(
+                {"detail": "top_k는 1부터 10까지 지정할 수 있습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = recommend_packages(
+                itinerary.engine_state,
+                top_k=top_k,
+            )
+        except (TypeError, ValueError) as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except RuntimeError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
     
     @extend_schema(
         tags=["Itinerary"],
