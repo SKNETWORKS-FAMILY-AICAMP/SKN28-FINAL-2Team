@@ -139,8 +139,9 @@
 .itTotal .lbl{ font-size:12.5px; color:var(--muted); }
 .itTotal .val{ font-size:19px; font-weight:900; color: var(--green-deep); }
 
-.itActions{ display:flex; gap:10px; margin-top:16px; }
-.itActions .btn{ flex:1; justify-content:center; }
+.itActions{ display: flex; justify-content: center; margin-top: 16px; }
+
+.itActions .btn{ flex: 0 0 360px; justify-content: center; }
 
 /* ================= RIGHT: map + packages ================= */
 .mapCol{ height:100%; overflow:hidden; border-left: 2px solid var(--line); background:#fff; padding: 20px 18px 40px; }

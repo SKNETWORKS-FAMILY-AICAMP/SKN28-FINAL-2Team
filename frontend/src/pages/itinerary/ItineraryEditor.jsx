@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
@@ -252,13 +252,6 @@ export default function ItineraryEditor({
         </div>
 
         <div className={styles.itActions}>
-          <Link
-            to="/chat"
-            className={cx(styles.btn, styles.ghost)}
-          >
-            이전 단계로
-          </Link>
-
           <button
             className={cx(
               styles.btn,
