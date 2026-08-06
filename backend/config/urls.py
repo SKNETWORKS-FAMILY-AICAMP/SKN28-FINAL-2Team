@@ -14,10 +14,6 @@ urlpatterns = [
     path("api/token/refresh/", TokenRefreshView.as_view()),
 
     path("api/accounts/", include("apps.accounts.urls")),
-    path(
-        "api/travel/package-recommendations/",
-        include("apps.package_recommendation.urls"),
-    ),
     path("api/travel/", include("apps.travel.urls")),
     path("api/bookmarks/", include("apps.bookmark.urls")),
     path("api/history/", include("apps.history.urls")),

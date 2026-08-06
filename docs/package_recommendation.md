@@ -61,33 +61,4 @@ GET /api/travel/itineraries/{itinerary_id}/package-recommendations/?top_k=3
 이 엔드포인트는 저장된 `condition`과 `itinerary.days[].stops[]`를 그대로 추천 엔진에
 전달하므로 프론트엔드가 RAG 결과 JSON을 다시 조립할 필요가 없다.
 
-저장 전 결과나 독립 JSON을 직접 시험할 때는 아래 POST API를 사용한다.
-
-```http
-POST /api/travel/package-recommendations/
-Content-Type: application/json
-```
-
-요청 본문은 RAG 일정 결과를 그대로 사용하며 `top_k`를 생략하면 3개를 반환한다.
-
-```json
-{
-  "conditions": {
-    "duration_days": 1,
-    "party_type": "with_parents",
-    "preferred_visit_types": ["nature", "culture"]
-  },
-  "itinerary": [
-    {
-      "day": 1,
-      "sequence": 1,
-      "content_id": 126470,
-      "title": "외돌개",
-      "slot_kind": "tourism"
-    }
-  ],
-  "top_k": 3
-}
-```
-
-추천 API는 `TRAVEL_DB_*` 환경변수를 우선 사용하고, 없으면 기존 `MYSQL_*` 값을 사용한다. 추천 순위는 LLM 없이 관광지 `content_id` 정확 일치 개수부터 비교한다.
+추천 API는 `TRAVEL_DB_*` 환경변수를 우선 사용하고, 없으면 기존 `MYSQL_*` 값을 사용한다. 추천 순위는 LLM 없이 관광지 일치도 50점, 사용자 조건 40점, 지역·동선 유사도 10점의 가중 총점으로 계산한다.

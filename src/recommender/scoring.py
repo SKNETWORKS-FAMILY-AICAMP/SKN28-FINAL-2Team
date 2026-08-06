@@ -27,11 +27,14 @@ def score_package(
 
     coverage = len(matched_ids) / len(itinerary_ids) if itinerary_ids else 0.0
     precision = len(matched_ids) / len(package_ids) if package_ids else 0.0
-    exact_overlap = 70.0 * ((coverage * 0.8) + (precision * 0.2))
+    # 50 points: the generated itinerary should still be the strongest signal.
+    exact_overlap = 50.0 * ((coverage * 0.8) + (precision * 0.2))
     route_fit = _route_fit(matched_ids, itinerary_by_id, package_by_id)
-    profile_fit = _profile_fit(itinerary.conditions, package.match_profile)
-    nearby_fit, nearby_evidence = _nearby_fit(
-        itinerary_by_id, package.tourism_items, matched_ids
+    profile_fit, profile_evidence = _profile_fit(
+        itinerary.conditions, package.match_profile
+    )
+    nearby_fit, nearby_evidence = _regional_proximity_fit(
+        itinerary_by_id, package.tourism_items
     )
     total = exact_overlap + route_fit + profile_fit + nearby_fit
 
@@ -51,18 +54,19 @@ def score_package(
         evidence={
             "itinerary_coverage": round(coverage, 4),
             "package_precision": round(precision, 4),
+            **profile_evidence,
             **nearby_evidence,
         },
     )
 
 
 def deterministic_sort_key(candidate: ScoredPackage) -> tuple[Any, ...]:
-    """Exact place count is deliberately more important than every other score."""
+    """Rank by the requested weighted score, then use overlap as a tie-breaker."""
 
     return (
+        -candidate.score.total,
         -candidate.exact_match_count,
         -candidate.overlap_ratio,
-        -candidate.score.total,
         candidate.package.package_id,
     )
 
@@ -99,12 +103,21 @@ def _route_fit(
                 if (left.day, left.sequence or 0) <= (right.day, right.sequence or 0):
                     concordant += 1
         order_ratio = concordant / pair_count
-    return (same_day * 10.0) + (order_ratio * 5.0)
+    # 6 of the 10 region/route points are assigned to day and visit order.
+    return (same_day * 4.0) + (order_ratio * 2.0)
 
 
-def _profile_fit(conditions: dict[str, Any], profile: dict[str, Any]) -> float:
+def _profile_fit(
+    conditions: dict[str, Any], profile: dict[str, Any]
+) -> tuple[float, dict[str, Any]]:
     party = str(conditions.get("party_type") or "").strip().lower()
     pace = str(conditions.get("pace") or "").strip().lower()
+    seasons = _as_set(
+        conditions.get("seasons")
+        or conditions.get("season")
+        or conditions.get("preferred_seasons")
+        or conditions.get("travel_season")
+    )
     themes = _as_set(
         conditions.get("preferred_visit_types")
         or conditions.get("themes")
@@ -114,33 +127,54 @@ def _profile_fit(conditions: dict[str, Any], profile: dict[str, Any]) -> float:
     party_values = _profile_set(profile, "party_types", "party_type")
     pace_values = _profile_set(profile, "paces", "pace")
     theme_values = _profile_set(profile, "themes", "preferred_visit_types")
-    party_score = 4.0 if party and party in party_values else 0.0
-    pace_score = 2.0 if pace and pace in pace_values else 0.0
+    season_values = _profile_set(
+        profile, "seasons", "season", "preferred_seasons", "travel_season"
+    )
+
+    party_score = 20.0 if party and party in party_values else 0.0
     theme_score = 0.0
     if themes and theme_values:
-        theme_score = 4.0 * len(themes & theme_values) / len(themes)
-    return party_score + pace_score + theme_score
+        theme_score = 15.0 * len(themes & theme_values) / len(themes)
+
+    style_season_ratios: list[float] = []
+    if pace:
+        style_season_ratios.append(1.0 if pace in pace_values else 0.0)
+    if seasons:
+        style_season_ratios.append(
+            len(seasons & season_values) / len(seasons) if season_values else 0.0
+        )
+    style_season_score = (
+        5.0 * sum(style_season_ratios) / len(style_season_ratios)
+        if style_season_ratios
+        else 0.0
+    )
+    total = party_score + theme_score + style_season_score
+    return total, {
+        "companion_score": round(party_score, 2),
+        "theme_score": round(theme_score, 2),
+        "style_and_season_score": round(style_season_score, 2),
+        "matched_party_type": bool(party and party in party_values),
+        "matched_themes": sorted(themes & theme_values),
+        "matched_seasons": sorted(seasons & season_values),
+    }
 
 
-def _nearby_fit(
+def _regional_proximity_fit(
     itinerary_by_id: dict[int, Any],
     package_items: tuple[PackageItem, ...],
-    matched_ids: set[int],
 ) -> tuple[float, dict[str, Any]]:
-    unmatched = [
+    itinerary_locations = [
         stop
-        for content_id, stop in itinerary_by_id.items()
-        if content_id not in matched_ids
-        and stop.longitude is not None
-        and stop.latitude is not None
+        for stop in itinerary_by_id.values()
+        if stop.longitude is not None and stop.latitude is not None
     ]
     package_locations = [
         item
         for item in package_items
         if item.longitude is not None and item.latitude is not None
     ]
-    if not unmatched or not package_locations:
-        return 0.0, {"nearby_within_10km_count": 0}
+    if not itinerary_locations or not package_locations:
+        return 0.0, {"regional_within_10km_count": 0}
 
     distances = [
         min(
@@ -152,13 +186,14 @@ def _nearby_fit(
             )
             for item in package_locations
         )
-        for stop in unmatched
+        for stop in itinerary_locations
     ]
     nearby_count = sum(distance <= 10.0 for distance in distances)
-    score = 5.0 * nearby_count / len(unmatched)
+    # 4 of the 10 region/route points measure geographic proximity.
+    score = 4.0 * nearby_count / len(itinerary_locations)
     return score, {
-        "nearby_within_10km_count": nearby_count,
-        "unmatched_with_coordinates_count": len(unmatched),
+        "regional_within_10km_count": nearby_count,
+        "itinerary_places_with_coordinates_count": len(itinerary_locations),
         "average_nearest_distance_km": round(sum(distances) / len(distances), 2),
     }
 

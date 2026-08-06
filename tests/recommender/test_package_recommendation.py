@@ -50,7 +50,16 @@ def package(package_id: str, place_ids: list[int], *, profile: dict | None = Non
         estimated_price=100_000,
         match_profile=profile or {},
         items=tuple(
-            PackageItem(1, index, "tourism", content_id, f"관광지 {content_id}", 60)
+            PackageItem(
+                1,
+                index,
+                "tourism",
+                content_id,
+                f"관광지 {content_id}",
+                60,
+                126.5,
+                33.4,
+            )
             for index, content_id in enumerate(place_ids, start=1)
         ),
     )
@@ -161,6 +170,65 @@ class PackageRecommendationTests(unittest.TestCase):
         )
         result = PackageRecommendationService(repository).recommend(current_payload())
         self.assertEqual("solo-nature", result["recommendations"][0]["package_id"])
+
+    def test_requested_score_weights_are_exposed(self):
+        candidate = package(
+            "perfect",
+            [101, 102, 103],
+            profile={
+                "party_types": ["solo"],
+                "themes": ["nature"],
+                "paces": ["balanced"],
+            },
+        )
+        result = PackageRecommendationService(FakeRepository([candidate])).recommend(
+            current_payload()
+        )
+        recommendation = result["recommendations"][0]
+
+        self.assertEqual(50.0, recommendation["score"]["tourism_match"])
+        self.assertEqual(40.0, recommendation["score"]["user_conditions"])
+        self.assertEqual(10.0, recommendation["score"]["region_and_route"])
+        self.assertEqual(100.0, recommendation["score"]["total"])
+        self.assertEqual(
+            {
+                "tourism_match": 50,
+                "user_conditions": {
+                    "total": 40,
+                    "companion": 20,
+                    "theme": 15,
+                    "travel_style_and_season": 5,
+                },
+                "region_and_route": 10,
+            },
+            result["meta"]["score_weights"],
+        )
+
+    def test_user_conditions_can_outweigh_a_weak_place_overlap(self):
+        repository = FakeRepository(
+            [
+                package("one-match-generic", [101, 201, 202]),
+                package(
+                    "condition-match",
+                    [301, 302, 303],
+                    profile={
+                        "party_types": ["solo"],
+                        "themes": ["nature"],
+                        "paces": ["balanced"],
+                    },
+                ),
+            ]
+        )
+
+        result = PackageRecommendationService(repository).recommend(current_payload())
+
+        self.assertEqual(
+            "condition-match", result["recommendations"][0]["package_id"]
+        )
+        evidence = result["recommendations"][0]["evidence"]
+        self.assertEqual(20.0, evidence["companion_score"])
+        self.assertEqual(15.0, evidence["theme_score"])
+        self.assertEqual(5.0, evidence["style_and_season_score"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,7 +36,7 @@ class PackageRecommendationService:
                 "meta": {
                     "duration_days": itinerary.duration_days,
                     "candidate_count": 0,
-                    "ranking_strategy": "exact_content_id_first",
+                    "ranking_strategy": "weighted_total_score",
                 },
             }
 
@@ -59,12 +59,16 @@ class PackageRecommendationService:
                 ),
                 "candidate_count": len(scored),
                 "shortlist_count": len(shortlist),
-                "ranking_strategy": "exact_content_id_first_then_route_profile_nearby",
+                "ranking_strategy": "weighted_total_then_overlap_tiebreaker",
                 "score_weights": {
-                    "exact_overlap": 70,
-                    "same_day_and_order": 15,
-                    "user_profile": 10,
-                    "nearby_places": 5,
+                    "tourism_match": 50,
+                    "user_conditions": {
+                        "total": 40,
+                        "companion": 20,
+                        "theme": 15,
+                        "travel_style_and_season": 5,
+                    },
+                    "region_and_route": 10,
                 },
             },
         }
@@ -109,6 +113,11 @@ def _serialize_recommendation(
         "matched_content_ids": list(candidate.matched_content_ids),
         "unmatched_content_ids": list(candidate.unmatched_content_ids),
         "score": {
+            "tourism_match": candidate.score.exact_overlap,
+            "user_conditions": candidate.score.profile_fit,
+            "region_and_route": round(
+                candidate.score.route_fit + candidate.score.nearby_fit, 2
+            ),
             "exact_overlap": candidate.score.exact_overlap,
             "route_fit": candidate.score.route_fit,
             "profile_fit": candidate.score.profile_fit,
