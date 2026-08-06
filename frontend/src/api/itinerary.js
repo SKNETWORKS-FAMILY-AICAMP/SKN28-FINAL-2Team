@@ -16,10 +16,6 @@ const mapItinerary = (data) => ({
   styleCode: data.style,
   styleDisplay: data.style_display,
 
-  budgetPerPerson: data.budget_per_person,
-  totalCost: data.total_cost,
-  costBreakdown: data.cost_breakdown,
-
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
     date: day.date,
@@ -38,7 +34,6 @@ export const getItineraries = async () => {
     endDate: item.end_date,
     durationLabel: item.duration_label,
     companionCount: item.companion_count,
-    totalCost: item.total_cost,
     status: item.status,
     statusDisplay: item.status_display,
   }));
@@ -52,6 +47,7 @@ export const getItinerary = async (id) => {
 };
 
 // 일정 생성
+
 export const createItinerary = async (payload) => {
   const { data } = await api.post("/travel/itineraries/", payload);
   return mapItinerary(data);

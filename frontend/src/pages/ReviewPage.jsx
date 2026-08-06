@@ -34,8 +34,6 @@ export default function ReviewPage() {
           data = await getItinerary(id);
         }
 
-        console.log('review itinerary data =', data);
-
         setItinerary(data);
       } catch (e) {
         console.error(e);

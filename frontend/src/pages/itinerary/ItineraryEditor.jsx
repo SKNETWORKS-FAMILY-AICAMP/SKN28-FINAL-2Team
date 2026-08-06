@@ -55,7 +55,6 @@ export default function ItineraryEditor({
         title: item.title,
         description: item.description ?? "",
         thumbnail: item.thumbnail ?? "",
-        cost: item.cost ?? 0,
         spot: item.spot ?? null,
         restaurant: item.restaurant ?? null,
         accommodation: item.accommodation ?? null,
@@ -118,18 +117,6 @@ export default function ItineraryEditor({
       alert("일정 재생성 실패");
     } finally {
       setIsRegenerating(false);
-    }
-  };
-
-  const handleRevise = async (message) => {
-    try {
-      const data = await revise(itinerary.id, message);
-
-      setItinerary(data);
-      setDays(data.days);
-    } catch (err) {
-      console.error(err);
-      alert("일정 수정 실패");
     }
   };
 

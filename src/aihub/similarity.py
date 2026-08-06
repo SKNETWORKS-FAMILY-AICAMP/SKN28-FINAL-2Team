@@ -118,7 +118,6 @@ class TravelCondition:
     accommodation_address: str | None = None
     must_visit_places: tuple[str, ...] = ()
     excluded_places: tuple[str, ...] = ()
-    budget_per_person: int | None = None
     mobility_constraints: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -128,8 +127,6 @@ class TravelCondition:
             raise ValueError("at least one preferred_visit_type is required")
         if self.companion_count is not None and self.companion_count < 0:
             raise ValueError("companion_count must be zero or greater")
-        if self.budget_per_person is not None and self.budget_per_person < 0:
-            raise ValueError("budget_per_person must be zero or greater")
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> TravelCondition:
@@ -153,7 +150,6 @@ class TravelCondition:
                 ),
                 must_visit_places=_string_tuple(value.get("must_visit_places")),
                 excluded_places=_string_tuple(value.get("excluded_places")),
-                budget_per_person=_optional_int(value.get("budget_per_person")),
                 mobility_constraints=_string_tuple(
                     value.get("mobility_constraints")
                 ),
@@ -162,7 +158,7 @@ class TravelCondition:
             raise ValueError(f"missing required travel condition: {exc.args[0]}") from exc
         except (TypeError, ValueError) as exc:
             if isinstance(exc, ValueError) and str(exc).startswith(
-                ("duration_days", "at least", "companion_count", "budget_per_person")
+                ("duration_days", "at least", "companion_count")
             ):
                 raise
             raise ValueError(f"invalid travel condition: {exc}") from exc
@@ -184,7 +180,6 @@ class TravelCondition:
             "accommodation_address": self.accommodation_address,
             "must_visit_places": list(self.must_visit_places),
             "excluded_places": list(self.excluded_places),
-            "budget_per_person": self.budget_per_person,
             "mobility_constraints": list(self.mobility_constraints),
         }
 

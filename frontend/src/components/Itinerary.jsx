@@ -59,7 +59,7 @@ export default function Itinerary() {
               <p>
                 부모님과 함께
                 <br />
-                2박 3일 · 2명 · 1인당 50만원
+                2박 3일 · 2명
               </p>
             </div>
             {DAYS.map((d) => (

@@ -25,8 +25,7 @@ class User(AbstractUser):
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
     provider_id = models.CharField(max_length=100, unique=True)
     preferred_style = models.CharField(max_length=20, choices=STYLE_CHOICES, blank=True)
-    preferred_budget = models.PositiveIntegerField(null=True, blank=True, help_text="1인당 선호 예산(원)")
-
+    
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
