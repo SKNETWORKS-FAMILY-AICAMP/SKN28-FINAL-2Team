@@ -370,4 +370,4 @@ class ReservationCancelAPIView(APIView):
         return Response(
             ReservationSerializer(reservation).data,
             status=status.HTTP_200_OK,
-        )
+            )

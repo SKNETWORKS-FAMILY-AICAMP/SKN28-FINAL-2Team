@@ -6,8 +6,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('travel', '0002_place_touristspot_source_id_alter_itinerary_user' ),
-    ]
+        ('travel', '0002_place_touristspot_source_id_alter_itinerary_user'),
+        ]
 
     operations = [
         migrations.AddField(

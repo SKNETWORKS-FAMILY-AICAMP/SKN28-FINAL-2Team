@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+
 import { useItineraries } from "../../context/ItineraryContext";
 import { getItinerary } from "../../api/itinerary";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
-
 
 const CHIPS = [
   "숙소도 추천해주세요",
@@ -21,30 +21,31 @@ const CHIP_LABELS = [
 export default function ChatPanel({ onRevised }) {
   const { id } = useParams();
   const { revise } = useItineraries();
+
   const storageKey = `itinerary-chat-${id}`;
+
   const [messages, setMessages] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [input, setInput] = useState("");
   const [isRevising, setIsRevising] = useState(false);
-  const bodyRef = useRef(null);
 
-  
+  const bodyRef = useRef(null);
 
   useEffect(() => {
     const initializeMessages = async () => {
       try {
-        const saved = sessionStorage.getItem(storageKey)
+        const saved = sessionStorage.getItem(storageKey);
 
         if (saved) {
-          const parsed = JSON.parse(saved)
+          const parsed = JSON.parse(saved);
 
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setMessages(parsed)
-            return
+            setMessages(parsed);
+            return;
           }
         }
 
-        const itinerary = await getItinerary(id)
+        const itinerary = await getItinerary(id);
 
         setMessages([
           {
@@ -53,28 +54,27 @@ export default function ChatPanel({ onRevised }) {
             text: `짜잔! ${itinerary.durationLabel} 여행 일정을 완성했어요 🎉`,
             mini: "일정 확인하기 →",
           },
-        ])
+        ]);
       } catch (err) {
-        console.error("채팅 초기화 실패:", err)
+        console.error("채팅 초기화 실패:", err);
       } finally {
-        setIsInitialized(true)
+        setIsInitialized(true);
       }
-    }
+    };
 
     if (id) {
-      initializeMessages()
+      initializeMessages();
     }
-  }, [id, storageKey])
-
+  }, [id, storageKey]);
 
   useEffect(() => {
-    if (!isInitialized) return
+    if (!isInitialized) return;
 
     try {
       sessionStorage.setItem(
         storageKey,
         JSON.stringify(messages)
-      )
+      );
     } catch (err) {
       console.error("채팅 기록 저장 실패:", err);
     }
@@ -82,18 +82,19 @@ export default function ChatPanel({ onRevised }) {
 
   useEffect(() => {
     if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+      bodyRef.current.scrollTop =
+        bodyRef.current.scrollHeight;
     }
   }, [messages]);
 
   const sendMsg = async () => {
     const text = input.trim();
+
     if (!text || isRevising) return;
 
     const userMessageId = crypto.randomUUID();
     const loadingMessageId = crypto.randomUUID();
 
-    // 사용자 메시지 추가
     setMessages((prev) => [
       ...prev,
       {
@@ -112,13 +113,11 @@ export default function ChatPanel({ onRevised }) {
     setIsRevising(true);
 
     try {
-      // 백엔드 일정 수정
       await revise(id, text);
 
-      // 가운데 일정 패널(ItineraryEditor)에 변경 사실을 알려 다시 불러오게 함
+      // ItineraryEditor와 MapPanel을 다시 조회하게 한다.
       onRevised?.();
 
-      // AI 응답
       setMessages((prev) =>
         prev.map((message) =>
           message.id === loadingMessageId
@@ -145,39 +144,47 @@ export default function ChatPanel({ onRevised }) {
     } finally {
       setIsRevising(false);
     }
-  }
+  };
 
   return (
     <div className={styles.chatCol}>
       <div className={styles.chatHead}>
         <div className={styles.mark}>🗿</div>
+
         <div>
           <h2>AI 여행 코치</h2>
           <p>대화로 바로 수정해보세요</p>
         </div>
       </div>
 
-      <div className={styles.chatBody} ref={bodyRef}>
-        {messages.map((m) => (
+      <div
+        className={styles.chatBody}
+        ref={bodyRef}
+      >
+        {messages.map((message) => (
           <div
-            key={m.id}
-            className={cx(styles.msg, m.me && styles.me)}
+            key={message.id}
+            className={cx(
+              styles.msg,
+              message.me && styles.me
+            )}
           >
             <div className={styles.who}>
-              {m.me ? "나" : "🌿"}
+              {message.me ? "나" : "🌿"}
             </div>
 
-            <div 
+            <div
               className={styles.bubble}
-              style={{ whiteSpace: "pre-line"}}
+              style={{ whiteSpace: "pre-line" }}
             >
-              {m.text}
+              {message.text}
 
-              {m.mini && (
+              {message.mini && (
                 <>
                   <br />
+
                   <span className={styles.miniBtn}>
-                    {m.mini}
+                    {message.mini}
                   </span>
                 </>
               )}
@@ -188,13 +195,13 @@ export default function ChatPanel({ onRevised }) {
 
       <div className={styles.chatFoot}>
         <div className={styles.chips}>
-          {CHIPS.map((text, i) => (
+          {CHIPS.map((text, index) => (
             <button
               key={text}
               className={styles.chip}
               onClick={() => setInput(text)}
             >
-              {CHIP_LABELS[i]}
+              {CHIP_LABELS[index]}
             </button>
           ))}
         </div>
@@ -204,9 +211,11 @@ export default function ChatPanel({ onRevised }) {
             type="text"
             placeholder="예: 협재해변도 가고 싶어요"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
+            onChange={(event) =>
+              setInput(event.target.value)
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
                 sendMsg();
               }
             }}

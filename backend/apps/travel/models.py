@@ -242,7 +242,7 @@ class ItineraryItem(models.Model):
     item_type = models.CharField(max_length=20, choices=ItemType.choices, default=ItemType.CUSTOM)
     title = models.CharField(max_length=150)
     description = models.TextField(blank=True)
-    thumbnail = models.CharField(max_length=10, blank=True, help_text="이모지 썸네일 (예: 🌋)")
+    thumbnail = models.CharField(max_length=1000, blank=True, help_text="썸네일 이미지 URL")
     cost = models.PositiveIntegerField(default=0)
 
     # 카탈로그 연동 추천 결과에서 가져온 경우 원본 참조

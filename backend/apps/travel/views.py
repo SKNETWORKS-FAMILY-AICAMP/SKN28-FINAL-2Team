@@ -130,6 +130,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses={201: ItinerarySerializer},
     )
     def create(self, request, *args, **kwargs):
+
         serializer = self.get_serializer(data=request.data)
 
         if not serializer.is_valid():
