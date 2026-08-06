@@ -8,7 +8,7 @@ import { useItineraries } from "../context/ItineraryContext.jsx";
 const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
-  const { itineraries, loading, remove  } = useItineraries();
+  const { itineraries, loading, removeItinerary } = useItineraries();
 
   if (loading) {
     return <div>일정을 불러오는 중...</div>;
@@ -21,7 +21,7 @@ export default function MyItinerariesPage() {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      await remove(id);
+      await removeItinerary(id);
       alert("일정이 삭제되었습니다.");
     } catch (err) {
       console.error(err);
