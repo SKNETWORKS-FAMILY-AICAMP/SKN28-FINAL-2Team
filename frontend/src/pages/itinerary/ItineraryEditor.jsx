@@ -137,8 +137,10 @@ export default function ItineraryEditor({
           <h1>{itinerary.title}</h1>
 
           <p>
-            {itinerary.subtitle} · {itinerary.startDate} ~{" "}
-            {itinerary.endDate}
+            {itinerary.subtitle} ·{" "}
+            {itinerary.startDate === itinerary.endDate
+              ? itinerary.startDate
+              : `${itinerary.startDate} ~ ${itinerary.endDate}`}
           </p>
         </div>
 
@@ -304,4 +306,4 @@ export default function ItineraryEditor({
       </div>
     </div>
   );
-  }
+}

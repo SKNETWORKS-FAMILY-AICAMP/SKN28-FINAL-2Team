@@ -84,7 +84,17 @@ export default function SummaryColumn({ answers, ready, itineraryId }) {
         {STEPS.map((s) => {
           const value =
             s.key === 'travelDates'
-              ? answers.travelDates?.duration
+              ? answers.travelDates?.duration === '당일'
+                ? `${answers.travelDates?.startDate.replaceAll('-', '.')} · 당일`
+                : (
+                    <>
+                      <div>
+                        {answers.travelDates?.startDate} ~{' '}
+                        {answers.travelDates?.endDate}
+                      </div>
+                      <div>{answers.travelDates?.duration}</div>
+                    </>
+                  )
               : answers[s.key]
 
           return (
@@ -97,6 +107,7 @@ export default function SummaryColumn({ answers, ready, itineraryId }) {
                 <div
                   className={cx(
                     styles.val,
+                    s.key === 'travelDates' && styles.dateValue,
                     !value && styles.valEmpty,
                   )}
                 >
