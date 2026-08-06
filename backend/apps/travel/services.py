@@ -6,7 +6,6 @@ from django.db import transaction
 
 from src.api import itinerary_engine
 from src.models.itinerary import ItineraryState
-
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
 
@@ -52,12 +51,20 @@ def _save_itinerary_result(
             latitude = place.latitude if place else None
             longitude = place.longitude if place else None
 
+            thumbnail = (
+                stop.get("image_url")
+                or stop.get("thumbnail_url")
+                or stop.get("thumbnail")
+                or ""
+            )
+
             print(
                 "장소 조회:",
                 content_id,
                 place.title if place else "없음",
                 latitude,
                 longitude,
+                thumbnail,
             )
 
             ItineraryItem.objects.create(
@@ -67,10 +74,9 @@ def _save_itinerary_result(
                 item_type=ItineraryItem.ItemType.SPOT,
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
-                thumbnail="",
+                thumbnail=thumbnail,
                 latitude=latitude,
                 longitude=longitude,
-                cost=0,
                 spot=None,
                 restaurant=None,
                 accommodation=None,
@@ -90,6 +96,13 @@ def generate_itinerary(itinerary: Itinerary):
     5. LLM 일정 생성
     6. Django DB 저장
     """
+
+    itinerary.title = (
+        f"{itinerary.duration_label} "
+        f"{itinerary.get_style_display()} "
+        f"{itinerary.get_companion_type_display()} 여행"
+    )
+    itinerary.save(update_fields=["title"])
 
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")

@@ -38,7 +38,6 @@ class UserMeSerializer(serializers.ModelSerializer):
             "profile_image",
             "provider",
             "preferred_style",
-            "preferred_budget",
             "date_joined",
         )
         read_only_fields = ("id", "email", "provider", "date_joined")

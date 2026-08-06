@@ -207,11 +207,6 @@ h2.section-title{ font-family: var(--display); font-weight:700; font-size: clamp
 .price{ font-size:18px; font-weight:900; color:var(--green-deep); }
 .pkg-more{ font-size:14px; font-weight:700; color:var(--green-deep); transition:transform .2s ease; }
 .pkg:hover .pkg-more{ transform:translateX(4px); }
-/* ---------- stats ---------- */
-.stats{ background: var(--ink); color:#fff; padding:52px 0; }
-.stats .wrap{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:24px; }
-.stat .n{ font-family: var(--mono); font-size: clamp(24px,3vw,32px); color: #7FE0AC; font-weight:500; }
-.stat .l{ font-size:12.5px; margin-top:6px; opacity:.65; }
 
 /* ---------- final ---------- */
 .final-cta{ padding: 110px 0; text-align:center; background: linear-gradient(180deg, #fff 0%, var(--green-soft) 100%); }

@@ -22,7 +22,6 @@ export default function MyPage() {
   const [form, setForm] = useState({
     nickname: user.nickname,
     preferredStyle: user.preferredStyle || '',
-    preferredBudget: user.preferredBudget || '',
   })
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -55,9 +54,6 @@ export default function MyPage() {
           body: JSON.stringify({
             nickname: form.nickname,
             preferred_style: form.preferredStyle,
-            preferred_budget: form.preferredBudget
-              ? Number(form.preferredBudget)
-              : null,
           }),
         },
       )
@@ -76,7 +72,6 @@ export default function MyPage() {
       updateProfile({
         nickname: data.nickname,
         preferredStyle: data.preferred_style,
-        preferredBudget: data.preferred_budget,
         profileImage: data.profile_image,
       })
 
@@ -146,15 +141,6 @@ export default function MyPage() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className={styles.field}>
-              <label>선호 예산 (1인당)</label>
-              <input
-                type="number"
-                placeholder="500000"
-                value={form.preferredBudget}
-                onChange={handleChange('preferredBudget')}
-              />
             </div>
           </div>
 

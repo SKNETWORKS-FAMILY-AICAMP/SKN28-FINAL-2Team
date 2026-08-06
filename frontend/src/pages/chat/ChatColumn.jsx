@@ -265,34 +265,21 @@ export default function ChatColumn({
       } = finalAnswers.travelDates
 
       const itinerary = await createItinerary({
-        title: '제주 맞춤 여행',
         subtitle: `${finalAnswers.companion} 여행`,
-
         start_date: startDate,
         end_date: endDate,
-
         companion_type:
           COMPANION_TYPE_MAP[
             finalAnswers.companion
           ] ?? 'solo',
-
         companion_count: getCompanionCount(
           finalAnswers.companion
         ),
-
         style:
           STYLE_MAP[finalAnswers.style] ??
           'healing',
-
-        budget_per_person: 500000,
-
-        accommodation_cost: 150000,
-        activity_cost: 50000,
-        food_cost: 100000,
-        etc_cost: 50000,
-
-        status: 'draft',
-        is_public: false,
+          status: 'draft',
+          is_public: false,
       })
 
       console.log('생성된 일정:', itinerary)

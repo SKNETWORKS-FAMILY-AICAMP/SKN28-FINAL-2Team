@@ -92,20 +92,10 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     @extend_schema(
         tags=["Itinerary"],
         summary="채팅으로 일정 수정",
-        request={
-            "application/json": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "example": "협재해변도 가고 싶어",
-                    }
-                },
-                "required": ["message"],
-            }
-        },
+        request=ItineraryRevisionSerializer,
         responses={200: ItinerarySerializer},
     )
+    
     @action(detail=True, methods=["post"])
     def revise(self, request, pk=None):
         itinerary = self.get_object()
