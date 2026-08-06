@@ -8,11 +8,33 @@ from src.api import itinerary_engine
 from src.models.itinerary import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
+def _build_place_info_map(
+    state: ItineraryState,
+) -> dict[int, dict]:
+    place_info_map = {}
+
+    for slot in state.slots:
+        for candidate in slot.candidates:
+            place = candidate.place or {}
+
+            place_info_map[candidate.content_id] = {
+                "latitude": place.get("latitude"),
+                "longitude": place.get("longitude"),
+                "thumbnail": (
+                    place.get("image_url")
+                    or place.get("thumbnail_url")
+                    or ""
+                ),
+            }
+
+    return place_info_map
 
 def _save_itinerary_result(
     itinerary: Itinerary,
-    result: dict,
+    state: ItineraryState,
 ):
+    result = state.itinerary
+    place_info_map = _build_place_info_map(state)
     """
     엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
 
@@ -48,16 +70,34 @@ def _save_itinerary_result(
                     .first()
                 )
 
-            latitude = place.latitude if place else None
-            longitude = place.longitude if place else None
+            place_info = place_info_map.get(
+                content_id,
+                {
+                    "latitude": None,
+                    "longitude": None,
+                    "thumbnail": "",
+                },
+            )
+
+            latitude = (
+                place.latitude
+                if place
+                else place_info["latitude"]
+            )
+
+            longitude = (
+                place.longitude
+                if place
+                else place_info["longitude"]
+            )
 
             thumbnail = (
                 stop.get("image_url")
                 or stop.get("thumbnail_url")
                 or stop.get("thumbnail")
+                or place_info["thumbnail"]
                 or ""
             )
-
             print(
                 "장소 조회:",
                 content_id,
@@ -168,7 +208,7 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         _save_itinerary_result(
             itinerary,
-            result,
+            state,
         )
 
         print("=" * 80)
@@ -225,7 +265,7 @@ def revise_itinerary(
         # 수정된 일정 DB 저장
         _save_itinerary_result(
             itinerary,
-            new_state.itinerary,
+            new_state,
         )
 
         print("=" * 80)

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.bookmark",
     "apps.history",
     "apps.reservation",
+    "apps.package_recommendation",
 
 
 ]
