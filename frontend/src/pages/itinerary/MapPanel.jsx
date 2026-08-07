@@ -299,10 +299,12 @@ export default function MapPanel({ itineraryId, activeDay }) {
   const activeRoute = routes.find(
     (route) => Number(route.day_number) === Number(activeDay)
   )
-  const topRecommendation = recommendedPackages[0]
-  const matchedPackage = packageCatalog.find(
-    (pkg) => pkg.packageId === topRecommendation?.package_id
-  )
+  const matchedRecommendations = recommendedPackages.map((recommendation) => ({
+    recommendation,
+    package: packageCatalog.find(
+      (pkg) => pkg.packageId === recommendation.package_id
+    ),
+  }))
   const formatPrice = (price) => {
     const numericPrice = Number(price)
 
@@ -313,7 +315,7 @@ export default function MapPanel({ itineraryId, activeDay }) {
     return `${numericPrice.toLocaleString('ko-KR')}원`
   }
 
-  const handleOpenRecommendedPackage = async () => {
+  const handleOpenRecommendedPackage = async (matchedPackage) => {
     if (!matchedPackage?.id) return
 
     try {
@@ -361,42 +363,48 @@ export default function MapPanel({ itineraryId, activeDay }) {
 
       {!recommendationLoading &&
         !recommendationError &&
-        topRecommendation && (
-          <button
-            type="button"
-            className={styles.pkgRecommendCard}
-            onClick={handleOpenRecommendedPackage}
-            disabled={!matchedPackage}
-          >
-            {matchedPackage?.thumbnailUrl && (
-              <img
-                src={matchedPackage.thumbnailUrl}
-                alt={topRecommendation.title}
-                className={styles.pkgRecommendImage}
-              />
-            )}
+        matchedRecommendations.length > 0 && (
+          <div className={styles.pkgRecommendList}>
+            {matchedRecommendations.map(({ recommendation, package: matchedPackage }) => (
+              <button
+                key={recommendation.package_id}
+                type="button"
+                className={styles.pkgRecommendCard}
+                onClick={() => handleOpenRecommendedPackage(matchedPackage)}
+                disabled={!matchedPackage}
+              >
+                {matchedPackage?.thumbnailUrl && (
+                  <img
+                    src={matchedPackage.thumbnailUrl}
+                    alt={recommendation.title}
+                    className={styles.pkgRecommendImage}
+                  />
+                )}
 
-            <div className={styles.pkgRecommendBody}>
-              <strong>{topRecommendation.title}</strong>
+                <div className={styles.pkgRecommendBody}>
+                  <strong>{recommendation.title}</strong>
 
-              <p>
-                {topRecommendation.region}
-                {' · '}
-                {topRecommendation.duration_days}일
-                {' · '}
-                {formatPrice(topRecommendation.estimated_price)}
-              </p>
+                  <p>
+                    {recommendation.region}
+                    {' · '}
+                    {recommendation.duration_days}일
+                    {' · '}
+                    {formatPrice(recommendation.estimated_price)}
+                  </p>
 
-              <p>
-                현재 여행 일정과 잘 어울리는 추천 패키지예요.
-              </p>
-            </div>
-          </button>
+                  <p>현재 여행 일정과 어울리는 추천 패키지예요.</p>
+                  <span className={styles.pkgDetailLink}>
+                    자세히 보기 →
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
 
       {!recommendationLoading &&
         !recommendationError &&
-        !topRecommendation && (
+        matchedRecommendations.length === 0 && (
           <div className={styles.pkgRecommendEmpty}>
             <strong>추천할 패키지가 아직 없어요.</strong>
             <p>
@@ -404,7 +412,6 @@ export default function MapPanel({ itineraryId, activeDay }) {
             </p>
           </div>
         )}
-
       <Link to="/packages" className={styles.pkgSeeAll}>
         전체 패키지 보러가기 →
       </Link>

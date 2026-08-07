@@ -34,7 +34,7 @@
 .avatar{ width:34px; height:34px; border-radius:50%; background: var(--green-soft); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-size:15px; }
 
 /* ---------- layout ---------- */
-.stage{ height: calc(100vh - 64px); display:grid; grid-template-columns: 400px 1fr 300px; overflow:hidden; }
+.stage{ height: calc(100vh - 64px); display:grid; grid-template-columns: 400px minmax(0, 1fr) 440px; overflow:hidden; }
 
 /* ================= LEFT: chat ================= */
 .chatCol{ display:flex; flex-direction:column; border-right: 2px solid var(--line); background:#fff; min-width:0; height:100%; overflow:hidden; }
@@ -147,13 +147,13 @@
 .mapCol{ height:100%; overflow:hidden; border-left: 2px solid var(--line); background:#fff; padding: 20px 18px 40px; }
 .mapHead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .mapHead h4{ font-family: var(--display); font-weight:700; font-size:14.5px; }
-.mapPanel{ width:100%; height:320px; border:2.5px solid var(--ink); border-radius:18px; overflow:hidden; box-shadow:4px 4px 0 var(--green-soft-2); background:var(--sea); }
+.mapPanel{ width:100%; height:300px; border:2.5px solid var(--ink); border-radius:18px; overflow:hidden; box-shadow:4px 4px 0 var(--green-soft-2); background:var(--sea); }
 
 .pkgTitle{
   display:flex; align-items:center; gap:7px; margin: 24px 0 12px; width:100%;
   background:transparent; border:none; padding:0; cursor:pointer; text-align:left;
 }
-.pkgTitle h4{ font-family: var(--display); font-weight:700; font-size:14.5px; }
+.pkgTitle h4{ font-family: var(--display); font-weight:700; font-size:16px; }
 .pkgTitle .badge{ font-size:10px; font-weight:700; color: var(--green-deep); background: var(--green-soft); padding:2px 8px; border-radius:100px; }
 .pkgTitleChevron{ margin-left:auto; color: var(--muted); font-size:12px; transition: transform .2s ease; }
 .pkgTitleChevronOpen{ transform: rotate(180deg); color: var(--ink); }
@@ -200,13 +200,15 @@
 .pkgRecommendEmpty { padding: 20px 14px; border: 1.5px dashed var(--line); border-radius: 16px; background: var(--bg-soft); text-align: center; }
 .pkgRecommendEmpty strong { display: block; font-size: 13px; color: var(--ink); }
 .pkgRecommendEmpty p { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--muted); }
-.pkgRecommendCard{width:100%;padding:0;overflow:hidden;border:1.5px dashed var(--line);border-radius:16px;background:var(--bg-soft);color:inherit;text-align:left;cursor:pointer;}
-.pkgRecommendCard:hover{border-color:var(--green);}
+.pkgRecommendList{display:flex;flex-direction:column;gap:10px;}
+.pkgRecommendCard{width:100%;height:126px;padding:0;display:grid;grid-template-columns:46% 54%;overflow:hidden;border:1.5px solid var(--line);border-radius:16px;background:var(--bg-soft);color:inherit;text-align:left;cursor:pointer;}
+.pkgRecommendCard:hover{border-color:var(--green);box-shadow:2px 2px 0 var(--green-soft-2);}
 .pkgRecommendCard:disabled{cursor:default;}
-.pkgRecommendImage{display:block;width:100%;height:120px;object-fit:cover;}
-.pkgRecommendBody{padding:14px;text-align:center;}
-.pkgRecommendBody strong{display:block;font-size:13px;color:var(--ink);}
-.pkgRecommendBody p{margin-top:7px;font-size:11px;line-height:1.6;color:var(--muted);}
+.pkgRecommendImage{display:block;width:100%;height:100%;object-fit:cover;}
+.pkgRecommendBody{min-width:0;padding:10px 12px;display:flex;flex-direction:column;text-align:left;}
+.pkgRecommendBody strong{display:block;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pkgRecommendBody p{margin-top:5px;font-size:10.5px;line-height:1.45;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.pkgDetailLink{ display:block; width:100%; margin-top:auto; padding:7px 10px; border:1px solid var(--line); border-radius:100px; background:#fff; font-family:var(--display); font-size:14px; font-weight:700; color:var(--ink); text-align:center; }
 @media (max-width: 1150px){
   .stage{ grid-template-columns: 300px 1fr; }
   .mapCol{ display:none; }

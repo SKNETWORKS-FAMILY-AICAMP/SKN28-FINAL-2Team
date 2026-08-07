@@ -84,17 +84,18 @@ export default function SummaryColumn({ answers, ready, itineraryId }) {
         {STEPS.map((s) => {
           const value =
             s.key === 'travelDates'
-              ? answers.travelDates?.duration === '당일'
-                ? `${answers.travelDates?.startDate.replaceAll('-', '.')} · 당일`
-                : (
-                    <>
-                      <div>
-                        {answers.travelDates?.startDate} ~{' '}
-                        {answers.travelDates?.endDate}
-                      </div>
-                      <div>{answers.travelDates?.duration}</div>
-                    </>
-                  )
+              ? answers.travelDates?.startDate
+                ? answers.travelDates?.duration === '당일'
+                  ? `${answers.travelDates.startDate.replaceAll('-', '.')} · 당일`
+                  : (
+                      <>
+                        <div>
+                          {answers.travelDates.startDate} ~ {answers.travelDates.endDate}
+                        </div>
+                        <div>{answers.travelDates.duration}</div>
+                      </>
+                    )
+                : null
               : answers[s.key]
 
           return (
