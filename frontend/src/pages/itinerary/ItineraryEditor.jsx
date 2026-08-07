@@ -132,10 +132,12 @@ export default function ItineraryEditor({
             ✓ 일정 확인 및 수정
           </div>
 
-          <h1>{itinerary.title}</h1>
+          <h1>
+            {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
+          </h1>
 
           <p>
-            {itinerary.subtitle} ·{" "}
+            {itinerary.styleDisplay?.replace('여행', '')} ·{' '}
             {itinerary.startDate === itinerary.endDate
               ? itinerary.startDate
               : `${itinerary.startDate} ~ ${itinerary.endDate}`}

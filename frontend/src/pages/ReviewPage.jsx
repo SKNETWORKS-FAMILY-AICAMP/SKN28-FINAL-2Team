@@ -171,11 +171,9 @@ export default function ReviewPage() {
           >
             <div className={styles.topRow}>
               <div>
-                <h2>{itinerary.title}</h2>
-
-                <div className={styles.sub}>
-                  {itinerary.subtitle}
-                </div>
+                <h2>
+                  {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
+                </h2>
               </div>
                {!token && (
                 <div

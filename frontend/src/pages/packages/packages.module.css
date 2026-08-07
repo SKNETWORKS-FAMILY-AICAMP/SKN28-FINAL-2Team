@@ -32,7 +32,7 @@
 .card:hover{ transform: translateY(-4px); box-shadow: 7px 7px 0 var(--green-soft-2); }
 
 .cardImg{
-  height:120px; background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2));
+  height:185px; background: linear-gradient(135deg, var(--green-soft), var(--green-soft-2));
   display:flex; align-items:center; justify-content:center; font-size:36px; position:relative; overflow:hidden;
 }
 .cardImage{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -45,7 +45,7 @@
 .bookmarkBtn:hover{ transform: scale(1.08); }
 .bookmarkBtnActive{ background: var(--green-soft); }
 
-.cardBody{ padding:16px 18px 18px; display:flex; flex-direction:column; flex:1; }
+.cardBody{ padding:12px 18px 18px; display:flex; flex-direction:column; flex:1; }
 .rating{ font-size:12px; color: var(--muted); font-weight:600; }
 .cardBody h4{ font-size:16px; font-weight:800; margin-top:6px; }
 .desc{ font-size:12.5px; color: var(--muted); margin-top:6px; line-height:1.6; flex:1; }

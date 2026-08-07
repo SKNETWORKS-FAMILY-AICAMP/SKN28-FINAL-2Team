@@ -78,23 +78,14 @@ export default function MyItinerariesPage() {
                   <div className={styles.listThumb}>🌴</div>
 
                   <div className={styles.listInfo}>
-                    <h5>{it.title}</h5>
+                    <h5>
+                      {it.durationLabel} {it.companionTypeDisplay} 여행
+                    </h5>
 
                     <p>
-                      {it.subtitle} · {it.startDate} ~ {it.endDate} ·{" "}
+                      {it.styleDisplay?.replace("여행", "")} · {it.startDate} ~ {it.endDate} ·{" "}
                       {it.durationLabel} · {it.companionCount}명
                     </p>
-
-                    <span
-                      className={cx(
-                        styles.badge,
-                        it.status === "confirmed"
-                          ? styles.badgeConfirmed
-                          : styles.badgeDraft
-                      )}
-                    >
-                      {it.statusDisplay}
-                    </span>
                   </div>
                 </Link>
 
