@@ -109,6 +109,10 @@ DATABASES = {
     },
 }
 
+DATABASE_ROUTERS = [
+    "config.db_router.DatabaseRouter",
+]
+
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 
