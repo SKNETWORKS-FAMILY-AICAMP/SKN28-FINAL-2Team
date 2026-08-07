@@ -8,6 +8,7 @@ from src.api import itinerary_engine
 from src.models.itinerary import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
+
 def _build_place_info_map(
     state: ItineraryState,
 ) -> dict[int, dict]:
@@ -29,18 +30,20 @@ def _build_place_info_map(
 
     return place_info_map
 
+
 def _save_itinerary_result(
     itinerary: Itinerary,
     state: ItineraryState,
 ):
-    result = state.itinerary
-    place_info_map = _build_place_info_map(state)
     """
     엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
 
     기존 일정을 삭제한 뒤 새 일정으로 교체하며,
     content_id를 이용해 Place 테이블에서 위도와 경도를 조회한다.
     """
+
+    result = state.itinerary
+    place_info_map = _build_place_info_map(state)
 
     # 기존 일정 삭제
     itinerary.days.all().delete()
@@ -98,6 +101,7 @@ def _save_itinerary_result(
                 or place_info["thumbnail"]
                 or ""
             )
+
             print(
                 "장소 조회:",
                 content_id,

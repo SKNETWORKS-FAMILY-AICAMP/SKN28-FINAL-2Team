@@ -4,6 +4,7 @@ from .itinerary import ItinerarySlot, ItineraryState, SlotCandidate
 from .travel_condition import (
     ConditionDelta,
     LocalTransport,
+    SlotAddRequest,
     Pace,
     PartyType,
     TravelCondition,
@@ -17,6 +18,7 @@ __all__ = [
     "ItinerarySlot",
     "ItineraryState",
     "LocalTransport",
+    "SlotAddRequest",
     "Pace",
     "PartyType",
     "SlotCandidate",

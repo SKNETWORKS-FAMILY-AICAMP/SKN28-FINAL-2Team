@@ -4,12 +4,18 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
 from apps.package_recommendation.services import recommend_packages
 
 from .models import Itinerary, Package
-from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
+from .serializers import (
+    ItineraryRouteSerializer,
+    ItinerarySerializer,
+    ItineraryShareSerializer,
+    ItineraryRevisionSerializer,
+    PackageSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
 
@@ -55,7 +61,7 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 class ItineraryViewSet(viewsets.ModelViewSet):
     queryset = Itinerary.objects.none()  
     serializer_class = ItinerarySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
 
 
     @extend_schema(
