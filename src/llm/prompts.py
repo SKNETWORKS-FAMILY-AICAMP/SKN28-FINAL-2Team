@@ -157,7 +157,6 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   "party_type": {PARTY_TYPE_VALUES} 중 하나 또는 null,
   "local_transport": {LOCAL_TRANSPORT_VALUES} 중 하나 또는 null,
   "pace": {PACE_VALUES} 중 하나 또는 null,
-  "budget_per_person": 정수 또는 null,
   "affected_slots": ["visit","activity","food","shopping"] 중 다시 검색해야 하는 슬롯,
   "add_slots": [{{"day": 정수 또는 null, "role": "visit"|"activity"|"food"|"shopping", "count": 정수}}] 배열,
   "notes": "짧은 설명 (예: 카페 하나 추가 요청)"

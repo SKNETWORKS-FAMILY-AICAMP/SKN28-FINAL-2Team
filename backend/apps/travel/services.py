@@ -6,7 +6,7 @@ from django.db import transaction
 
 from src.api import itinerary_engine
 from src.models import ItineraryState
-from .models import Itinerary, ItineraryDay, ItineraryItem, Place
+from .models import Itinerary, ItineraryDay, ItineraryItem
 
 
 def _build_place_coordinate_map(
@@ -80,7 +80,6 @@ def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
                 thumbnail=thumbnail,
                 latitude=latitude,
                 longitude=longitude,
-                cost=0,
                 spot=None,
                 restaurant=None,
                 accommodation=None,
@@ -89,6 +88,14 @@ def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
 
 @transaction.atomic
 def generate_itinerary(itinerary: Itinerary):
+
+    itinerary.title = (
+        f"{itinerary.duration_label} "
+        f"{itinerary.get_style_display()} "
+        f"{itinerary.get_companion_type_display()} 여행"
+    )
+    itinerary.save(update_fields=["title"])
+
 
     """
     사용자 입력을 이용하여

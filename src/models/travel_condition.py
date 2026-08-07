@@ -46,7 +46,6 @@ class ConditionDelta:
     party_type: PartyType | None = None
     local_transport: LocalTransport | None = None
     pace: Pace | None = None
-    budget_per_person: int | None = None
     affected_slots: tuple[SlotRole, ...] = ()
     add_slots: tuple[SlotAddRequest, ...] = ()
     notes: str = ""
@@ -72,7 +71,6 @@ class ConditionDelta:
                 else None
             ),
             pace=Pace(value["pace"]) if value.get("pace") else None,
-            budget_per_person=_optional_int(value.get("budget_per_person")),
             affected_slots=_string_tuple(value.get("affected_slots")),
             add_slots=_slot_add_request_tuple(value.get("add_slots")),
             notes=str(value.get("notes") or "").strip(),
@@ -115,8 +113,6 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
         updates["local_transport"] = delta.local_transport
     if delta.pace is not None:
         updates["pace"] = delta.pace
-    if delta.budget_per_person is not None:
-        updates["budget_per_person"] = delta.budget_per_person
 
     return replace(condition, **updates)
 

@@ -1,9 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 
 const AuthContext = createContext(null)
 
@@ -16,7 +11,6 @@ const normalizeUser = (user) => ({
   profileImage: user.profile_image,
   provider: user.provider,
   preferredStyle: user.preferred_style,
-  preferredBudget: user.preferred_budget,
   dateJoined: user.date_joined,
 })
 

@@ -156,7 +156,7 @@ class Itinerary(models.Model):
 
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
 
-    title = models.CharField(max_length=150, default="제주 여행")
+    title = models.CharField(max_length=150, blank=True, default="제주 여행")
     subtitle = models.CharField(max_length=150, blank=True, help_text='예: "부모님과 함께"')
 
     start_date = models.DateField()
@@ -164,13 +164,6 @@ class Itinerary(models.Model):
     companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
     companion_count = models.PositiveSmallIntegerField(default=1)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
-    budget_per_person = models.PositiveIntegerField(null=True, blank=True)
-
-    accommodation_cost = models.PositiveIntegerField(default=0, help_text="숙소")
-    activity_cost = models.PositiveIntegerField(default=0, help_text="액티비티")
-    food_cost = models.PositiveIntegerField(default=0, help_text="식비")
-    etc_cost = models.PositiveIntegerField(default=0, help_text="기타")
-
     selected_package = models.ForeignKey(
         Package, on_delete=models.SET_NULL, null=True, blank=True, related_name="itineraries"
     )
@@ -187,16 +180,6 @@ class Itinerary(models.Model):
 
     def __str__(self):
         return self.title
-
-    @property
-    def total_cost(self) -> int:
-        """카테고리별 비용 합산."""
-        return (
-            self.accommodation_cost
-            + self.activity_cost
-            + self.food_cost
-            + self.etc_cost
-        )
 
     @property
     def duration_label(self) -> str:
@@ -243,7 +226,6 @@ class ItineraryItem(models.Model):
     title = models.CharField(max_length=150)
     description = models.TextField(blank=True)
     thumbnail = models.CharField(max_length=1000, blank=True, help_text="썸네일 이미지 URL")
-    cost = models.PositiveIntegerField(default=0)
 
     # 카탈로그 연동 추천 결과에서 가져온 경우 원본 참조
     spot = models.ForeignKey(TouristSpot, on_delete=models.SET_NULL, null=True, blank=True)

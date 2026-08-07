@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from drf_spectacular.utils import extend_schema_field
-
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
 
@@ -168,36 +166,9 @@ class ItineraryItemSerializer(serializers.ModelSerializer):
         model = ItineraryItem
         fields = (
             "id", "order", "time", "item_type", "title", "description",
-            "thumbnail", "cost", "spot", "restaurant", "accommodation",
+            "thumbnail", "spot", "restaurant", "accommodation",
             "latitude", "longitude", "memo",
         )
-    def get_thumbnail(self, obj):
-        from django.db import connections
-
-        with connections["travel"].cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT 
-                    p.content_id,
-                    img.image_url,
-                    img.thumbnail_url
-                FROM places p
-                LEFT JOIN place_images img
-                    ON img.content_id = p.content_id
-                WHERE p.title = %s
-                ORDER BY img.display_order
-                LIMIT 1
-                """,
-                [obj.title],
-            )
-
-            row = cursor.fetchone()
-
-        if row:
-            return row[1] or row[2] or ""
-
-        return ""
-
 
 class ItineraryDaySerializer(serializers.ModelSerializer):
     items = ItineraryItemSerializer(many=True, required=False)
@@ -206,43 +177,26 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
         model = ItineraryDay
         fields = ("id", "day_number", "date", "items")
 
-
-class CostBreakdownItemSerializer(serializers.Serializer):
-    label = serializers.CharField()
-    amount = serializers.IntegerField()
-
-
 class ItinerarySerializer(serializers.ModelSerializer):
-
+    title = serializers.CharField(required=False,allow_blank=True)
     days = ItineraryDaySerializer(many=True, required=False)
-    total_cost = serializers.ReadOnlyField()
     duration_label = serializers.ReadOnlyField()
     style_display = serializers.CharField(source="get_style_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
-    cost_breakdown = serializers.SerializerMethodField()
 
     class Meta:
         model = Itinerary
         fields = (
             "id", "title", "subtitle", "start_date", "end_date",
             "companion_type", "companion_type_display",
-            "companion_count", "style", "style_display", "budget_per_person",
-            "food_cost", "etc_cost", "total_cost", "cost_breakdown",
+            "companion_count", "style", "style_display",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
             "created_at", "updated_at",
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
-    @extend_schema_field(CostBreakdownItemSerializer(many=True))
-    def get_cost_breakdown(self, obj):
-        return [
-            {"label": "숙소", "amount": obj.accommodation_cost},
-            {"label": "액티비티", "amount": obj.activity_cost},
-            {"label": "식비", "amount": obj.food_cost},
-            {"label": "기타", "amount": obj.etc_cost},
-        ]
 
     def create(self, validated_data):
         days_data = validated_data.pop("days", [])

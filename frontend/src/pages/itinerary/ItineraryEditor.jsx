@@ -55,7 +55,6 @@ export default function ItineraryEditor({
         title: item.title,
         description: item.description ?? "",
         thumbnail: item.thumbnail ?? "",
-        cost: item.cost ?? 0,
         spot: item.spot ?? null,
         restaurant: item.restaurant ?? null,
         accommodation: item.accommodation ?? null,
@@ -120,7 +119,6 @@ export default function ItineraryEditor({
       setIsRegenerating(false);
     }
   };
-
 
   if (!itinerary || !current) {
     return <div>일정을 불러오는 중...</div>;
