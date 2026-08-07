@@ -71,7 +71,17 @@ class TripMatch:
 
 @dataclass(frozen=True)
 class AIHubPatternConfig:
-    top_k: int = 3
+    """Top-K 참고 여행 선정에 쓰는 설정.
+
+    조건 유사도는 "어떤 여행을 참고할지"만 결정하는 최소 조건(기간/동행/교통수단)만
+    사용한다. 선호 방문유형(preferred_visit_types), 페이스(pace), 목적(purpose_codes)
+    등 취향 관련 정보는 유사도 계산에서 제외하고, 대신 Top-K 여행의 실제 방문 기록에서
+    role별 대표 키워드를 뽑아 RAG 검색 쿼리를 보강하는 데 사용한다
+    (``aggregate_role_keywords`` 참고).
+    """
+
+    top_k: int = 5                    # movement pattern용
+    reference_keyword_top_k: int = 8   # keyword 추출용
     min_usable_visits: int = 3
     duration_weight: float = 20.0
     party_weight: float = 20.0

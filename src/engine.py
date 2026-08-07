@@ -34,7 +34,7 @@ from .rag import PlaceSearchFilters, PlaceSearchService, create_place_search_ser
 from .rag.models import RetrievedPlace
 from .recommender import create_pattern_service
 
-DEFAULT_SEARCH_TOP_K = 15
+DEFAULT_SEARCH_TOP_K = 30
 
 # --- AIHub(이동 패턴) + RAG(관광지 후보) 조합 (초기 일정 생성) ---
 # 각 모듈은 서로 다른 질문에 답한다:
@@ -44,7 +44,7 @@ DEFAULT_SEARCH_TOP_K = 15
 # Planner가 결정한 슬롯 구조(_default_day_structure)는 그대로 유지하고,
 # RAG 후보만으로 슬롯을 채운 뒤, AIHub 이동 패턴은 LLM이 순서를 정할 때
 # 참고자료로만 사용한다.
-RAG_CANDIDATE_POOL_TOP_K = 40
+RAG_CANDIDATE_POOL_TOP_K = 100
 
 _DEFAULT_DAY_ROLES: tuple[str, ...] = ("visit", "activity", "food", "visit", "food")
 _DEFAULT_STAY_MINUTES_BY_ROLE: dict[str, int] = {
