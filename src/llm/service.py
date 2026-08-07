@@ -89,7 +89,12 @@ class LLMService:
     # ------------------------------------------------------------------
     # 3-b. RAG Query Generation (whole-trip, role-agnostic)
     # ------------------------------------------------------------------
-    def generate_style_query(self, condition: TravelCondition) -> str:
+    def generate_style_query(
+        self,
+        condition: TravelCondition,
+        *,
+        reference_keywords: dict[str, list[str]] | None = None,
+    ) -> str:
         """Build a single broad query for the RAG candidate-pool step.
 
         Unlike :meth:`generate_search_query`, this is not tied to a single
@@ -97,12 +102,20 @@ class LLMService:
         candidates driven purely by the user's style (``preferred_visit_types``)
         and free-text wishes (``must_visit_places``), matching the "RAG"
         branch of the AIHub/RAG retrieval pipeline.
+
+        ``reference_keywords`` (role -> representative place names, from
+        Top-K similar AIHub trips' actual visit history) is optional
+        supporting context: it nudges the search query toward the kind of
+        places similar travelers actually visited, but it never overrides
+        the user's stated condition and is never inserted into the
+        itinerary directly.
         """
 
         raw = self._client.complete_json(
             system_prompt=prompts.STYLE_QUERY_GENERATION_SYSTEM_PROMPT,
             user_prompt=prompts.build_style_query_generation_prompt(
                 condition.to_llm_dict(),
+                reference_keywords=reference_keywords,
             ),
         )
 

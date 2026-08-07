@@ -258,10 +258,15 @@ VISIT_AREA_TYPE_MAPPINGS: Final[dict[str, VisitAreaTypeMapping]] = {
 }
 
 
+VIS_TO_SLOT_ROLE: Final[dict[str, SlotRole]] = {
+    code: mapping.slot_role
+    for code, mapping in VISIT_AREA_TYPE_MAPPINGS.items()
+    if mapping.slot_role is not None
+}
+
 def get_visit_area_type_mapping(
     visit_area_type_cd: str | int | None,
 ) -> VisitAreaTypeMapping | None:
-    """visit_area_type_cd의 해석 및 RAG 슬롯 연결 정보를 반환한다."""
 
     if visit_area_type_cd is None:
         return None

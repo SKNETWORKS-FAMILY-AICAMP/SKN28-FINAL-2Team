@@ -6,11 +6,8 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from .aihub.similarity import (
-    SLOT_ITINERARY_ROLES,
-    SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE,
-    AIHubPatternService,
-)
+from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
+from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
 from .models import ItinerarySlot, ItineraryState, SlotAddRequest, SlotCandidate, TravelCondition, apply_delta, infer_affected_slots
@@ -99,10 +96,24 @@ class ItineraryEngine:
         day_templates = _default_day_structure(condition)
 
         # ------------------------------------------------------------
+        # 1.5) AIHub Top-K 참고 여행과 방문 기록을 한 번만 조회해서,
+        #      이동 패턴 요약(movement_patterns)과 role별 대표 키워드
+        #      (reference_keywords)를 만드는 데 함께 사용한다. 같은
+        #      travel_id 세트를 쓰는데 DB를 두 번 긁지 않기 위함이다.
+        # ------------------------------------------------------------
+        matches, routes = self._fetch_reference_trips_and_routes(condition)
+
+        # ------------------------------------------------------------
         # 2) RAG: 실제로 슬롯에 채워 넣을 수 있는 유일한 관광지 후보군.
         #    role에 국한하지 않고 폭넓게 검색한 뒤, role별로 나눠 둔다.
+        #    검색 쿼리는 사용자 조건 + AIHub 참고 키워드(reference_keywords)로
+        #    보강한다. reference_keywords는 최종 후보가 아니라 검색 방향을
+        #    보강하는 참고 자료일 뿐이며, 실제 후보는 항상 RAG 결과에서만 나온다.
         # ------------------------------------------------------------
-        rag_pool = self._collect_rag_candidates(condition)
+        reference_keywords = aggregate_role_keywords(routes)
+        rag_pool = self._collect_rag_candidates(
+            condition, reference_keywords=reference_keywords
+        )
         pool_by_role = _bucket_by_role(rag_pool)
 
         # ------------------------------------------------------------
@@ -111,7 +122,9 @@ class ItineraryEngine:
         #    전달한다. 특정 여행 하나를 그대로 따르지 않도록 top-K 여행을
         #    종합한다.
         # ------------------------------------------------------------
-        movement_patterns = self._build_movement_pattern_context(condition)
+        movement_patterns = self._build_movement_pattern_context(
+            condition, matches=matches, routes=routes
+        )
 
         print("=" * 50)
         print(f"[candidate-pool] RAG 후보 {len(rag_pool)}개")
@@ -119,6 +132,7 @@ class ItineraryEngine:
             "[candidate-pool] role별 개수:",
             {role: len(places) for role, places in pool_by_role.items()},
         )
+        print("[reference-keywords] AIHub 참고 키워드:", reference_keywords)
         print("[movement-pattern] AIHub 참고 패턴:", movement_patterns)
 
         # ------------------------------------------------------------
@@ -274,9 +288,38 @@ class ItineraryEngine:
     # ------------------------------------------------------------------
     # AIHub 이동 패턴 / RAG 후보군 조회
     # ------------------------------------------------------------------
+    def _fetch_reference_trips_and_routes(
+        self,
+        condition: TravelCondition,
+    ) -> tuple[list[Any], list[dict[str, Any]]]:
+        """조건에 맞는 Top-K 참고 여행(matches)과 그 방문 기록(routes)을 한 번만
+        조회한다. movement_patterns 계산과 reference_keywords 집계가 같은
+        travel_id 세트를 쓰기 때문에, 이 결과를 두 곳에 함께 넘겨서 DB를
+        중복으로 긁지 않도록 한다."""
+
+        container = self._container
+        matches = container.pattern_service.find_reference_trips(condition)
+        if not matches:
+            return [], []
+
+        keyword_matches = (container.pattern_service.find_reference_keyword_trips(condition))
+        if not matches:
+            return [], []
+
+        travel_ids = [
+            match.profile.travel_id
+            for match in keyword_matches
+        ]
+        routes = container.pattern_service.repository.fetch_trip_routes(travel_ids)
+
+        return matches, routes
+
     def _build_movement_pattern_context(
         self,
         condition: TravelCondition,
+        *,
+        matches: Sequence[Any] | None = None,
+        routes: Sequence[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """AIHub 브랜치: "비슷한 사람들은 어떻게 이동했는가?"
 
@@ -285,15 +328,15 @@ class ItineraryEngine:
         동행/기간이 유사한 top-K 여행에서 공통적으로 나타나는
         "역할(role) 순서"와 "흐름(role -> role 전이)"만 집계해서
         LLM 참고자료로 돌려준다.
+
+        ``matches``/``routes``를 넘기면 (예: ``create_itinerary``에서 이미
+        조회한 결과) 재조회하지 않고 그대로 사용한다.
         """
 
-        container = self._container
-        matches = container.pattern_service.find_reference_trips(condition)
+        if matches is None or routes is None:
+            matches, routes = self._fetch_reference_trips_and_routes(condition)
         if not matches:
             return {"available": False}
-
-        travel_ids = [match.profile.travel_id for match in matches]
-        routes = container.pattern_service.repository.fetch_trip_routes(travel_ids)
 
         rows_by_trip: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in routes:
@@ -374,15 +417,23 @@ class ItineraryEngine:
         *,
         top_k: int = RAG_CANDIDATE_POOL_TOP_K,
         extra_request: str | None = None,
+        reference_keywords: dict[str, list[str]] | None = None,
     ) -> list[RetrievedPlace]:
         """"사용자가 원하는 장소는?"을 찾는다 (RAG 브랜치).
 
         여행 스타일(preferred_visit_types)과 자유 요청(must_visit_places 등)을
         하나의 검색어로 합쳐, role에 국한하지 않고 폭넓게 후보를 가져온다.
+
+        ``reference_keywords``가 있으면(Top-K AIHub 참고 여행에서 뽑은 role별
+        대표 방문 장소명) 검색어 생성 프롬프트에 참고 자료로 함께 전달한다.
+        이 키워드는 검색 방향을 보강할 뿐, 그대로 후보에 들어가지는 않는다 —
+        실제 후보는 항상 이 검색으로 얻은 RAG 결과에서만 선택된다.
         """
 
         container = self._container
-        query = container.llm_service.generate_style_query(condition)
+        query = container.llm_service.generate_style_query(
+            condition, reference_keywords=reference_keywords
+        )
         if extra_request:
             query = f"{query} {extra_request}".strip()
 

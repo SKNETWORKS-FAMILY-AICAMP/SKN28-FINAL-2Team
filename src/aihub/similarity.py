@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
 from src.models.enums import  LocalTransport, Pace, PartyType, VisitPreference
 from src.models.travel_condition import TravelCondition
 import hashlib
 import math
+import re
 from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence
 from src.mappings.trip_feature_mapping import AIHUB_PARTY_LABELS, VISIT_TYPE_CODES, get_visit_area_type_mapping
+
+# role별 대표 키워드를 뽑을 때 기본으로 가져오는 개수.
+DEFAULT_KEYWORDS_PER_ROLE = 3
 
 @dataclass(frozen=True)
 class TripProfile:
@@ -71,21 +75,38 @@ class TripMatch:
 
 @dataclass(frozen=True)
 class AIHubPatternConfig:
-    top_k: int = 3
+    """Top-K 참고 여행 선정에 쓰는 설정.
+
+    조건 유사도는 "어떤 여행을 참고할지"만 결정하는 최소 조건(기간/동행/교통수단)만
+    사용한다. 선호 방문유형(preferred_visit_types), 페이스(pace), 목적(purpose_codes)
+    등 취향 관련 정보는 유사도 계산에서 제외하고, 대신 Top-K 여행의 실제 방문 기록에서
+    role별 대표 키워드를 뽑아 RAG 검색 쿼리를 보강하는 데 사용한다
+    (``aggregate_role_keywords`` 참고).
+    """
+
+    top_k: int = 3                      # movement pattern용
+    reference_keyword_top_k: int = 5    # keyword 추출용
     min_usable_visits: int = 3
     duration_weight: float = 20.0
     party_weight: float = 20.0
     transport_weight: float = 25.0
-    interest_weight: float = 20.0
-    purpose_weight: float = 10.0
-    pace_weight: float = 5.0
 
     def __post_init__(self) -> None:
         if self.top_k <= 0:
             raise ValueError("top_k must be greater than zero")
+
+        if self.reference_keyword_top_k <= 0:
+            raise ValueError(
+                "reference_keyword_top_k must be greater than zero"
+            )
+
+        if self.reference_keyword_top_k < self.top_k:
+            raise ValueError(
+                "reference_keyword_top_k must be greater than or equal to top_k"
+            )
+
         if self.min_usable_visits <= 0:
             raise ValueError("min_usable_visits must be greater than zero")
-
 
 class AIHubPatternRepository(Protocol):
     def fetch_trip_profiles(self, *, min_usable_visits: int) -> list[TripProfile]:
@@ -191,12 +212,32 @@ class AIHubPatternService:
             ),
         )[: self.config.top_k]
 
+    def find_reference_keyword_trips(
+        self,
+        condition: TravelCondition | Mapping[str, Any],
+    ) -> list[TripMatch]:
+        normalized = _normalize_condition(condition)
+        profiles = self.repository.fetch_trip_profiles(
+            min_usable_visits=self.config.min_usable_visits
+        )
+        matches = [
+            self._score_trip(normalized, profile) for profile in profiles
+        ]
+        return sorted(
+            matches,
+            key=lambda item: (
+                -item.score,
+                -float(item.profile.average_satisfaction or 0),
+                item.profile.travel_id,
+            ),
+        )[: self.config.reference_keyword_top_k]
+
     def build_llm_context(
         self,
         condition: TravelCondition | Mapping[str, Any],
     ) -> dict[str, Any]:
         normalized = _normalize_condition(condition)
-        matches = self.find_reference_trips(normalized)
+        matches = self.find_reference_keyword_trips(normalized)
         routes = self.repository.fetch_trip_routes(
             [match.profile.travel_id for match in matches]
         )
@@ -230,11 +271,41 @@ class AIHubPatternService:
             },
         }
 
+    def build_reference_keywords(
+        self,
+        condition: TravelCondition | Mapping[str, Any],
+        *,
+        keywords_per_role: int = DEFAULT_KEYWORDS_PER_ROLE,
+        matches: Sequence[TripMatch] | None = None,
+    ) -> dict[str, list[str]]:
+        """조건에 맞는 Top-K 참고 여행의 role별 대표 키워드를 반환한다.
+
+        movement pattern(``ItineraryEngine._build_movement_pattern_context``)과
+        같은 travel_id 세트를 쓰는 호출부는 ``matches``를 넘겨서 유사도 계산과
+        DB 조회를 중복하지 않도록 한다. 단독으로 쓸 때는 ``matches``를 생략하면
+        내부에서 새로 조회한다.
+        """
+
+        normalized = _normalize_condition(condition)
+        if matches is None:
+            matches = self.find_reference_trips(normalized)
+        if not matches:
+            return {}
+
+        routes = self.repository.fetch_trip_routes(
+            [match.profile.travel_id for match in matches]
+        )
+        return aggregate_role_keywords(routes, keywords_per_role=keywords_per_role)
+
     def _score_trip(
         self,
         condition: TravelCondition,
         profile: TripProfile,
     ) -> TripMatch:
+        # 조건 유사도는 최소 조건(기간/동행 유형/교통수단)만 사용한다.
+        # preferred_visit_types, pace, purpose_codes 등 취향 정보는 여기서
+        # 비교하지 않고, 대신 Top-K로 뽑힌 여행들의 실제 방문 기록에서
+        # role별 대표 키워드를 뽑아 RAG 검색을 보강하는 데 쓴다.
         scores: dict[str, float] = {
             "duration": _duration_similarity(
                 condition.duration_days,
@@ -248,23 +319,12 @@ class AIHubPatternService:
                 condition.local_transport,
                 profile.local_transport,
             ),
-            "interest": _interest_similarity(condition, profile),
         }
         weights: dict[str, float] = {
             "duration": self.config.duration_weight,
             "party": self.config.party_weight,
             "transport": self.config.transport_weight,
-            "interest": self.config.interest_weight,
         }
-        if condition.purpose_codes:
-            scores["purpose"] = _set_overlap(
-                frozenset(condition.purpose_codes),
-                profile.purpose_codes,
-            )
-            weights["purpose"] = self.config.purpose_weight
-        if condition.pace is not None:
-            scores["pace"] = _pace_similarity(condition.pace, profile)
-            weights["pace"] = self.config.pace_weight
 
         weight_total = sum(weights.values())
         score = sum(scores[key] * weights[key] for key in weights) / weight_total
@@ -441,36 +501,58 @@ def _transport_compatibility(
     return 0.15
 
 
-def _interest_similarity(
-    condition: TravelCondition,
-    profile: TripProfile,
-) -> float:
-    target_per_type = max(profile.duration_days * 0.5, 1.0)
-    coverage = [
-        min(
-            int(profile.visit_type_counts.get(preference, 0))
-            / target_per_type,
-            1.0,
-        )
-        for preference in condition.preferred_visit_types
-    ]
-    return sum(coverage) / len(coverage)
+_PLACE_NAME_WHITESPACE_RE = re.compile(r"\s+")
 
 
-def _set_overlap(requested: frozenset[str], historical: frozenset[str]) -> float:
-    if not requested:
-        return 1.0
-    return len(requested & historical) / len(requested)
+def _normalize_place_name(name: str) -> str:
+    return _PLACE_NAME_WHITESPACE_RE.sub("", name).strip().lower()
 
 
-def _pace_similarity(pace: Pace, profile: TripProfile) -> float:
-    stops_per_day = profile.stops_per_day
-    average_stay = profile.average_stay_minutes or 0
-    if pace == Pace.RELAXED:
-        return 1.0 if stops_per_day <= 4.5 or average_stay >= 75 else 0.25
-    if pace == Pace.PACKED:
-        return 1.0 if stops_per_day >= 6 else 0.25
-    return 1.0 if 4 <= stops_per_day <= 6 else 0.60
+def aggregate_role_keywords(
+    route_rows: Sequence[Mapping[str, Any]],
+    *,
+    keywords_per_role: int = DEFAULT_KEYWORDS_PER_ROLE,
+) -> dict[str, list[str]]:
+    """fetch_trip_routes() 결과에서 role별 대표 방문 장소명을 빈도순으로 뽑는다.
+
+    이 함수는 여러 여행(travel_id)의 route를 한꺼번에 받아 role
+    (visit/activity/food/shopping)별로 장소명을 집계한다. 숙소/이동/기타처럼
+    RAG에 포함하지 않기로 한 visit_area_type(``include_in_rag=False``)은
+    제외한다.
+
+    반환값은 최종 일정에 그대로 넣을 장소 목록이 아니라, RAG 검색 쿼리 생성을
+    보강하는 "참고 키워드"다. 실제 후보는 항상 RAG/TourAPI 벡터 검색 결과에서만
+    선택한다.
+    """
+
+    counters: dict[str, Counter[str]] = defaultdict(Counter)
+    display_names: dict[str, dict[str, str]] = defaultdict(dict)
+
+    for row in route_rows:
+        place_name = _optional_string(row.get("place_name"))
+        if not place_name:
+            continue
+
+        mapping = get_visit_area_type_mapping(row.get("visit_area_type_cd"))
+        if mapping is None or not mapping.include_in_rag or mapping.slot_role is None:
+            continue
+
+        role = mapping.slot_role
+        normalized = _normalize_place_name(place_name)
+        if not normalized:
+            continue
+
+        counters[role][normalized] += 1
+        display_names[role].setdefault(normalized, place_name.strip())
+
+    keywords: dict[str, list[str]] = {}
+    for role, counter in counters.items():
+        top_entries = counter.most_common(keywords_per_role)
+        role_keywords = [display_names[role][key] for key, _count in top_entries]
+        if role_keywords:
+            keywords[role] = role_keywords
+
+    return keywords
 
 
 def _primary_transport(row: Mapping[str, Any]) -> LocalTransport:
