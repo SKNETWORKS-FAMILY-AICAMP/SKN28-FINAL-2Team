@@ -1,12 +1,32 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function Hero() {
+  const navigate = useNavigate()
+
+  const handleStart = () => {
+    const token = localStorage.getItem('accessToken')
+
+    if (
+      !token ||
+      token === 'null' ||
+      token === 'undefined'
+    ) {
+      alert('로그인 후 이용할 수 있습니다.')
+      return
+    }
+
+    sessionStorage.removeItem('travel-chat-page')
+    sessionStorage.removeItem('travel-chat-column')
+
+    navigate('/chat')
+  }
+
   return (
     <section className="hero">
       <div className="wrap hero-grid">
         <div>
           <div className="eyebrow">
-            <span className="dot"></span>AI 대화 코치 · 제주 여행 전문
+            <span className="dot"></span>AI 맞춤 제주 여행
           </div>
           <h1>
             "부모님과 힐링 여행"
@@ -15,30 +35,21 @@ export default function Hero() {
             <span className="accent">일정이 완성</span>돼요
           </h1>
           <p className="lede">
-            기간과 스타일만 말해주세요. AI 코치가 동선까지 짜인 일정을 만들고, 대화로 바로
-            수정해드려요. 지도 확인부터 숙소·렌터카 예약까지 한 화면에서 끝나요.
+            여행 기간과 취향만 알려주세요. AI가 나만의 제주 여행 일정을 만들고, 일정과 가장 잘 맞는 탐라플랜 패키지를 추천해드려요. 
+            원하는 일정은 예약하거나 PDF 저장 및 공유도 가능해요.
           </p>
           <div className="hero-ctas">
-            <Link to="/chat" className="btn primary" id="start">
+            <button
+              type="button"
+              className="btn primary"
+              id="start"
+              onClick={handleStart}
+            >
               무료로 일정 만들기 →
+            </button>
+            <Link to="/how-to-use" className="btn ghost">
+              이용 방법 보기
             </Link>
-            <a href="#itinerary" className="btn ghost">
-              일정 예시 보기
-            </a>
-          </div>
-          <div className="hero-meta">
-            <div>
-              <div className="m-n">47초</div>
-              <div className="m-l">첫 일정 생성까지</div>
-            </div>
-            <div>
-              <div className="m-n">28만+</div>
-              <div className="m-l">완성된 제주 일정</div>
-            </div>
-            <div>
-              <div className="m-n">4.8 / 5</div>
-              <div className="m-l">이용자 만족도</div>
-            </div>
           </div>
         </div>
 
@@ -70,7 +81,7 @@ export default function Hero() {
               </g>
             </g>
           </svg>
-          <span className="sticker s1">일정 완성! 🌿</span>
+          <span className="sticker s1">일정 완성! 🍊</span>
           <div className="mockup">
             <div className="mockup-bar">
               <span></span>
@@ -79,12 +90,13 @@ export default function Hero() {
               <div className="mockup-title">AI 대화 코치</div>
             </div>
             <div className="mockup-body">
-              <div className="chat-line">
-                <div className="who">🌿</div>
-                <div className="chat-bubble">우도 대신 협재해변으로 바꿔주세요</div>
-              </div>
               <div className="chat-line me">
                 <div className="who">나</div>
+                <div className="chat-bubble">우도 대신 협재해변으로 바꿔주세요</div>
+              </div>
+
+              <div className="chat-line">
+                <div className="who">🍊</div>
                 <div className="chat-bubble">
                   알겠습니다! 우도를 협재해변으로 바꿨어요. 이동 시간도 20분 줄었어요.
                 </div>
@@ -128,7 +140,6 @@ export default function Hero() {
               <div className="mockup-cta">
                 <div>
                   <div className="lbl">제주 2박 3일 힐링 여행</div>
-                  <div className="val">1인당 약 50만원</div>
                 </div>
                 <button className="btn primary sm">일정 확정하기</button>
               </div>

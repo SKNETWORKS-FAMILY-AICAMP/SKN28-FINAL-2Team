@@ -1,0 +1,4041 @@
+{
+  "schema_version": "1.0",
+  "selection_version": "1.2",
+  "selected_at": "2026-08-03",
+  "selection_policy": {
+    "source_package_count": 100,
+    "selected_package_count": 30,
+    "duration_days_quota": {
+      "1": 3,
+      "2": 9,
+      "3": 9,
+      "4": 5,
+      "5": 4
+    },
+    "score_weights": {
+      "route_naturalness": 25,
+      "user_fit": 20,
+      "schedule_realism": 15,
+      "place_variety": 15,
+      "title_description_alignment": 10,
+      "season_fit": 5,
+      "place_appeal": 5,
+      "data_completeness": 5
+    },
+    "hard_fail_first": true,
+    "diversity_adjustment": true
+  },
+  "packages": [
+    {
+      "package_id": "VIRTUAL-JEJU-000009",
+      "title": "아이와 함께 여행하기 좋은 제주시 체험과 휴식 당일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 제주시의 호떡골목, 용두암, 넥슨컴퓨터박물관 등 서로 다른 유형의 관광지를 조합한 제주 당일 코스입니다.",
+      "region": "제주시",
+      "duration_days": 1,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "culture",
+          "nature",
+          "experience"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2472824,
+              "name": "넥슨컴퓨터박물관",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 228853,
+              "name": "용두암",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 4073368,
+              "name": "향사당",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 3056135,
+              "name": "호떡골목",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 664081,
+            "name": "삼성혈해물탕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "estimated_price": 78000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000069",
+      "title": "친구들과 활기차게 즐기는 제주 북동부와 제주 동부 문화와 여유 3박 4일 코스",
+      "summary": "친구들과 다양한 활동을 즐길 수 있도록 제주 북동부와 제주 동부의 아쿠아플라넷 제주, 혼인지, 사려니숲길 등 서로 다른 유형의 관광지를 조합한 제주 3박 4일 코스입니다.",
+      "region": "제주 북동부·제주 동부",
+      "duration_days": 4,
+      "match_profile": {
+        "party_types": [
+          "non_family_group"
+        ],
+        "themes": [
+          "nature",
+          "experience",
+          "culture"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2048059,
+              "name": "아쿠아플라넷 제주",
+              "category": "theme_park",
+              "stay_minutes": 150
+            },
+            {
+              "order": 2,
+              "content_id": 126447,
+              "name": "신양섭지해수욕장",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 126465,
+              "name": "혼인지",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 664154,
+            "name": "옛날옛적 성산본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2414827,
+              "name": "사려니숲길",
+              "category": "trail",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3056151,
+              "name": "제동목장 입구",
+              "category": "experience",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 126474,
+              "name": "산굼부리",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2853604,
+            "name": "우동카덴",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1621077,
+              "name": "세화해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 130857,
+              "name": "제주해녀박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2023328,
+              "name": "하도어촌체험마을",
+              "category": "experience",
+              "stay_minutes": 150
+            }
+          ],
+          "restaurant": {
+            "content_id": 2864287,
+            "name": "윤스타피자앤파스타",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2774821,
+              "name": "오늘은 카트레이싱",
+              "category": "leisure",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 131949,
+              "name": "성읍승마장",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3037623,
+              "name": "제주 스카이워터쇼",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 2779449,
+              "name": "비밀의 숲",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2847852,
+            "name": "옛날팥죽",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 397643,
+        "name": "C&P리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 550000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000050",
+      "title": "부모님과 편안하게 둘러보는 제주시 문화와 자연 2박 3일 코스",
+      "summary": "부모님과 무리 없이 편안하게 둘러볼 수 있도록 제주시의 서부두수산시장, 용두암, 삼양해수욕장 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주시",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "with_parents",
+          "three_generations"
+        ],
+        "themes": [
+          "history",
+          "nature",
+          "market_shopping"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 228853,
+              "name": "용두암",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 2738692,
+              "name": "용연구름다리",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 4073368,
+              "name": "향사당",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2765319,
+              "name": "서부두수산시장",
+              "category": "market_shopping",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2861702,
+            "name": "이돈갓",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3056205,
+              "name": "관곶",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 130308,
+              "name": "제주항일기념관",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126463,
+              "name": "연북정",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2788882,
+            "name": "문개항아리 조천본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 317558,
+              "name": "불탑사(제주)",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 129401,
+              "name": "삼양해수욕장",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 130461,
+              "name": "국립제주박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2863597,
+            "name": "젬마손",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2411625,
+        "name": "호텔리젠트마린 제주",
+        "category": "lodging"
+      },
+      "estimated_price": 281000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000003",
+      "title": "아이와 함께 여행하기 좋은 서귀포 여유와 활력 당일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 서귀포의 가을동화 감귤밭, 윈드1947 카트테마파크, 돈내코 원앙폭포 등 서로 다른 유형의 관광지를 조합한 제주 당일 코스입니다.",
+      "region": "서귀포",
+      "duration_days": 1,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "experience",
+          "theme_park",
+          "nature"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 126441,
+              "name": "돈내코 원앙폭포",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2606214,
+              "name": "윈드1947 카트테마파크",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3410648,
+              "name": "가을동화 감귤밭",
+              "category": "experience",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 1823088,
+            "name": "서귀포시축협 축산물플라자",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "estimated_price": 76000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000008",
+      "title": "친구들과 활기차게 즐기는 제주 서부 문화와 자연 당일 코스",
+      "summary": "친구들과 다양한 활동을 즐길 수 있도록 제주 서부의 말 테마파크 골프장 (렛츠런파크 제주), 아르떼뮤지엄 제주, 도치돌 알파카목장 등 서로 다른 유형의 관광지를 조합한 제주 당일 코스입니다.",
+      "region": "제주 서부",
+      "duration_days": 1,
+      "match_profile": {
+        "party_types": [
+          "non_family_group"
+        ],
+        "themes": [
+          "theme_park",
+          "experience",
+          "culture"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 637398,
+              "name": "말 테마파크 골프장 (렛츠런파크 제주)",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2751854,
+              "name": "도치돌 알파카목장",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2714241,
+              "name": "아르떼뮤지엄 제주",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 2738675,
+              "name": "선운정사",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2852023,
+            "name": "봉성식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        }
+      ],
+      "estimated_price": 102000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000057",
+      "title": "아이와 함께 여행하기 좋은 제주 북동부 문화와 자연 2박 3일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 제주 북동부의 제주 무지개해안도로, 카멜리아힐, 도두봉 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 북동부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "nature",
+          "trail",
+          "theme_park"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 741109,
+              "name": "카멜리아힐",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 131784,
+              "name": "대유ATV수렵사격랜드",
+              "category": "leisure",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 126469,
+              "name": "한라산 영실",
+              "category": "trail",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 4057215,
+            "name": "회수다옥",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1146121,
+              "name": "에코랜드테마파크",
+              "category": "theme_park",
+              "stay_minutes": 150
+            },
+            {
+              "order": 2,
+              "content_id": 1933217,
+              "name": "바늘오름",
+              "category": "trail",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2905045,
+              "name": "와흘메밀마을",
+              "category": "experience",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 1876994,
+            "name": "낭뜰에쉼팡",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2553685,
+              "name": "수목원테마파크(아이스뮤지엄)",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2738665,
+              "name": "도두봉",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2714306,
+              "name": "제주 무지개해안도로",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2836976,
+            "name": "제주돔베고기집",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2623827,
+        "name": "엠버리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 466000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000054",
+      "title": "온 가족이 함께하는 제주 서부 체험과 풍경 2박 3일 코스",
+      "summary": "온 가족이 취향을 나누며 여행할 수 있도록 제주 서부의 협재해수욕장, 오설록 티뮤지엄, 신화워터파크 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 서부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "family_group",
+          "with_children"
+        ],
+        "themes": [
+          "nature",
+          "culture",
+          "experience"
+        ],
+        "paces": [
+          "balanced"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 126444,
+              "name": "차귀도",
+              "category": "nature",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 2752772,
+              "name": "성김대건신부표착기념관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2704703,
+              "name": "당산봉",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2854041,
+            "name": "별돈별 정원본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2789652,
+              "name": "순례자의 교회",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 665594,
+              "name": "더마파크",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2503694,
+              "name": "제주맥주",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 127490,
+              "name": "협재해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 820822,
+            "name": "돌하르방식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2660802,
+              "name": "오설록 티뮤지엄",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2562239,
+              "name": "신화워터파크",
+              "category": "experience",
+              "stay_minutes": 180
+            },
+            {
+              "order": 3,
+              "content_id": 2713585,
+              "name": "왕이메오름",
+              "category": "trail",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2840903,
+            "name": "양가네 신화월드 본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 984611,
+        "name": "라온호텔 앤 리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 436000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000020",
+      "title": "둘이 여유롭게 떠나는 서귀포 문화와 여유 1박 2일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 서귀포의 서귀포매일올레시장, 루나폴, 엉또폭포 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다.",
+      "region": "서귀포",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "nature",
+          "market_shopping",
+          "culture"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1013258,
+              "name": "서귀포매일올레시장",
+              "category": "market_shopping",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 1220821,
+              "name": "세계조가비박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 129276,
+              "name": "숨도",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 127052,
+              "name": "엉또폭포",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2831961,
+            "name": "천짓골식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2738763,
+              "name": "박수기정",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 126443,
+              "name": "화순금모래해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2940981,
+              "name": "루나폴",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 126457,
+              "name": "산방굴사(제주)",
+              "category": "history",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 4002839,
+            "name": "제주할망밥상",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 4081269,
+        "name": "파르나스 호텔 제주",
+        "category": "lodging"
+      },
+      "estimated_price": 332000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000023",
+      "title": "아이와 함께 여행하기 좋은 제주 남서부 체험과 휴식 1박 2일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 제주 남서부의 꽃귤농장, 중문색달해수욕장, 신화테마파크 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다.",
+      "region": "제주 남서부",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "nature",
+          "experience",
+          "theme_park"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3505052,
+              "name": "꽃귤농장",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 126439,
+              "name": "천제연폭포",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126449,
+              "name": "중문색달해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2791440,
+            "name": "제주한라국수",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 126440,
+              "name": "안덕계곡",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 3031021,
+              "name": "제주아리온승마장",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2562214,
+              "name": "신화테마파크",
+              "category": "theme_park",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2840903,
+            "name": "양가네 신화월드 본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 142946,
+        "name": "제주신라호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 330000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000092",
+      "title": "둘이 여유롭게 떠나는 제주시와 제주 북동부 문화와 자연 4박 5일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 제주시와 제주 북동부의 섭지코지, 혼인지, 코난해변 등 서로 다른 유형의 관광지를 조합한 제주 4박 5일 코스입니다.",
+      "region": "제주시·제주 북동부",
+      "duration_days": 5,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "nature",
+          "culture",
+          "history"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1928421,
+              "name": "다려도",
+              "category": "nature",
+              "stay_minutes": 120
+            },
+            {
+              "order": 2,
+              "content_id": 2778905,
+              "name": "해맞이해안로",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2837222,
+              "name": "코난해변",
+              "category": "nature",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2862097,
+            "name": "담백 월정리본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 130461,
+              "name": "국립제주박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3386123,
+              "name": "주정공장수용소 4·3역사관",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 1069322,
+              "name": "산지천",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2738692,
+              "name": "용연구름다리",
+              "category": "culture",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2806871,
+            "name": "도토리키친",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 635701,
+              "name": "신풍 신천 바다목장",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 3559736,
+              "name": "통오름",
+              "category": "trail",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 126465,
+              "name": "혼인지",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 664154,
+            "name": "옛날옛적 성산본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3553902,
+              "name": "신산환해장성",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 127813,
+              "name": "섭지코지",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126447,
+              "name": "신양섭지해수욕장",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 4,
+              "content_id": 2717330,
+              "name": "유민 아르누보 뮤지엄",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2877751,
+            "name": "신왕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 5,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2564158,
+              "name": "광치기해변",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 2798703,
+              "name": "성산포성당",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3317905,
+              "name": "현애원",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2791473,
+              "name": "제주커피박물관 바움",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 1984236,
+            "name": "백기해녀의집",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3076491,
+        "name": "제주티라호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 628000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000049",
+      "title": "아이와 함께 여행하기 좋은 제주 북동부 자연과 힐링 2박 3일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 제주 북동부의 이호테우해변, 윈드1947 카트테마파크, 한라산 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 북동부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "nature",
+          "experience",
+          "leisure"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3061676,
+              "name": "너븐숭이 4.3기념관",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 1928421,
+              "name": "다려도",
+              "category": "nature",
+              "stay_minutes": 120
+            },
+            {
+              "order": 3,
+              "content_id": 1064572,
+              "name": "김녕요트투어",
+              "category": "leisure",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2759096,
+            "name": "곰막식당/곰막",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2606214,
+              "name": "윈드1947 카트테마파크",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2723689,
+              "name": "서귀다원",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 127635,
+              "name": "한라산",
+              "category": "trail",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 1823088,
+            "name": "서귀포시축협 축산물플라자",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2714826,
+              "name": "수산봉",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2759036,
+              "name": "도시해녀",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 126448,
+              "name": "이호테우해변",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2910930,
+            "name": "래용",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 142976,
+        "name": "펄호텔제주",
+        "category": "lodging"
+      },
+      "estimated_price": 373000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000029",
+      "title": "친구들과 활기차게 즐기는 제주 북동부 문화와 자연 1박 2일 코스",
+      "summary": "친구들과 다양한 활동을 즐길 수 있도록 제주 북동부의 사려니숲길, 수목원길 야시장, 탑동광장 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다.",
+      "region": "제주 북동부",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "non_family_group"
+        ],
+        "themes": [
+          "culture",
+          "trail",
+          "experience"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 126474,
+              "name": "산굼부리",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3056151,
+              "name": "제동목장 입구",
+              "category": "experience",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2414827,
+              "name": "사려니숲길",
+              "category": "trail",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2853604,
+            "name": "우동카덴",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2931257,
+              "name": "수목원길 야시장",
+              "category": "market_shopping",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2853484,
+              "name": "삼무공원",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 128641,
+              "name": "제주목 관아",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2788436,
+              "name": "탑동광장",
+              "category": "culture",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2871898,
+            "name": "제주연탄길 신제주본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 935073,
+        "name": "라헨느리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 264000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000061",
+      "title": "친구들과 활기차게 즐기는 제주시와 제주 서부 봄 벚꽃 3박 4일 코스",
+      "summary": "친구들과 다양한 활동을 즐길 수 있도록 제주시와 제주 서부의 전농로 벚꽃거리, 금오름, 사계해변 등 서로 다른 유형의 관광지를 조합한 제주 3박 4일 코스입니다. 봄 벚꽃 풍경을 보기 좋은 시기는 대체로 3월 말~4월 초이며, 개화 시기는 날씨에 따라 달라질 수 있습니다.",
+      "region": "제주시·제주 서부",
+      "duration_days": 4,
+      "match_profile": {
+        "party_types": [
+          "non_family_group"
+        ],
+        "themes": [
+          "nature",
+          "culture",
+          "experience"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2738692,
+              "name": "용연구름다리",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 4073368,
+              "name": "향사당",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2778044,
+              "name": "전농로 벚꽃거리",
+              "category": "festival",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 127514,
+              "name": "한라수목원",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2894522,
+            "name": "풍천만가",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 129699,
+              "name": "금오름",
+              "category": "trail",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2606298,
+              "name": "성이시돌목장",
+              "category": "experience",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 130512,
+              "name": "제주아트서커스",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2837142,
+            "name": "동광메밀짬뽕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 128555,
+              "name": "제주 산방산탄산온천",
+              "category": "experience",
+              "stay_minutes": 120
+            },
+            {
+              "order": 2,
+              "content_id": 228854,
+              "name": "용머리해안",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2715650,
+              "name": "사계해변",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2783376,
+            "name": "순천미향 제주산방산본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 126457,
+              "name": "산방굴사(제주)",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 127861,
+              "name": "제주 서귀포 산방산",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2940981,
+              "name": "루나폴",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 126443,
+              "name": "화순금모래해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 404151,
+            "name": "생원전복",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2561932,
+        "name": "제주신화월드 호텔 앤 리조트 서머셋",
+        "category": "lodging"
+      },
+      "estimated_price": 682000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000068",
+      "title": "둘이 여유롭게 떠나는 제주 남서부와 제주 서부 체험과 풍경 3박 4일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 제주 남서부와 제주 서부의 송악산, 문도지오름, 제주곶자왈도립공원 등 서로 다른 유형의 관광지를 조합한 제주 3박 4일 코스입니다.",
+      "region": "제주 남서부·제주 서부",
+      "duration_days": 4,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "nature",
+          "culture",
+          "experience"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 126446,
+              "name": "가파도",
+              "category": "nature",
+              "stay_minutes": 120
+            },
+            {
+              "order": 2,
+              "content_id": 126672,
+              "name": "송악산",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2858467,
+              "name": "제주곶자왈도립공원",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2808238,
+            "name": "청춘부부",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2723542,
+              "name": "한담해변",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 3037977,
+              "name": "청아투명카약",
+              "category": "leisure",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3112043,
+              "name": "도치돌목장",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 2606209,
+              "name": "화조원",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 1964507,
+            "name": "놀맨",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2660763,
+              "name": "서귀포 치유의 숲",
+              "category": "experience",
+              "stay_minutes": 120
+            },
+            {
+              "order": 2,
+              "content_id": 129276,
+              "name": "숨도",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 129767,
+              "name": "서귀포시립기당미술관",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 664982,
+            "name": "서귀포흑돼지명가",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2742373,
+              "name": "청수곶자왈",
+              "category": "nature",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 597562,
+              "name": "제주현대미술관",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2740130,
+              "name": "문도지오름",
+              "category": "trail",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2809900,
+            "name": "묘한식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2561880,
+        "name": "제주신화월드 호텔 앤 리조트 랜딩관",
+        "category": "lodging"
+      },
+      "estimated_price": 655000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000100",
+      "title": "둘이 여유롭게 떠나는 제주시와 제주 북동부 체험과 휴식 4박 5일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 제주시와 제주 북동부의 동문수산시장, 호떡골목, 동문공설시장 등 서로 다른 유형의 관광지를 조합한 제주 4박 5일 코스입니다.",
+      "region": "제주시·제주 북동부",
+      "duration_days": 5,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "culture",
+          "market_shopping",
+          "experience"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2704353,
+              "name": "신비의도로",
+              "category": "experience",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 1755806,
+              "name": "제주아트센터",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 127744,
+              "name": "제주 삼성혈",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 4,
+              "content_id": 2737330,
+              "name": "동문수산시장",
+              "category": "market_shopping",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2839916,
+            "name": "한데모아 정실점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2522221,
+              "name": "제주레포츠랜드",
+              "category": "leisure",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2660122,
+              "name": "제주라프",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3080405,
+              "name": "캔디원",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 1769266,
+              "name": "제주 세계자연유산센터",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2850014,
+            "name": "선흘방주할머니식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3026711,
+              "name": "가시리국산화풍력발전단지",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 3030422,
+              "name": "제주아리랑 혼",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2606611,
+              "name": "자연사랑미술관",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 1866904,
+            "name": "가시식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2778809,
+              "name": "제주 글라스하우스",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 2791473,
+              "name": "제주커피박물관 바움",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 577461,
+              "name": "다랑쉬오름(월랑봉)",
+              "category": "trail",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2877751,
+            "name": "신왕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 5,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1069144,
+              "name": "사라봉",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3056135,
+              "name": "호떡골목",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2860687,
+              "name": "동문공설시장",
+              "category": "market_shopping",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2805320,
+            "name": "착한제주고등어",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2948165,
+        "name": "에코랜드 호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 910000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000097",
+      "title": "아이와 함께 여행하기 좋은 제주시와 제주 서부 문화와 여유 4박 5일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 제주시와 제주 서부의 산양큰엉곶, 점보빌리지, 백약이오름 등 서로 다른 유형의 관광지를 조합한 제주 4박 5일 코스입니다.",
+      "region": "제주시·제주 서부",
+      "duration_days": 5,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "nature",
+          "experience",
+          "trail"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2763739,
+              "name": "제주 교래자연휴양림",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3071841,
+              "name": "에코승마아카데미",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2731801,
+              "name": "백약이오름",
+              "category": "trail",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 1984253,
+            "name": "성미가든",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2710264,
+              "name": "옷귀마테마타운",
+              "category": "leisure",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 3015718,
+              "name": "편백포레스트",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2740123,
+              "name": "이승이오름 (이승악)",
+              "category": "trail",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2864309,
+            "name": "오뚜기빵집",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3031021,
+              "name": "제주아리온승마장",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 2742373,
+              "name": "청수곶자왈",
+              "category": "nature",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2948051,
+              "name": "산양큰엉곶",
+              "category": "nature",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2785301,
+            "name": "제주순메밀막국수",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 987913,
+              "name": "점보빌리지",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 2707930,
+              "name": "소인국테마파크",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126440,
+              "name": "안덕계곡",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2877734,
+            "name": "소규모식탁",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 5,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 637398,
+              "name": "말 테마파크 골프장 (렛츠런파크 제주)",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3112043,
+              "name": "도치돌목장",
+              "category": "experience",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2847726,
+              "name": "상가리야자숲",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 126473,
+              "name": "연화못(하가못)",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2854015,
+            "name": "모들한상",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2007416,
+        "name": "루체빌리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 893000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000017",
+      "title": "아이와 함께 여행하기 좋은 제주 서부 여유와 활력 1박 2일 코스",
+      "summary": "어린아이와 함께 이동하고 체험하기 좋도록 제주 서부의 금오름, 성이시돌목장, 뽀로로앤타요 테마파크 제주 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다.",
+      "region": "제주 서부",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "with_children",
+          "family_group"
+        ],
+        "themes": [
+          "experience",
+          "theme_park",
+          "culture"
+        ],
+        "paces": [
+          "balanced"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1798082,
+              "name": "본태박물관",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 3410530,
+              "name": "뽀로로앤타요 테마파크 제주",
+              "category": "theme_park",
+              "stay_minutes": 240
+            },
+            {
+              "order": 3,
+              "content_id": 2606298,
+              "name": "성이시돌목장",
+              "category": "experience",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2837142,
+            "name": "동광메밀짬뽕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 129699,
+              "name": "금오름",
+              "category": "trail",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2742344,
+              "name": "새별프렌즈",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 1206420,
+              "name": "제주힐링명상테마파크",
+              "category": "theme_park",
+              "stay_minutes": 120
+            }
+          ],
+          "restaurant": {
+            "content_id": 3037925,
+            "name": "스페이스제로",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 984523,
+        "name": "제주 블랙스톤",
+        "category": "lodging"
+      },
+      "estimated_price": 328000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000039",
+      "title": "3대 가족이 편안하게 즐기는 제주 남서부 휴식과 산책 2박 3일 코스",
+      "summary": "아이부터 부모님까지 3대가 편안하게 이동하도록 제주 남서부의 건강과 성 박물관(제주), 제주특별자치도립미술관, 고스트타운 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 남서부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "three_generations",
+          "with_parents"
+        ],
+        "themes": [
+          "culture",
+          "nature",
+          "experience"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 759595,
+              "name": "제주특별자치도립미술관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 128556,
+              "name": "제주러브랜드",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 127202,
+              "name": "어승생",
+              "category": "nature",
+              "stay_minutes": 120
+            }
+          ],
+          "restaurant": {
+            "content_id": 2837242,
+            "name": "리보스코화덕피자",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 130872,
+              "name": "제주국제평화센터",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 778296,
+              "name": "광명사(제주)",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2858445,
+              "name": "쉬리의언덕",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 130853,
+              "name": "건강과 성 박물관(제주)",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2708338,
+            "name": "더클리프",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2791523,
+              "name": "제주양떼목장",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2738675,
+              "name": "선운정사",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126473,
+              "name": "연화못(하가못)",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2759120,
+              "name": "고스트타운",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2905340,
+            "name": "살롱드라방",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2007416,
+        "name": "루체빌리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 437000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000071",
+      "title": "3대 가족이 편안하게 즐기는 서귀포와 제주 남서부 겨울 동백 3박 4일 코스",
+      "summary": "아이부터 부모님까지 3대가 편안하게 이동하도록 서귀포와 제주 남서부의 동백포레스트, 자구리문화예술공원(자구리공원), 서복전시관 등 서로 다른 유형의 관광지를 조합한 제주 3박 4일 코스입니다. 겨울 동백 풍경을 보기 좋은 시기는 대체로 11~2월이며, 개화 시기는 날씨에 따라 달라질 수 있습니다.",
+      "region": "서귀포·제주 남서부",
+      "duration_days": 4,
+      "match_profile": {
+        "party_types": [
+          "three_generations",
+          "with_parents"
+        ],
+        "themes": [
+          "culture",
+          "nature",
+          "festival"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3026604,
+              "name": "효명사",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2806043,
+              "name": "동백포레스트",
+              "category": "festival",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 590415,
+              "name": "감귤박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 3530411,
+              "name": "정모시쉼터",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 1823088,
+            "name": "서귀포시축협 축산물플라자",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 130682,
+              "name": "서복전시관",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 1945578,
+              "name": "소남머리",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2738724,
+              "name": "자구리문화예술공원(자구리공원)",
+              "category": "culture",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2562475,
+            "name": "동해미락",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 128050,
+              "name": "제주 항파두리 항몽 유적",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 2759120,
+              "name": "고스트타운",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126473,
+              "name": "연화못(하가못)",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2791523,
+              "name": "제주양떼목장",
+              "category": "experience",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2905340,
+            "name": "살롱드라방",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2767778,
+              "name": "황우지해안열두굴",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 127283,
+              "name": "이중섭 거주지",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2606690,
+              "name": "왈종미술관",
+              "category": "culture",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2894407,
+            "name": "흑돼지해물삼합",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3515241,
+        "name": "호텔 골든데이지 서귀포오션",
+        "category": "lodging"
+      },
+      "estimated_price": 483000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000065",
+      "title": "둘이 여유롭게 떠나는 서귀포와 제주 남서부 체험과 휴식 3박 4일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 서귀포와 제주 남서부의 문섬·섶섬·범섬·새섬, 쇠소깍, 새별오름 등 서로 다른 유형의 관광지를 조합한 제주 3박 4일 코스입니다.",
+      "region": "서귀포·제주 남서부",
+      "duration_days": 4,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "nature",
+          "culture",
+          "trail"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 130494,
+              "name": "이중섭 미술관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 127048,
+              "name": "문섬·섶섬·범섬·새섬",
+              "category": "nature",
+              "stay_minutes": 120
+            },
+            {
+              "order": 3,
+              "content_id": 879234,
+              "name": "새연교",
+              "category": "culture",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2359168,
+            "name": "안거리 밖거리",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1620997,
+              "name": "하멜기념비",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 126440,
+              "name": "안덕계곡",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2753082,
+              "name": "파더스가든",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 1911160,
+              "name": "헬로키티아일랜드",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 404151,
+            "name": "생원전복",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2606690,
+              "name": "왈종미술관",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 129405,
+              "name": "소정방폭포",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2781401,
+              "name": "소천지",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 4,
+              "content_id": 129617,
+              "name": "쇠소깍",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2359165,
+            "name": "검은여닭도가니",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2946628,
+              "name": "환상숲곶자왈공원",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 1556005,
+              "name": "그리스신화박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 572973,
+              "name": "새별오름",
+              "category": "trail",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2809900,
+            "name": "묘한식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3076484,
+        "name": "이스턴호텔제주",
+        "category": "lodging"
+      },
+      "estimated_price": 516000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000015",
+      "title": "둘이 여유롭게 떠나는 제주 남서부 문화와 자연 1박 2일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 제주 남서부의 가파도, 서귀포매일올레시장, 송악산 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다.",
+      "region": "제주 남서부",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "nature",
+          "market_shopping",
+          "culture"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2715648,
+              "name": "발자국화석공원",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 126672,
+              "name": "송악산",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 126446,
+              "name": "가파도",
+              "category": "nature",
+              "stay_minutes": 120
+            }
+          ],
+          "restaurant": {
+            "content_id": 2847737,
+            "name": "제주선채향",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1013258,
+              "name": "서귀포매일올레시장",
+              "category": "market_shopping",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 1620936,
+              "name": "이중섭거리",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 129405,
+              "name": "소정방폭포",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2894407,
+            "name": "흑돼지해물삼합",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3344565,
+        "name": "JW 메리어트 제주 리조트 & 스파",
+        "category": "lodging"
+      },
+      "estimated_price": 318000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000047",
+      "title": "3대 가족이 편안하게 즐기는 제주 남서부 체험과 풍경 2박 3일 코스",
+      "summary": "아이부터 부모님까지 3대가 편안하게 이동하도록 제주 남서부의 중문색달해수욕장, 소인국테마파크, 그리스신화박물관 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 남서부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "three_generations",
+          "with_parents"
+        ],
+        "themes": [
+          "culture",
+          "history",
+          "theme_park"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2606298,
+              "name": "성이시돌목장",
+              "category": "experience",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 2751836,
+              "name": "바이나흐튼 크리스마스박물관",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2707930,
+              "name": "소인국테마파크",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 1620997,
+              "name": "하멜기념비",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2783376,
+            "name": "순천미향 제주산방산본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 1556005,
+              "name": "그리스신화박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2742344,
+              "name": "새별프렌즈",
+              "category": "experience",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3005374,
+              "name": "아이바가든",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 482093,
+              "name": "천왕사(제주)",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2861349,
+            "name": "크라운돼지",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 309943,
+              "name": "법화사",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 130180,
+              "name": "아프리카 박물관",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 126449,
+              "name": "중문색달해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2758844,
+            "name": "중문해녀의집",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3031466,
+        "name": "디아넥스호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 490000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000055",
+      "title": "둘이 여유롭게 떠나는 제주 서부 문화와 여유 2박 3일 코스",
+      "summary": "두 사람이 여유롭게 추억을 만들 수 있도록 제주 서부의 차귀도, 아르떼뮤지엄 제주, 노형수퍼마켙 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 서부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "non_family_two",
+          "family_two"
+        ],
+        "themes": [
+          "nature",
+          "history",
+          "trail"
+        ],
+        "paces": [
+          "balanced"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2765233,
+              "name": "용수성지",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2752772,
+              "name": "성김대건신부표착기념관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2986689,
+              "name": "제주고산리유적안내센터",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 126444,
+              "name": "차귀도",
+              "category": "nature",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2854041,
+            "name": "별돈별 정원본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2847726,
+              "name": "상가리야자숲",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2714241,
+              "name": "아르떼뮤지엄 제주",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2765234,
+              "name": "궷물오름",
+              "category": "trail",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2861349,
+            "name": "크라운돼지",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2738712,
+              "name": "큰노꼬메오름",
+              "category": "trail",
+              "stay_minutes": 180
+            },
+            {
+              "order": 2,
+              "content_id": 2479639,
+              "name": "제주불빛정원",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2740014,
+              "name": "노형수퍼마켙",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2871863,
+            "name": "포하노이",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3079902,
+        "name": "샐리스제주호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 306000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000021",
+      "title": "친구들과 활기차게 즐기는 제주시 봄 벚꽃 1박 2일 코스",
+      "summary": "친구들과 다양한 활동을 즐길 수 있도록 제주시의 전농로 벚꽃거리, 도두봉, 이호테우 말 등대 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다. 봄 벚꽃 풍경을 보기 좋은 시기는 대체로 3월 말~4월 초이며, 개화 시기는 날씨에 따라 달라질 수 있습니다.",
+      "region": "제주시",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "non_family_group"
+        ],
+        "themes": [
+          "nature",
+          "festival",
+          "culture"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2792565,
+              "name": "이호테우 말 등대",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 2738665,
+              "name": "도두봉",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2778044,
+              "name": "전농로 벚꽃거리",
+              "category": "festival",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2870537,
+            "name": "귤품은흑돼지 제주공항점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2522221,
+              "name": "제주레포츠랜드",
+              "category": "leisure",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 127479,
+              "name": "제주절물자연휴양림",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 637212,
+              "name": "제주마방목지",
+              "category": "experience",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 1909258,
+            "name": "수다뜰",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2019719,
+        "name": "제주알(R)호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 230000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000059",
+      "title": "혼자 천천히 즐기는 제주 동부 여유와 활력 2박 3일 코스",
+      "summary": "혼자서도 부담 없이 천천히 즐길 수 있도록 제주 동부의 스누피가든, 고흐의정원, 김영갑갤러리두모악 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 동부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "solo"
+        ],
+        "themes": [
+          "culture",
+          "history",
+          "trail"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2638440,
+              "name": "고흐의정원",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 130723,
+              "name": "김영갑갤러리두모악",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 3553902,
+              "name": "신산환해장성",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 126465,
+              "name": "혼인지",
+              "category": "nature",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 664154,
+            "name": "옛날옛적 성산본점",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2778809,
+              "name": "제주 글라스하우스",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 126447,
+              "name": "신양섭지해수욕장",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2717330,
+              "name": "유민 아르누보 뮤지엄",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2798703,
+              "name": "성산포성당",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2767628,
+            "name": "맛나식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3559736,
+              "name": "통오름",
+              "category": "trail",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 131589,
+              "name": "알프스제주",
+              "category": "leisure",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2714222,
+              "name": "스누피가든",
+              "category": "culture",
+              "stay_minutes": 120
+            }
+          ],
+          "restaurant": {
+            "content_id": 2847916,
+            "name": "제주고사리맛집 복돼지식당",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 3076392,
+        "name": "오션스퀘어리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 389000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000034",
+      "title": "부모님과 편안하게 둘러보는 제주 서부 문화와 여유 2박 3일 코스",
+      "summary": "부모님과 무리 없이 편안하게 둘러볼 수 있도록 제주 서부의 금능해수욕장, 신창풍차해안도로, 한림공원 등 서로 다른 유형의 관광지를 조합한 제주 2박 3일 코스입니다.",
+      "region": "제주 서부",
+      "duration_days": 3,
+      "match_profile": {
+        "party_types": [
+          "with_parents",
+          "three_generations"
+        ],
+        "themes": [
+          "nature",
+          "culture",
+          "history"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2738675,
+              "name": "선운정사",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 126455,
+              "name": "한림공원",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 591866,
+              "name": "금능해수욕장",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 127860,
+              "name": "금능석물원",
+              "category": "nature",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2870974,
+            "name": "협재신국수",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2765233,
+              "name": "용수성지",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2663250,
+              "name": "신창풍차해안도로",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2742307,
+              "name": "싱계물공원",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 665594,
+              "name": "더마파크",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 3434312,
+            "name": "연리지가든",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3038062,
+              "name": "제주이호랜드",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 1925362,
+              "name": "어영공원",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 128641,
+              "name": "제주목 관아",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 1828395,
+            "name": "순옥이네명가",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 984611,
+        "name": "라온호텔 앤 리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 420000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000099",
+      "title": "혼자 천천히 즐기는 제주시와 제주 서부 문화와 자연 4박 5일 코스",
+      "summary": "혼자서도 부담 없이 천천히 즐길 수 있도록 제주시와 제주 서부의 제주목 관아, 관덕정(제주), 산방산랜드 등 서로 다른 유형의 관광지를 조합한 제주 4박 5일 코스입니다.",
+      "region": "제주시·제주 서부",
+      "duration_days": 5,
+      "match_profile": {
+        "party_types": [
+          "solo"
+        ],
+        "themes": [
+          "culture",
+          "history",
+          "trail"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2714306,
+              "name": "제주 무지개해안도로",
+              "category": "nature",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 126460,
+              "name": "관덕정(제주)",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 2852695,
+              "name": "예술공간 이아",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 4,
+              "content_id": 129894,
+              "name": "제주특별자치도 민속자연사박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2876836,
+            "name": "제주공항그때그집",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2834656,
+              "name": "아라리오뮤지엄 동문모텔2",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 2,
+              "content_id": 2833763,
+              "name": "산지천갤러리",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 128641,
+              "name": "제주목 관아",
+              "category": "history",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2861702,
+            "name": "이돈갓",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 3,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 127635,
+              "name": "한라산",
+              "category": "trail",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2908846,
+              "name": "스타빌",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 1556005,
+              "name": "그리스신화박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2845383,
+            "name": "한라산아래첫마을 영농조합법인",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        },
+        {
+          "day": 4,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2986689,
+              "name": "제주고산리유적안내센터",
+              "category": "history",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2778890,
+              "name": "노을해안로",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 130363,
+              "name": "초콜릿 박물관",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2406460,
+              "name": "제주 추사관",
+              "category": "culture",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 3492149,
+            "name": "모아시 (MOASI)",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 5,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2852538,
+              "name": "산방산랜드",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 596964,
+              "name": "세계자동차&피아노 박물관",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2753082,
+              "name": "파더스가든",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2738726,
+              "name": "중문미로파크",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2863701,
+            "name": "중문고등어쌈밥",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 3
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2007416,
+        "name": "루체빌리조트",
+        "category": "lodging"
+      },
+      "estimated_price": 804000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000011",
+      "title": "혼자 천천히 즐기는 제주 북동부 겨울 동백 1박 2일 코스",
+      "summary": "혼자서도 부담 없이 천천히 즐길 수 있도록 제주 북동부의 동백동산, 노형수퍼마켙, 제주 항파두리 항몽 유적 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다. 겨울 동백 풍경을 보기 좋은 시기는 대체로 11~2월이며, 개화 시기는 날씨에 따라 달라질 수 있습니다.",
+      "region": "제주 북동부",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "solo"
+        ],
+        "themes": [
+          "culture",
+          "festival",
+          "history"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 3061676,
+              "name": "너븐숭이 4.3기념관",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 2,
+              "content_id": 1906195,
+              "name": "동백동산",
+              "category": "festival",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 2660122,
+              "name": "제주라프",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2763726,
+              "name": "제주 스위스마을",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 3057498,
+            "name": "자드부팡",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2740014,
+              "name": "노형수퍼마켙",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 3083715,
+              "name": "제주홀릭뮤지엄",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 3,
+              "content_id": 128050,
+              "name": "제주 항파두리 항몽 유적",
+              "category": "history",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2851992,
+            "name": "마니주",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 2
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 142976,
+        "name": "펄호텔제주",
+        "category": "lodging"
+      },
+      "estimated_price": 250000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000016",
+      "title": "가족과 오붓하게 떠나는 제주 남서부 초여름 수국 1박 2일 코스",
+      "summary": "가족끼리 오붓하고 편안하게 여행하도록 제주 남서부의 안성리수국길, 제주항공우주박물관, 제주아트서커스 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다. 초여름 수국 풍경을 보기 좋은 시기는 대체로 6~7월이며, 개화 시기는 날씨에 따라 달라질 수 있습니다.",
+      "region": "제주 남서부",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "family_two",
+          "non_family_two"
+        ],
+        "themes": [
+          "culture",
+          "festival",
+          "nature"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2661407,
+              "name": "제주항공우주박물관",
+              "category": "culture",
+              "stay_minutes": 120
+            },
+            {
+              "order": 2,
+              "content_id": 987913,
+              "name": "점보빌리지",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2778897,
+              "name": "안성리수국길",
+              "category": "festival",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 2785301,
+            "name": "제주순메밀막국수",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 130512,
+              "name": "제주아트서커스",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 1911160,
+              "name": "헬로키티아일랜드",
+              "category": "culture",
+              "stay_minutes": 90
+            },
+            {
+              "order": 3,
+              "content_id": 2753082,
+              "name": "파더스가든",
+              "category": "nature",
+              "stay_minutes": 60
+            },
+            {
+              "order": 4,
+              "content_id": 2663244,
+              "name": "방주교회",
+              "category": "history",
+              "stay_minutes": 30
+            }
+          ],
+          "restaurant": {
+            "content_id": 2837142,
+            "name": "동광메밀짬뽕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2561932,
+        "name": "제주신화월드 호텔 앤 리조트 서머셋",
+        "category": "lodging"
+      },
+      "estimated_price": 307000
+    },
+    {
+      "package_id": "VIRTUAL-JEJU-000027",
+      "title": "혼자 천천히 즐기는 제주시 문화와 여유 1박 2일 코스",
+      "summary": "혼자서도 부담 없이 천천히 즐길 수 있도록 제주시의 아쿠아플라넷 제주, 용연구름다리, 관덕정(제주) 등 서로 다른 유형의 관광지를 조합한 제주 1박 2일 코스입니다.",
+      "region": "제주시",
+      "duration_days": 2,
+      "match_profile": {
+        "party_types": [
+          "solo"
+        ],
+        "themes": [
+          "culture",
+          "history",
+          "theme_park"
+        ],
+        "paces": [
+          "relaxed"
+        ]
+      },
+      "days": [
+        {
+          "day": 1,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2553685,
+              "name": "수목원테마파크(아이스뮤지엄)",
+              "category": "theme_park",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2738692,
+              "name": "용연구름다리",
+              "category": "culture",
+              "stay_minutes": 30
+            },
+            {
+              "order": 3,
+              "content_id": 126460,
+              "name": "관덕정(제주)",
+              "category": "history",
+              "stay_minutes": 30
+            },
+            {
+              "order": 4,
+              "content_id": 2931932,
+              "name": "아라리오뮤지엄 탑동시네마",
+              "category": "culture",
+              "stay_minutes": 60
+            }
+          ],
+          "restaurant": {
+            "content_id": 4083815,
+            "name": "고국수",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        },
+        {
+          "day": 2,
+          "places": [
+            {
+              "order": 1,
+              "content_id": 2791473,
+              "name": "제주커피박물관 바움",
+              "category": "culture",
+              "stay_minutes": 60
+            },
+            {
+              "order": 2,
+              "content_id": 2048059,
+              "name": "아쿠아플라넷 제주",
+              "category": "theme_park",
+              "stay_minutes": 150
+            },
+            {
+              "order": 3,
+              "content_id": 2778809,
+              "name": "제주 글라스하우스",
+              "category": "culture",
+              "stay_minutes": 90
+            }
+          ],
+          "restaurant": {
+            "content_id": 2877751,
+            "name": "신왕",
+            "category": "food",
+            "stay_minutes": 60,
+            "recommended_after_place_order": 1
+          }
+        }
+      ],
+      "hotel": {
+        "content_id": 2948165,
+        "name": "에코랜드 호텔",
+        "category": "lodging"
+      },
+      "estimated_price": 312000
+    }
+  ],
+  "food_lodging_enrichment": {
+    "applied_at": "2026-08-03",
+    "transport_removed": true,
+    "restaurant_per_day": 1,
+    "hotel_per_day_trip_package": 0,
+    "hotel_per_overnight_package": 1,
+    "restaurant_policy": "TourAPI 일반 음식점 중 날짜별 관광지 사이 추가 이동거리가 최소인 곳",
+    "hotel_policy": "TourAPI 호텔·리조트 중 모든 날짜의 첫·마지막 관광지 왕복거리 합이 최소인 곳"
+  }
+}
