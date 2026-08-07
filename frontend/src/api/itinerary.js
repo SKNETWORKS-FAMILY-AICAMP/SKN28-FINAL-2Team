@@ -33,7 +33,9 @@ export const getItineraries = async () => {
     startDate: item.start_date,
     endDate: item.end_date,
     durationLabel: item.duration_label,
+    companionTypeDisplay: item.companion_type_display,
     companionCount: item.companion_count,
+    styleDisplay: item.style_display,
     status: item.status,
     statusDisplay: item.status_display,
   }));

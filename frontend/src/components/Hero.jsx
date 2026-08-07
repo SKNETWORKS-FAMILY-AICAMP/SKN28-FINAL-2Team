@@ -81,7 +81,7 @@ export default function Hero() {
               </g>
             </g>
           </svg>
-          <span className="sticker s1">일정 완성! 🌿</span>
+          <span className="sticker s1">일정 완성! 🍊</span>
           <div className="mockup">
             <div className="mockup-bar">
               <span></span>
@@ -90,12 +90,13 @@ export default function Hero() {
               <div className="mockup-title">AI 대화 코치</div>
             </div>
             <div className="mockup-body">
-              <div className="chat-line">
-                <div className="who">🌿</div>
-                <div className="chat-bubble">우도 대신 협재해변으로 바꿔주세요</div>
-              </div>
               <div className="chat-line me">
                 <div className="who">나</div>
+                <div className="chat-bubble">우도 대신 협재해변으로 바꿔주세요</div>
+              </div>
+
+              <div className="chat-line">
+                <div className="who">🍊</div>
                 <div className="chat-bubble">
                   알겠습니다! 우도를 협재해변으로 바꿨어요. 이동 시간도 20분 줄었어요.
                 </div>

@@ -13,7 +13,7 @@ export default function How() {
         <div className="reveal">
           <div className="section-tag">진행 순서</div>
           <h2 className="section-title">
-            🌿 제주 여행
+            🍊 제주 여행
             <br />
            &nbsp; &nbsp; &nbsp;다섯 걸음이면 충분해요
           </h2>

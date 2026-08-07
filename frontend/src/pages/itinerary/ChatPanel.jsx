@@ -136,7 +136,7 @@ export default function ChatPanel({ onRevised }) {
             className={cx(styles.msg, m.me && styles.me)}
           >
             <div className={styles.who}>
-              {m.me ? "나" : "🌿"}
+              {m.me ? "나" : "🍊"}
             </div>
 
             <div
