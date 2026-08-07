@@ -1,41 +1,11 @@
+import copy
+
 from rest_framework import serializers
 
 from drf_spectacular.utils import extend_schema_field
 
-from .models import Accommodation, Itinerary, ItineraryDay, ItineraryItem, Package, Restaurant, TouristSpot
+from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
-
-class TouristSpotSerializer(serializers.ModelSerializer):
-    tags = serializers.SerializerMethodField()
-
-    class Meta:
-        model = TouristSpot
-        fields = (
-            "id", "name", "address", "description", "image_url",
-            "tags", "latitude", "longitude",
-        )
-
-    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
-    def get_tags(self, obj):
-        return obj.tag_list()
-
-
-class AccommodationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Accommodation
-        fields = (
-            "id", "name", "address", "description", "image_url",
-            "price_per_night", "rating", "review_count", "latitude", "longitude",
-        )
-
-
-class RestaurantSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Restaurant
-        fields = (
-            "id", "name", "address", "description", "image_url", "category",
-            "price_range", "rating", "review_count", "latitude", "longitude",
-        )
 
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
@@ -43,6 +13,8 @@ class PackageSerializer(serializers.ModelSerializer):
     price = serializers.IntegerField(source="estimated_price", read_only=True)
 
     accommodation_included = serializers.SerializerMethodField()
+    companion_types = serializers.SerializerMethodField()
+    tags = serializers.SerializerMethodField()
     style = serializers.SerializerMethodField()
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
@@ -51,9 +23,16 @@ class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
         fields = (
-            "id", "package_id", "name", "description", "price", "region", "duration_days", "match_profile", 
+            "id", "package_id", "name", "description", "price", "region", "duration_days",
+            "companion_types", "tags",
             "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
         )
+
+    def get_companion_types(self, obj):
+        return [value.strip() for value in obj.companion.split(",") if value.strip()]
+
+    def get_tags(self, obj):
+        return [value.strip() for value in obj.tags.split(",") if value.strip()]
 
     def get_accommodation_included(self, obj):
         from django.db import connections
@@ -73,22 +52,20 @@ class PackageSerializer(serializers.ModelSerializer):
             return bool(cursor.fetchone()[0])
 
     def get_style(self, obj):
-        profile = obj.match_profile or {}
-        paces = profile.get("paces", [])
-        themes = profile.get("themes", [])
-        party_types = profile.get("party_types", [])
+        categories = self.get_tags(obj)
+        companion_types = self.get_companion_types(obj)
 
-        if "with_children" in party_types or "family_group" in party_types:
+        if "family" in companion_types:
             return "family"
 
-        if "relaxed" in paces:
-            return "healing"
-
-        if "experience" in themes:
+        if "experience" in categories or "activity" in categories:
             return "activity"
 
-        if "food" in themes or "market_shopping" in themes:
+        if any(item in categories for item in ("food", "cafe", "shopping")):
             return "food"
+
+        if "nature" in categories:
+            return "healing"
 
         return ""
 
@@ -194,6 +171,7 @@ class PackageSerializer(serializers.ModelSerializer):
         ]
     
 class ItineraryItemSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = ItineraryItem
         fields = (
@@ -201,6 +179,32 @@ class ItineraryItemSerializer(serializers.ModelSerializer):
             "thumbnail", "cost", "spot", "restaurant", "accommodation",
             "latitude", "longitude", "memo",
         )
+    def get_thumbnail(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 
+                    p.content_id,
+                    img.image_url,
+                    img.thumbnail_url
+                FROM places p
+                LEFT JOIN place_images img
+                    ON img.content_id = p.content_id
+                WHERE p.title = %s
+                ORDER BY img.display_order
+                LIMIT 1
+                """,
+                [obj.title],
+            )
+
+            row = cursor.fetchone()
+
+        if row:
+            return row[1] or row[2] or ""
+
+        return ""
 
 
 class ItineraryDaySerializer(serializers.ModelSerializer):
@@ -260,6 +264,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         days_data = validated_data.pop("days", None)
+        engine_days_data = copy.deepcopy(days_data) if days_data is not None else None
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -267,6 +272,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
         if days_data is not None:
             self._sync_days(instance, days_data)
+            self._sync_engine_state_days(instance, engine_days_data)
 
         return instance
 
@@ -284,6 +290,85 @@ class ItinerarySerializer(serializers.ModelSerializer):
             for idx, item_data in enumerate(items_data):
                 item_data.setdefault("order", idx)
                 ItineraryItem.objects.create(day=day, **item_data)
+
+    @staticmethod
+    def _sync_engine_state_days(itinerary, days_data):
+        """Keep package recommendation input aligned with direct schedule edits."""
+
+        state = copy.deepcopy(itinerary.engine_state)
+        if not isinstance(state, dict) or not isinstance(state.get("itinerary"), dict):
+            return
+
+        old_days = state["itinerary"].get("days") or []
+        old_days_by_number = {
+            int(day.get("day")): day
+            for day in old_days
+            if isinstance(day, dict) and day.get("day") is not None
+        }
+        old_stops_by_title = {}
+        for day in old_days:
+            for stop in day.get("stops") or []:
+                title = str(stop.get("title") or "").strip()
+                if title:
+                    old_stops_by_title[title] = stop
+
+        role_by_item_type = {
+            "spot": "visit",
+            "restaurant": "food",
+            "accommodation": "lodge",
+            "activity": "activity",
+        }
+        new_days = []
+        used_content_ids = []
+
+        for day_data in days_data or []:
+            day_number = int(day_data.get("day_number") or len(new_days) + 1)
+            old_day = old_days_by_number.get(day_number, {})
+            new_stops = []
+
+            for index, item_data in enumerate(day_data.get("items") or [], start=1):
+                title = str(item_data.get("title") or "").strip()
+                old_stop = old_stops_by_title.get(title, {})
+                content_id = old_stop.get("content_id")
+
+                linked_spot = item_data.get("spot")
+                if content_id is None and linked_spot is not None:
+                    source_id = getattr(linked_spot, "source_id", None)
+                    if source_id and str(source_id).isdigit():
+                        content_id = int(source_id)
+
+                if content_id is None:
+                    continue
+
+                stop = copy.deepcopy(old_stop)
+                stop.update(
+                    {
+                        "sequence": index,
+                        "title": title,
+                        "content_id": int(content_id),
+                        "role": role_by_item_type.get(
+                            str(item_data.get("item_type") or ""),
+                            stop.get("role", "visit"),
+                        ),
+                    }
+                )
+                if item_data.get("time"):
+                    stop["start_time"] = str(item_data["time"])
+                new_stops.append(stop)
+                used_content_ids.append(int(content_id))
+
+            new_days.append(
+                {
+                    "day": day_number,
+                    "title": old_day.get("title", f"DAY {day_number}"),
+                    "stops": new_stops,
+                }
+            )
+
+        state["itinerary"]["days"] = new_days
+        state["used_content_ids"] = list(dict.fromkeys(used_content_ids))
+        itinerary.engine_state = state
+        itinerary.save(update_fields=["engine_state"])
 
 
 class ItineraryRouteSerializer(serializers.Serializer):

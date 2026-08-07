@@ -12,9 +12,6 @@ const mapItinerary = (data) => ({
   companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
 
-  transport: data.transport,
-  transportDisplay: data.transport_display,
-
   style: data.style_display,
   styleCode: data.style,
   styleDisplay: data.style_display,
@@ -47,20 +44,21 @@ export const getItineraries = async () => {
   }));
 };
 
-// 일정 상세 조회
 export const getItinerary = async (id) => {
   const { data } = await api.get(`/travel/itineraries/${id}/`);
 
   return mapItinerary(data);
 };
 
-// 일정 생성
-export const createItinerary = async (payload) => {
-  const { data } = await api.post("/travel/itineraries/", payload);
-  return mapItinerary(data);
+export const createItinerary = async (data) => {
+  const { data: response } = await api.post(
+    "/travel/itineraries/",
+    data
+  );
+
+  return mapItinerary(response);
 };
 
-// 일정 재생성
 export const regenerateItinerary = async (id) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/regenerate/`
@@ -90,8 +88,6 @@ export const getSharedItinerary = async (token) => {
   return mapItinerary(data);
 };
 
-
-// 공유 링크 생성
 export const createShareLink = async (id) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/share/`
@@ -100,15 +96,8 @@ export const createShareLink = async (id) => {
   return data;
 };
 
-
-// 일정 전체 수정
-export const updateItinerary = async (id, payload) => {
-  const { data } = await api.put(
-    `/travel/itineraries/${id}/`,
-    payload
-  );
-
-  return mapItinerary(data);
+export const deleteItinerary = async (id) => {
+  await api.delete(`/travel/itineraries/${id}/`);
 };
 
 // 일정 일부 수정
@@ -121,18 +110,23 @@ export const patchItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
-
- 
-//  일정 삭제
-export const deleteItinerary = async (id) => {
-  await api.delete(`/travel/itineraries/${id}/`);
-};
-
-
-//  여행 경로 조회
+// 여행 경로 조회
 export const getRoute = async (id) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/route/`
   );
+
+  return data;
+};
+
+// 생성된 일정과 가장 유사한 패키지 조회
+export const getPackageRecommendations = async (id, topK = 3) => {
+  const { data } = await api.get(
+    `/travel/itineraries/${id}/package-recommendations/`,
+    {
+      params: { top_k: topK },
+    }
+  );
+
   return data;
 };

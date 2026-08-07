@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-DEFAULT_CHAT_MODEL = "gpt-4o-mini"
+DEFAULT_CHAT_MODEL = "gpt-5.6-luna"
 
 
 class LLMClientError(RuntimeError):
@@ -18,6 +18,7 @@ class OpenAIChatClient:
         api_key: str | None,
         model: str | None = None,
         temperature: float = 0.2,
+        reasoning_effort: str | None = None,
     ) -> None:
         if not api_key:
             raise LLMClientError("OPENAI_API_KEY is required to build an OpenAIChatClient")
@@ -29,17 +30,27 @@ class OpenAIChatClient:
         self._client = openai.OpenAI(api_key=api_key)
         self.model = model or os.environ.get("OPENAI_CHAT_MODEL", DEFAULT_CHAT_MODEL)
         self.temperature = temperature
+        self.reasoning_effort = reasoning_effort or os.environ.get(
+            "OPENAI_REASONING_EFFORT",
+            "low",
+        )
 
     def complete_json(self, *, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        response = self._client.chat.completions.create(
-            model=self.model,
-            temperature=self.temperature,
-            response_format={"type": "json_object"},
-            messages=[
+        request: dict[str, Any] = {
+            "model": self.model,
+            "response_format": {"type": "json_object"},
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-        )
+        }
+
+        if self.model == "gpt-4o-mini":
+            request["temperature"] = self.temperature
+        else:
+            request["reasoning_effort"] = self.reasoning_effort
+
+        response = self._client.chat.completions.create(**request)
         content = response.choices[0].message.content or "{}"
         try:
             return json.loads(content)

@@ -5,6 +5,7 @@ import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
 
+
 const READY_DELAY_MS = 1800
 
 let uid = 100
@@ -15,13 +16,6 @@ const COMPANION_TYPE_MAP = {
   친구: 'friend',
   연인: 'couple',
   혼자: 'solo',
-}
-
-const TRANSPORT_MAP = {
-  렌터카: 'car',
-  버스: 'bus',
-  자가용: 'car',
-  택시: 'taxi',
 }
 
 const STYLE_MAP = {
@@ -48,6 +42,35 @@ const parseNights = (durationText) => {
 
   return 1
 }
+
+const normalizeDuration = (text) => {
+  const value = text.trim().replace(/\s+/g, '');
+
+  if (value === '당일' || value === '당일치기') {
+    return '당일';
+  }
+
+  const nightOnlyMatch = value.match(/^(\d+)박$/);
+
+  if (nightOnlyMatch) {
+    const nights = Number(nightOnlyMatch[1]);
+
+    if (nights < 1) return null;
+
+    return `${nights}박 ${nights + 1}일`;
+  }
+
+  const nightDayMatch = value.match(/^(\d+)박(\d+)일$/);
+
+  if (!nightDayMatch) return null;
+
+  const nights = Number(nightDayMatch[1]);
+  const days = Number(nightDayMatch[2]);
+
+  if (nights < 1 || days !== nights + 1) return null;
+
+  return `${nights}박 ${days}일`;
+};
 
 const formatLocalDate = (date) => {
   const year = date.getFullYear()
@@ -77,6 +100,31 @@ const getCompanionCount = (companion) => {
 
   return 1
 }
+const calculateTripDuration = (startDate, endDate) => {
+  if (!startDate || !endDate) return null;
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const diffTime = end.getTime() - start.getTime();
+  const nights = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (nights < 0) return null;
+
+  if (nights === 0) {
+    return {
+      label: "당일",
+      nights: 0,
+      days: 1,
+    };
+  }
+
+  return {
+    label: `${nights}박 ${nights + 1}일`,
+    nights,
+    days: nights + 1,
+  };
+};
 
 export default function ChatColumn({
   answers,
@@ -105,6 +153,8 @@ export default function ChatColumn({
 
   const [stepIndex, setStepIndex] = useState(0)
   const [input, setInput] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   const bodyRef = useRef(null)
   const navigate = useNavigate()
@@ -121,18 +171,44 @@ export default function ChatColumn({
   }, [history, ready, stepIndex])
 
   const finishFlow = async (finalAnswers) => {
-    try {
-      const nights = parseNights(finalAnswers.duration)
 
-      const { start_date, end_date } =
-        buildDateRange(nights)
+    setHistory((prev) => [
+      ...prev,
+      {
+        id: nextId(),
+        type: 'msg',
+        me: false,
+        lines: [
+          '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉',
+        ],
+      },
+      {
+        id: nextId(),
+        type: 'card',
+        title: '✅ 입력된 조건 확인',
+        rows: STEPS.map((step) => ({
+          ic: step.icon,
+          label: step.label,
+          value:
+            step.key === 'travelDates'
+              ? finalAnswers.travelDates?.duration
+              : finalAnswers[step.key],
+        })),
+      },
+    ])
+
+    try {
+      const {
+        startDate,
+        endDate,
+      } = finalAnswers.travelDates
 
       const itinerary = await createItinerary({
         title: '제주 맞춤 여행',
         subtitle: `${finalAnswers.companion} 여행`,
 
-        start_date,
-        end_date,
+        start_date: startDate,
+        end_date: endDate,
 
         companion_type:
           COMPANION_TYPE_MAP[
@@ -143,11 +219,6 @@ export default function ChatColumn({
           finalAnswers.companion
         ),
 
-        transport:
-          TRANSPORT_MAP[
-            finalAnswers.transport
-          ] ?? 'car',
-
         style:
           STYLE_MAP[finalAnswers.style] ??
           'healing',
@@ -155,7 +226,6 @@ export default function ChatColumn({
         budget_per_person: 500000,
 
         accommodation_cost: 150000,
-        transport_cost: 100000,
         activity_cost: 50000,
         food_cost: 100000,
         etc_cost: 50000,
@@ -168,6 +238,33 @@ export default function ChatColumn({
 
       setItineraryId(itinerary.id)
 
+      const initialMessages = [
+        {
+          id: crypto.randomUUID(),
+          me: false,
+          text: ['✅ 입력한 여행 조건입니다.',
+            '',
+            `👥 동행자: ${finalAnswers.companion}`,
+            `📅 기간: ${finalAnswers.travelDates.duration}`,
+            `🍃 여행 스타일: ${finalAnswers.style}`,
+          ].join('\n'),
+        },
+        {
+          id: crypto.randomUUID(),
+          me: false,
+          text: '짜잔! 고민없이 제주 여행 일정을 완성했어요 🎉',
+          mini: '일정 확인하기 →',
+        },
+      ]
+
+      sessionStorage.setItem(
+        `itinerary-chat-${itinerary.id}`,
+        JSON.stringify(initialMessages),
+      )
+      setTimeout(onReady, READY_DELAY_MS)
+    } catch (error) {
+      console.error('일정 생성 실패:', error)
+      
       setHistory((prev) => [
         ...prev,
         {
@@ -175,43 +272,55 @@ export default function ChatColumn({
           type: 'msg',
           me: false,
           lines: [
-            '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉',
+            '일정을 생성하지 못했어요. 잠시 후 다시 시도해주세요.',
           ],
         },
-        {
-          id: nextId(),
-          type: 'card',
-          title: '✅ 입력된 조건 확인',
-          rows: STEPS.map((step) => ({
-            ic: step.icon,
-            label: step.label,
-            value: finalAnswers[step.key],
-          })),
-        },
       ])
-
-      setTimeout(onReady, READY_DELAY_MS)
-    } catch (error) {
-      console.error('일정 생성 실패:', error)
     }
   }
 
-  const answerStep = (key, value) => {
-    if (!value.trim()) return
+    const answerStep = (key, value) => {
+      if (!value.trim()) return
+    
+      let finalValue = value.trim();
 
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        type: 'msg',
-        me: true,
-        lines: [value],
-      },
-    ])
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: true,
+          lines: [finalValue],
+        },
+      ])
+
+      if (key === 'duration') {
+        const normalized = normalizeDuration(finalValue);
+
+        if (!normalized) {
+          setHistory((prev) => [
+            ...prev,
+            {
+              id: nextId(),
+              type: 'msg',
+              me: false,
+              lines: [
+                '여행 기간 형식이 올바르지 않아요.',
+                '(예: 당일, 1박 2일, 2박 3일)',
+              ],
+            },
+          ]);
+
+          return;
+        }
+
+        finalValue = normalized;
+      }
+
 
     const nextAnswers = {
       ...answers,
-      [key]: value,
+      [key]: finalValue,
     }
 
     setAnswers(nextAnswers)
@@ -233,20 +342,36 @@ export default function ChatColumn({
     }
   }
 
-  const sendMsg = () => {
-    const text = input.trim()
+    const sendMsg = () => {
+      const text = input.trim()
 
-    if (!text) return
+      if (!text) return
 
-    setInput('')
+      setInput('')
 
     const currentStep = STEPS[stepIndex]
 
     if (
       currentStep &&
-      currentStep.type === 'text'
+      currentStep.type === 'dateRange'
     ) {
-      answerStep(currentStep.key, text)
+      return
+    }
+
+    if (
+      currentStep &&
+      currentStep.type === 'toggle'
+    ) {
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: ['버튼을 눌러 선택해주세요.'],
+        },
+      ])
+
       return
     }
 
@@ -374,16 +499,111 @@ export default function ChatColumn({
                       </div>
                     )}
 
-                  {step.type === 'text' &&
+                  {step.type === 'dateRange' &&
                     !alreadyAnswered && (
-                      <div
-                        className={
-                          styles.stepHint
-                        }
-                      >
-                        아래 입력창에 직접
-                        답해주세요 (
-                        {step.placeholder})
+                      <div className={styles.dateRange}>
+                        <div className={styles.dateInputs}>
+                          <label className={styles.dateField}>
+                            <span>출발일</span>
+
+                            <input
+                              type="date"
+                              value={startDate}
+                              min={new Date().toISOString().split('T')[0]}
+                              onChange={(event) => {
+                                const value = event.target.value
+
+                                setStartDate(value)
+
+                                if (endDate && value > endDate) {
+                                  setEndDate('')
+                                }
+                              }}
+                            />
+                          </label>
+
+                          <label className={styles.dateField}>
+                            <span>도착일</span>
+
+                            <input
+                              type="date"
+                              value={endDate}
+                              min={
+                                startDate ||
+                                new Date().toISOString().split('T')[0]
+                              }
+                              onChange={(event) =>
+                                setEndDate(event.target.value)
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        {startDate && endDate && (
+                          <div className={styles.dateSummary}>
+                            <div className={styles.dateText}>
+                              {startDate} ~ {endDate}
+                            </div>
+                            
+                            <strong>
+                              {calculateTripDuration(startDate, endDate)?.label}
+                            </strong>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          className={styles.dateCompleteBtn}
+                          disabled={!startDate || !endDate}
+                          onClick={() => {
+                            const duration = calculateTripDuration(startDate, endDate)
+
+                            if (!duration) return
+
+                            const value = {
+                              startDate,
+                              endDate,
+                              duration: duration.label,
+                            }
+
+                            setHistory((prev) => [
+                              ...prev,
+                              {
+                                id: nextId(),
+                                type: 'msg',
+                                me: true,
+                                lines: [
+                                  duration.label,
+                                ],
+                              },
+                            ])
+
+                            const nextAnswers = {
+                              ...answers,
+                              travelDates: value,
+                            }
+
+                            setAnswers(nextAnswers)
+
+                            const next = stepIndex + 1
+                            setStepIndex(next)
+
+                            if (next < STEPS.length) {
+                              setHistory((prev) => [
+                                ...prev,
+                                {
+                                  id: nextId(),
+                                  type: 'question',
+                                  stepIndex: next,
+                                },
+                              ])
+                            } else {
+                              finishFlow(nextAnswers)
+                            }
+                          }}
+                        >
+                          날짜 선택 완료
+                        </button>
                       </div>
                     )}
                 </div>
@@ -460,14 +680,21 @@ export default function ChatColumn({
         <div className={styles.inputBar}>
           <input
             type="text"
-            placeholder={
+            disabled={
               !flowDone &&
-              STEPS[stepIndex]?.type ===
-                'text'
-                ? STEPS[stepIndex]
-                    .placeholder
-                : '메시지를 입력하세요...'
+              (
+                STEPS[stepIndex]?.type === 'toggle' ||
+                STEPS[stepIndex]?.type === 'dateRange'
+              )
             }
+            placeholder={
+              !flowDone && STEPS[stepIndex]?.type === 'toggle'
+                ? '위 버튼을 눌러 선택해주세요'
+                : !flowDone && STEPS[stepIndex]?.type === 'dateRange'
+                  ? '위 달력에서 날짜를 선택해주세요'
+                  : '메시지를 입력하세요...'
+            }
+                          
             value={input}
             onChange={(event) =>
               setInput(event.target.value)
@@ -483,6 +710,13 @@ export default function ChatColumn({
             type="button"
             className={styles.sendBtn}
             onClick={sendMsg}
+            disabled={
+              !flowDone &&
+              (
+                STEPS[stepIndex]?.type === 'toggle' ||
+                STEPS[stepIndex]?.type === 'dateRange'
+              )
+            }
           >
             →
           </button>

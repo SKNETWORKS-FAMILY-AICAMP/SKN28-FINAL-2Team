@@ -112,7 +112,8 @@ class Package(models.Model):
         db_index=True,
     )
 
-    match_profile = models.JSONField()
+    companion = models.CharField(max_length=100, blank=True, default="")
+    tags = models.CharField(max_length=255, blank=True, default="")
 
     schema_version = models.CharField(
         max_length=20,
@@ -133,7 +134,6 @@ class Package(models.Model):
         return self.title
 
 
-# 최종 여행 일정
 
 class Itinerary(models.Model):
     """최종 여행 일정표 """
@@ -172,7 +172,6 @@ class Itinerary(models.Model):
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
     budget_per_person = models.PositiveIntegerField(null=True, blank=True)
 
-    # M004-F-005 예상 비용(평균) — 카테고리별로 직접 보관 후 합산
     accommodation_cost = models.PositiveIntegerField(default=0, help_text="숙소")
     transport_cost = models.PositiveIntegerField(default=0, help_text="렌터카/교통")
     activity_cost = models.PositiveIntegerField(default=0, help_text="액티비티")
@@ -251,7 +250,7 @@ class ItineraryItem(models.Model):
     item_type = models.CharField(max_length=20, choices=ItemType.choices, default=ItemType.CUSTOM)
     title = models.CharField(max_length=150)
     description = models.TextField(blank=True)
-    thumbnail = models.CharField(max_length=10, blank=True, help_text="이모지 썸네일 (예: 🌋)")
+    thumbnail = models.CharField(max_length=1000, blank=True, help_text="썸네일 이미지 URL")
     cost = models.PositiveIntegerField(default=0)
 
     # 카탈로그 연동 추천 결과에서 가져온 경우 원본 참조

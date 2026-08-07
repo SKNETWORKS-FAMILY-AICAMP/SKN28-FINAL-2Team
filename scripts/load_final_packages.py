@@ -18,6 +18,15 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.config.settings import MySQLConfig
 from src.common.env import load_env_file
 from src.storage.mysql_repository import MySQLPlaceRepository
+from src.recommender.profile_mapping import (
+    COMPANION_ORDER,
+    ITEM_TAG_ORDER,
+    PACKAGE_TAG_ORDER,
+    item_categories_from_tags,
+    normalize_companion_types,
+    package_categories_from_tags,
+    serialize_csv_values,
+)
 
 
 DEFAULT_INPUT = PROJECT_ROOT / "data" / "package_evaluation" / "final_packages.50.json"
@@ -196,31 +205,43 @@ def _load(
     package_sql = """
         INSERT INTO travel_packages (
             package_id, title, summary, region, duration_days,
-            estimated_price, match_profile, schema_version, is_active
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE) AS new
+            estimated_price, companion, tags,
+            schema_version, is_active
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s,
+            %s, '',
+            %s, TRUE
+        ) AS new
         ON DUPLICATE KEY UPDATE
             title = new.title,
             summary = new.summary,
             region = new.region,
             duration_days = new.duration_days,
             estimated_price = new.estimated_price,
-            match_profile = new.match_profile,
+            companion = new.companion,
             schema_version = new.schema_version,
             is_active = TRUE
     """
-    package_rows = [
-        (
-            package["package_id"],
-            package["title"],
-            package.get("summary", ""),
-            package["region"],
-            int(package["duration_days"]),
-            int(package["estimated_price"]),
-            json.dumps(package["match_profile"], ensure_ascii=False),
-            schema_version,
+    package_rows = []
+    for package in packages:
+        profile = package["match_profile"]
+        companions = normalize_companion_types(
+                profile.get("companion_types")
+                or profile.get("party_types")
+                or profile.get("party_type")
+            )
+        package_rows.append(
+            (
+                package["package_id"],
+                package["title"],
+                package.get("summary", ""),
+                package["region"],
+                int(package["duration_days"]),
+                int(package["estimated_price"]),
+                serialize_csv_values(companions, COMPANION_ORDER),
+                schema_version,
+            )
         )
-        for package in packages
-    ]
     package_ids = [str(package["package_id"]) for package in packages]
     placeholders = ",".join(["%s"] * len(package_ids))
 
@@ -266,6 +287,48 @@ def _load(
                 "(package_db_id, day_no, sequence, item_type, content_id, "
                 "stay_minutes) VALUES (%s, %s, %s, %s, %s, %s)",
                 item_rows,
+            )
+            cursor.execute(
+                "SELECT tp.id, pi.id, sd.tags "
+                "FROM travel_packages tp "
+                "JOIN package_items pi ON pi.package_db_id = tp.id "
+                "LEFT JOIN place_search_documents sd ON sd.content_id = pi.content_id "
+                f"WHERE tp.package_id IN ({placeholders})",
+                package_ids,
+            )
+            categories_by_package: dict[int, set[str]] = {
+                package_db_id: set() for package_db_id in database_ids.values()
+            }
+            item_tag_rows = []
+            for package_db_id, package_item_id, raw_tags in cursor.fetchall():
+                tags = json.loads(raw_tags) if isinstance(raw_tags, str) else (raw_tags or [])
+                categories_by_package[int(package_db_id)].update(
+                    package_categories_from_tags(tags)
+                )
+                item_tag_rows.append(
+                    (
+                        serialize_csv_values(
+                            item_categories_from_tags(tags), ITEM_TAG_ORDER
+                        ),
+                        int(package_item_id),
+                    )
+                )
+            cursor.executemany(
+                "UPDATE package_items SET tags = %s WHERE id = %s",
+                item_tag_rows,
+            )
+            cursor.executemany(
+                "UPDATE travel_packages SET tags = %s WHERE id = %s",
+                [
+                    (
+                        serialize_csv_values(
+                            categories_by_package.get(package_db_id, set()),
+                            PACKAGE_TAG_ORDER,
+                        ),
+                        package_db_id,
+                    )
+                    for package_db_id in database_ids.values()
+                ],
             )
             connection.commit()
 

@@ -18,12 +18,6 @@ const FILTERS = [
   { value: 5, label: '4박 5일' },
 ]
 
-const PACKAGE_EMOJI = {
-  stay: '🏨',
-  car: '🚗',
-  activity: '🐴',
-}
-
 const normalizePackage = (pkg) => ({
   id: pkg.id,
   name: pkg.name,
@@ -33,7 +27,6 @@ const normalizePackage = (pkg) => ({
   styleLabel: pkg.style_display,
   description: pkg.description,
   thumbnailUrl: pkg.thumbnail_url,
-  thumbnail: PACKAGE_EMOJI[pkg.category] || '🎁',
   price: Number(pkg.price),
   durationDays: pkg.duration_days,
   region: pkg.region,
@@ -57,6 +50,8 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const itemsPerPage = 9
   const { isBookmarked, toggle } = useBookmarks()
   useEffect(() => {
   const loadPackages = async () => {
@@ -107,77 +102,95 @@ export default function PackagesPage() {
     })
   }
 
-  const visible = filter === 'all' ? packages : packages.filter((p) => Number(p.durationDays) === Number(filter))
+  const filtered =
+    filter === 'all'
+      ? packages
+      : packages.filter((p) => Number(p.durationDays) === Number(filter))
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+
+  const visible =
+    filter === 'all'
+      ? packages.slice((page - 1) * itemsPerPage, page * itemsPerPage)
+      : filtered
 
   return (
-    <div className={styles.page}>
-      <header className={styles.appnav}>
-        <Link to="/" className={styles.logo}>
-          <span className={styles.logoMark}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2c4 3 6 7 6 11a6 6 0 0 1-12 0c0-4 2-8 6-11z" fill="#fff" />
-            </svg>
-          </span>
-          탐나플랜
-        </Link>
-        <AccountMenu />
-      </header>
+  <div className={styles.page}>
+    <header className={styles.appnav}>
+      <Link to="/" className={styles.logo}>
+        <span className={styles.logoMark}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2c4 3 6 7 6 11a6 6 0 0 1-12 0c0-4 2-8 6-11z" fill="#fff" />
+          </svg>
+        </span>
+        탐나플랜
+      </Link>
+      <AccountMenu />
+    </header>
 
-      <div className={styles.wrap}>
-        <div className={styles.pageHead}>
-          <div className={styles.sectionTag}>✓ 추천 패키지</div>
-          <h1>탐나플랜이 준비한 패키지 전체보기</h1>
-          <p>여행 기간에 맞는 패키지를 한눈에 비교하고, 마음에 드는 패키지는 하트로 찜해보세요.</p>
-        </div>
+    <div className={styles.wrap}>
+      <div className={styles.pageHead}>
+        <div className={styles.sectionTag}>✓ 추천 패키지</div>
+        <h1>탐나플랜이 준비한 패키지 전체보기</h1>
+        <p>여행 기간에 맞는 패키지를 한눈에 비교하고, 마음에 드는 패키지는 하트로 찜해보세요.</p>
+      </div>
 
-        <div className={styles.filters}>
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              className={cx(styles.filterBtn, filter === f.value && styles.filterBtnActive)}
-              onClick={() => setFilter(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+      <div className={styles.filters}>
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            className={cx(styles.filterBtn, filter === f.value && styles.filterBtnActive)}
+            onClick={() => {setFilter(f.value), setPage(1)}}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-        {loading ? (
-          <div className={styles.empty}>패키지를 불러오는 중...</div>
-        ) : error ? (
-          <div className={styles.empty}>{error}</div>
-        ) : visible.length === 0 ? (
-          <div className={styles.empty}>해당 기간의 패키지가 아직 없어요.</div>
-        ) : (
+      {loading ? (
+        <div className={styles.empty}>패키지를 불러오는 중...</div>
+      ) : error ? (
+        <div className={styles.empty}>{error}</div>
+      ) : visible.length === 0 ? (
+        <div className={styles.empty}>해당 기간의 패키지가 아직 없어요.</div>
+      ) : (
+        <>
           <div className={styles.grid}>
             {visible.map((p) => (
-              <div className={styles.card} key={p.id} onClick={() => handleOpenDetail(p.id)}>
+              <div
+                className={styles.card}
+                key={p.id}
+                onClick={() => handleOpenDetail(p.id)}
+              >
                 <div className={styles.cardImg}>
-                  {p.thumbnailUrl ? (
-                    <img
-                      src={p.thumbnailUrl}
-                      alt={p.name}
-                      className={styles.cardImage}
-                    />
-                  ) : (
-                    p.thumbnail
-                  )}
+                  <img
+                    src={p.thumbnailUrl}
+                    alt={p.name}
+                    className={styles.cardImage}
+                  />
 
-                  <span className={styles.cardBadge}>{p.categoryLabel}</span>
+                  <span className={styles.cardBadge}> {p.styleLabel} </span>
+
                   <button
-                    className={cx(styles.bookmarkBtn, isBookmarked(p.id) && styles.bookmarkBtnActive)}
+                    className={cx(
+                      styles.bookmarkBtn,
+                      isBookmarked(p.id) && styles.bookmarkBtnActive
+                    )}
                     onClick={(e) => {
                       e.stopPropagation()
                       toggle(p.id)
                     }}
                     aria-label="찜하기"
                   >
-                    {isBookmarked(p.id) ? '❤️' : '🤍'}
+                    {isBookmarked(p.id) ? "❤️" : "🤍"}
                   </button>
                 </div>
+
                 <div className={styles.cardBody}>
                   <h4>{p.name}</h4>
+
                   <p className={styles.desc}>{p.description}</p>
+
                   <div className={styles.tags}>
                     {p.includedItems.map((item) => (
                       <span className={styles.tag} key={item}>
@@ -185,8 +198,10 @@ export default function PackagesPage() {
                       </span>
                     ))}
                   </div>
+
                   <div className={styles.cardFoot}>
                     <div className={styles.price}>{won(p.price)}</div>
+
                     <button
                       type="button"
                       className={styles.btn}
@@ -199,10 +214,56 @@ export default function PackagesPage() {
               </div>
             ))}
           </div>
-        )}
-      </div>
 
-      <PackageDetailModal pkg={selectedPackage} onClose={() => setSelectedPackage(null)} />
+          {filter === 'all' && (       
+            <div className={styles.pagination}>
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(1)}
+              >
+                {"<<"}
+              </button>
+
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                {"<"}
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i + 1}
+                  className={page === i + 1 ? styles.pageActive : ""}
+                  onClick={() => setPage(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                {">"}
+              </button>
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(totalPages)}
+              >
+                {">>"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
-  )
+
+    <PackageDetailModal
+      pkg={selectedPackage}
+      onClose={() => setSelectedPackage(null)}
+    />
+  </div>
+)
 }

@@ -4,7 +4,6 @@ const DAYS = [
   {
     dayNumber: 1,
     date: '7/25 (목)',
-    total: '129,000원',
     items: [
       { time: '09:30', title: '성산일출봉', description: '일출 명소로 유명한 제주 동쪽의 대표 관광지', dur: '체류 1시간 30분' },
       { time: '12:00', title: '협재해변', description: '에메랄드빛 바다와 하얀 모래 백사장', dur: '체류 1시간 30분' },
@@ -16,7 +15,6 @@ const DAYS = [
   {
     dayNumber: 2,
     date: '7/26 (금)',
-    total: '168,000원',
     items: [
       { time: '09:00', title: '사려니숲길', description: '편백나무 향 가득한 산책로, 부모님 걸음에 맞춰 여유롭게', dur: '체류 1시간' },
       { time: '11:00', title: '동문관덕정', description: '제주 전통 시장 골목 구경', dur: '체류 1시간' },
@@ -28,7 +26,6 @@ const DAYS = [
   {
     dayNumber: 3,
     date: '7/27 (토)',
-    total: '141,700원',
     items: [
       { time: '09:00', title: '협재 해변 산책', description: '마지막 날 아침 여유로운 바다 산책', dur: '체류 1시간' },
       { time: '11:00', title: '점심 식사 — 해물뚝배기', description: '떠나기 전 든든한 한 끼', dur: '체류 1시간' },
@@ -88,10 +85,6 @@ export default function Itinerary() {
                   </div>
                 </div>
               ))}
-              <div className="it-total">
-                <div className="lbl">Day {current.dayNumber} 예상 비용</div>
-                <div className="val">{current.total}</div>
-              </div>
             </div>
           </div>
         </div>

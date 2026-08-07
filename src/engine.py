@@ -12,14 +12,8 @@ from .aihub.similarity import (
 )
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
-from .models import (
-    ItinerarySlot,
-    ItineraryState,
-    SlotCandidate,
-    TravelCondition,
-    apply_delta,
-    infer_affected_slots,
-)
+from .models import ItinerarySlot, ItineraryState, SlotAddRequest, SlotCandidate, TravelCondition, apply_delta, infer_affected_slots
+
 from .planner import PlannerConfig, select_candidates
 from .rag import PlaceSearchFilters, PlaceSearchService, create_place_search_service
 from .rag.models import RetrievedPlace
@@ -28,10 +22,13 @@ from .recommender import create_pattern_service
 DEFAULT_SEARCH_TOP_K = 8
 _DEFAULT_DAY_ROLES: tuple[str, ...] = ("visit", "food", "visit", "food")
 
-# Reverse of aihub.similarity.SLOT_TARGET_COLLECTIONS, used to guess which
-# itinerary slot role a specific must-visit place belongs to. "attractions"
-# is shared by visit/activity, so it defaults to "visit" -- good enough for
-# picking *a* slot to force the place into.
+_DEFAULT_STAY_MINUTES_BY_ROLE: dict[str, int] = {
+    "visit": 90,
+    "activity": 120,
+    "food": 60,
+    "shopping": 30,
+}
+
 _TARGET_COLLECTION_TO_ROLE: dict[str, str] = {
     "restaurants": "food",
     "shopping": "shopping",
@@ -70,7 +67,6 @@ def create_container(
 
 
 class ItineraryEngine:
-    """The single pipeline entry point the frontend/API layer talks to."""
 
     def __init__(self, container: AppContainer) -> None:
         self._container = container
@@ -134,6 +130,7 @@ class ItineraryEngine:
         new_condition = apply_delta(state.condition, delta)
 
         if delta.is_empty():
+            print("[revise] delta.is_empty() == True -> 변경할 내용 없음, 그대로 반환")
             return ItineraryState(
                 condition=new_condition,
                 slots=state.slots,
@@ -142,6 +139,7 @@ class ItineraryEngine:
             )
 
         affected_roles = set(infer_affected_slots(delta))
+        print("[revise] affected_roles :", affected_roles)
         used_content_ids = set(state.used_content_ids)
         updated_slots: list[ItinerarySlot] = []
         re_searched_keys: set[tuple[int, int]] = set()
@@ -175,16 +173,43 @@ class ItineraryEngine:
         forced_slots = self._force_include_must_visit_places(
             new_condition, updated_slots, used_content_ids
         )
-        changed_keys = re_searched_keys | {(slot.day, slot.sequence) for slot in forced_slots}
+
+        new_slots = self._create_added_slots(
+            new_condition,
+            delta.add_slots,
+            updated_slots,
+            used_content_ids,
+            extra_request=delta.notes or None,
+        )
+        updated_slots.extend(new_slots)
+
+        print("[revise] re_searched_keys:", re_searched_keys)
+        print(
+            "[revise] forced_slots (must-visit):",
+            [(s.day, s.sequence, s.role) for s in forced_slots],
+        )
+        print(
+            "[revise] new_slots (add_slots)    :",
+            [(s.day, s.sequence, s.role, len(s.candidates)) for s in new_slots],
+        )
+        
+        changed_keys = (
+            re_searched_keys
+            | {(slot.day, slot.sequence) for slot in forced_slots}
+            | {(slot.day, slot.sequence) for slot in new_slots}
+        )
         changed_slot_payloads = [
             slot.to_dict() for slot in updated_slots if (slot.day, slot.sequence) in changed_keys
         ]
+        print("[revise] changed_keys       :", changed_keys)
+        print("[revise] changed_slot_payloads count:", len(changed_slot_payloads))
 
         if changed_slot_payloads:
             itinerary = container.llm_service.revise_itinerary(
                 new_condition, state.itinerary, changed_slot_payloads
             )
         else:
+            print("[revise] changed_slot_payloads가 비어있어서 LLM 재구성 없이 그대로 반환")
             itinerary = state.itinerary
 
         return ItineraryState(
@@ -247,15 +272,6 @@ class ItineraryEngine:
         slots: list[ItinerarySlot],
         used_content_ids: set[int],
     ) -> list[ItinerarySlot]:
-        """Guarantee every ``TravelCondition.must_visit_places`` entry is
-        offered to the LLM as a candidate, instead of leaving it to Planner's
-        ranking (which has no way to know "the traveller named this place").
-
-        Returns the slots that were actually modified, so callers can make
-        sure those slots are included in the LLM prompt (initial generation
-        already sends every slot; free-chat revision only sends changed
-        slots, so it needs this list explicitly).
-        """
 
         if not condition.must_visit_places:
             return []
@@ -312,6 +328,88 @@ class ItineraryEngine:
 
         return touched_slots
 
+    def _create_added_slots(
+        self,
+        condition: TravelCondition,
+        add_slot_requests: tuple[SlotAddRequest, ...],
+        existing_slots: list[ItinerarySlot],
+        used_content_ids: set[int],
+        *,
+        extra_request: str | None = None,
+    ) -> list[ItinerarySlot]:
+
+        if not add_slot_requests:
+            return []
+
+        available_days = sorted({slot.day for slot in existing_slots})
+        if not available_days:
+            return []
+
+        new_slots: list[ItinerarySlot] = []
+
+        for request in add_slot_requests:
+            target_day = (
+                request.day if request.day in available_days else available_days[0]
+            )
+
+            day_slots = [
+                slot for slot in (*existing_slots, *new_slots) if slot.day == target_day
+            ]
+            next_sequence = max((slot.sequence for slot in day_slots), default=0) + 1
+
+            # 같은 day에 참고할 슬롯이 있으면 위치 힌트를 재사용해서, 새로 검색되는
+            # 장소가 그날 동선(지역)에서 크게 벗어나지 않도록 한다.
+            reference = next(
+                (slot for slot in day_slots if slot.role == request.role),
+                day_slots[0] if day_slots else None,
+            )
+            location_hint = reference.location_hint if reference else None
+            stay_minutes = (
+                reference.stay_minutes
+                if reference is not None and reference.role == request.role
+                else _DEFAULT_STAY_MINUTES_BY_ROLE.get(request.role, 60)
+            )
+
+            for _ in range(request.count):
+                slot_template = {
+                    "sequence": next_sequence,
+                    "role": request.role,
+                    "target_collections": list(
+                        SLOT_TARGET_COLLECTIONS.get(request.role, ())
+                    ),
+                    "itinerary_roles": list(
+                        SLOT_ITINERARY_ROLES.get(request.role, ())
+                    ),
+                    "stay_minutes": stay_minutes,
+                    "location_hint": location_hint,
+                }
+
+                created = self._search_and_plan_slot(
+                    condition,
+                    day_no=target_day,
+                    slot_template=slot_template,
+                    exclude_content_ids=used_content_ids,
+                    extra_request=extra_request,
+                )
+
+                if not created.candidates:
+                    # 검색 결과가 없으면 빈 슬롯을 추가하지 않고 건너뛴다.
+                    print(
+                        f"[revise] _create_added_slots: day={target_day} "
+                        f"role={request.role} sequence={next_sequence} "
+                        "-> 후보 0개, 건너뜀"
+                    )
+                    continue
+
+                used_content_ids.update(
+                    candidate.content_id for candidate in created.candidates
+                )
+                new_slots.append(created)
+                next_sequence += 1
+
+        return new_slots
+
+
     def _build_day_structure(self, condition: TravelCondition) -> list[dict[str, Any]]:
         print("=" * 50)
         print("사용자 요청 일수:", condition.duration_days)
@@ -360,9 +458,6 @@ def _infer_role_from_tags(tags: Sequence[str]) -> str:
 
 
 def _best_name_match(places: Sequence[RetrievedPlace], name: str) -> RetrievedPlace:
-    """Prefer a result whose title actually contains the requested name;
-    RAG similarity search can otherwise surface a merely-related place."""
-
     normalized_name = _normalize_title(name)
     for place in places:
         normalized_title = _normalize_title(place.title)
@@ -382,8 +477,6 @@ def _group_slots_by_day(slots: list[ItinerarySlot]) -> list[dict[str, Any]]:
 
 
 def _default_day_structure(condition: TravelCondition) -> list[dict[str, Any]]:
-    """Fallback day/slot skeleton used when no AIHub reference trip matches."""
-
     days: list[dict[str, Any]] = []
     for day_no in range(1, condition.duration_days + 1):
         slots = [

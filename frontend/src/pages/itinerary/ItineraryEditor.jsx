@@ -10,6 +10,7 @@ export default function ItineraryEditor({
   activeDay,
   setActiveDay,
   refreshKey = 0,
+  onChanged = () => {},
 }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -18,6 +19,7 @@ export default function ItineraryEditor({
 
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -37,7 +39,7 @@ export default function ItineraryEditor({
     };
 
     fetchItinerary();
-  }, [id]);
+  }, [id, refreshKey]);
 
   const toggleMenu = (i) => {
     setOpenMenuIndex((prev) => (prev === i ? null : i));
@@ -90,6 +92,7 @@ export default function ItineraryEditor({
 
       setItinerary(updated);
       setDays(updated.days);
+      onChanged();
     } catch (err) {
       console.error(err);
       alert("삭제 저장 실패");
@@ -100,53 +103,60 @@ export default function ItineraryEditor({
 
   const handleRegenerate = async () => {
     const confirmed = window.confirm(
-      "일정을 다시 생성하면 지금까지 직접 수정하거나 삭제한 내용이 모두 사라지고, 같은 조건(동행자·기간·교통수단·스타일)으로 새 일정을 처음부터 만들어요.\n계속할까요?"
+      "일정을 다시 생성하면 수정한 내용이 사라집니다. \n계속하시겠습니까?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed || isRegenerating) return;
 
     try {
+      setIsRegenerating(true);
+
       const data = await regenerate(itinerary.id);
 
       setItinerary(data);
       setDays(data.days);
+      onChanged();
     } catch (err) {
       console.error(err);
       alert("일정 재생성 실패");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
-  const handleRevise = async (message) => {
-    try {
-      const data = await revise(itinerary.id, message);
-
-      setItinerary(data);
-      setDays(data.days);
-    } catch (err) {
-      console.error(err);
-      alert("일정 수정 실패");
-    }
-  };
 
   if (!itinerary || !current) {
     return <div>일정을 불러오는 중...</div>;
   }
-    return (
+
+  return (
     <div className={styles.itCol}>
       <div className={styles.itTop}>
         <div>
-          <div className={styles.sectionTag}>✓ 일정 확인 및 수정</div>
+          <div className={styles.sectionTag}>
+            ✓ 일정 확인 및 수정
+          </div>
+
           <h1>{itinerary.title}</h1>
+
           <p>
-            {itinerary.subtitle} · {itinerary.startDate} ~ {itinerary.endDate}
+            {itinerary.subtitle} · {itinerary.startDate} ~{" "}
+            {itinerary.endDate}
           </p>
         </div>
 
         <button
-          className={cx(styles.btn, styles.ghost, styles.sm)}
+          className={cx(
+            styles.btn,
+            styles.ghost,
+            styles.sm
+          )}
           onClick={handleRegenerate}
+          disabled={isRegenerating}
         >
-          🔄 일정 다시 생성
+          {isRegenerating
+            ? "⏳ 일정 재생성 중..."
+            : "🔄 일정 다시 생성"}
         </button>
       </div>
 
@@ -156,9 +166,12 @@ export default function ItineraryEditor({
             key={day.dayNumber}
             className={cx(
               styles.dayTab,
-              activeDay === day.dayNumber && styles.dayTabActive
+              activeDay === day.dayNumber &&
+                styles.dayTabActive
             )}
-            onClick={() => setActiveDay(day.dayNumber)}
+            onClick={() =>
+              setActiveDay(day.dayNumber)
+            }
           >
             DAY {day.dayNumber}
             <span>{day.date}</span>
@@ -168,11 +181,24 @@ export default function ItineraryEditor({
 
       <div className={styles.timeline}>
         {current.items.map((item, i) => (
-          <div className={styles.tItem} key={item.id ?? i}>
-            <div className={styles.tTime}>{item.time}</div>
+          <div
+            className={styles.tItem}
+            key={item.id ?? i}
+          >
+            <div className={styles.tTime}>
+              {item.time}
+            </div>
 
             <div className={styles.tThumb}>
-              {item.thumbnail || "📍"}
+              {item.thumbnail ? (
+                <img
+                  src={item.thumbnail}
+                  alt={item.title}
+                  className={styles.thumb}
+                />
+              ) : (
+                "📍"
+              )}
             </div>
 
             <div className={styles.tBody}>
@@ -192,10 +218,16 @@ export default function ItineraryEditor({
                 <>
                   <div
                     className={styles.tMenuBackdrop}
-                    onClick={() => setOpenMenuIndex(null)}
+                    onClick={() =>
+                      setOpenMenuIndex(null)
+                    }
                   />
 
-                  <div className={styles.tMenuDropdown}>
+                  <div
+                    className={
+                      styles.tMenuDropdown
+                    }
+                  >
                     <button
                       className={cx(
                         styles.tMenuItem,
@@ -211,13 +243,26 @@ export default function ItineraryEditor({
             </div>
 
             {deleteIndex === i && (
-              <div className={styles.tDeleteConfirmOverlay}>
-                <div className={styles.tDeleteConfirm}>
+              <div
+                className={
+                  styles.tDeleteConfirmOverlay
+                }
+              >
+                <div
+                  className={
+                    styles.tDeleteConfirm
+                  }
+                >
                   <p>
-                    <b>{item.title}</b> 일정을 삭제할까요?
+                    <b>{item.title}</b> 일정을
+                    삭제할까요?
                   </p>
 
-                  <div className={styles.tEditActions}>
+                  <div
+                    className={
+                      styles.tEditActions
+                    }
+                  >
                     <button
                       className={cx(
                         styles.btn,
@@ -245,33 +290,31 @@ export default function ItineraryEditor({
             )}
           </div>
         ))}
-
-        <div className={styles.itTotal}>
-          <div className={styles.lbl}>
-            Day {current.dayNumber} 예상 비용
-          </div>
-
-          <div className={styles.val}>
-            {current.total}
-          </div>
-        </div>
       </div>
 
       <div className={styles.itActions}>
         <Link
           to="/chat"
-          className={cx(styles.btn, styles.ghost)}
+          className={cx(
+            styles.btn,
+            styles.ghost
+          )}
         >
           이전 단계로
         </Link>
 
         <button
-          className={cx(styles.btn, styles.primary)}
-          onClick={() => navigate(`/review/${itinerary.id}`)}
+          className={cx(
+            styles.btn,
+            styles.primary
+          )}
+          onClick={() =>
+            navigate(`/review/${itinerary.id}`)
+          }
         >
           이 일정으로 확정하기 →
         </button>
       </div>
     </div>
   );
-}
+  }

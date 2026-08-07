@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
 import AppHeader from './review/AppHeader.jsx';
@@ -15,7 +15,6 @@ import { getItinerary, getSharedItinerary, createShareLink, } from '../api/itine
 
 export default function ReviewPage() {
   const { id, token } = useParams();
-  const navigate = useNavigate();
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -163,8 +162,7 @@ export default function ReviewPage() {
           <h1>완성된 일정을 확인해보세요</h1>
 
           <p>
-            일정과 예상 비용을 확인하고,
-            저장하거나 공유할 수 있어요.
+            여행 일정을 확인하고, 저장하거나 공유할 수 있어요.
           </p>
         </div>
 
@@ -223,6 +221,13 @@ export default function ReviewPage() {
                   >
                     ✏️ 일정 수정하기
                   </Link>
+
+                  <Link
+                    to="/my/itineraries"
+                    className={cx(styles.btn, styles.ghost, styles.sm)}
+                  >
+                    📅 내 일정
+                  </Link>
                 </div>
               )}
             </div>
@@ -237,38 +242,18 @@ export default function ReviewPage() {
               </div>
 
               <div className={styles.metaItem}>
-                🚌 {itinerary.transportDisplay}
-              </div>
-
-              <div className={styles.metaItem}>
                 🍃 {itinerary.styleDisplay}
               </div>
             </div>
 
             <div className={styles.grid}>
-              <DayColumns days={itinerary.days} />
-
+              <div className={styles.dayArea}>
+                <DayColumns days={itinerary.days} />
+              </div>
               <TripSummary itinerary={itinerary} />
             </div>
           </div>
         </div>
-                {!token && (
-          <div className={styles.bottomActions}>
-            <Link
-              to={`/itinerary/${id}`}
-              className={cx(styles.btn, styles.ghost)}
-            >
-              이전 단계로
-            </Link>
-
-            <button
-              className={cx(styles.btn, styles.primary)}
-              onClick={() => navigate('/my/itineraries')}
-            >
-              🎉 이 일정으로 확정하고 내 일정함으로
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

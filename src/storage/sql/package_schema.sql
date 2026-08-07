@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS travel_packages (
     region VARCHAR(100) NOT NULL,
     duration_days TINYINT NOT NULL,
     estimated_price INT NOT NULL,
-    match_profile JSON NOT NULL,
+    companion VARCHAR(100) NOT NULL DEFAULT '',
+    tags VARCHAR(255) NOT NULL DEFAULT '',
     schema_version VARCHAR(20) NOT NULL DEFAULT '1.0',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS package_items (
     sequence TINYINT NULL,
     item_type VARCHAR(20) NOT NULL,
     content_id BIGINT NOT NULL,
+    tags VARCHAR(100) NOT NULL DEFAULT '',
     stay_minutes SMALLINT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_package_items_package

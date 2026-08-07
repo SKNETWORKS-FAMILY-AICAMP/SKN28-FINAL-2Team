@@ -18,7 +18,7 @@ export default function LoginPage() {
 
       await login('google', credentialResponse.credential)
 
-      const next = searchParams.get('next') || '/mypage'
+      const next = searchParams.get('next') || '/'
       navigate(next, { replace: true })
     } catch (err) {
       console.error(err)
@@ -46,7 +46,7 @@ export default function LoginPage() {
         window.Kakao.init(import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY)
       }
 
-      const next = searchParams.get('next') || '/mypage'
+      const next = searchParams.get('next') || '/'
       sessionStorage.setItem('kakaoLoginNext', next)
 
       window.Kakao.Auth.authorize({

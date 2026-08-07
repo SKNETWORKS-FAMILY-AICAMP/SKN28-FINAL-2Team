@@ -74,14 +74,12 @@ def main() -> int:
 
 
 def _build_smoke_payload(package: PackageCandidate) -> dict[str, object]:
-    profile = package.match_profile
     conditions = {
         "duration_days": package.duration_days,
-        "party_type": _first_profile_value(profile, "party_types", "solo"),
+        "party_type": package.companion_types[0] if package.companion_types else "solo",
         "preferred_visit_types": [
-            _first_profile_value(profile, "themes", "nature")
+            package.place_categories[0] if package.place_categories else "nature"
         ],
-        "pace": _first_profile_value(profile, "paces", "balanced"),
     }
     days = []
     for day in range(1, package.duration_days + 1):
@@ -105,17 +103,6 @@ def _build_smoke_payload(package: PackageCandidate) -> dict[str, object]:
             }
         )
     return {"condition": conditions, "itinerary": {"days": days}}
-
-
-def _first_profile_value(
-    profile: dict[str, object], key: str, fallback: str
-) -> str:
-    value = profile.get(key)
-    if isinstance(value, list) and value:
-        return str(value[0])
-    if isinstance(value, str) and value:
-        return value
-    return fallback
 
 
 if __name__ == "__main__":

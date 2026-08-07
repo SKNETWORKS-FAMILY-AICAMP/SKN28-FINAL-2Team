@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useItineraries } from "../../context/ItineraryContext";
+import { getItinerary } from "../../api/itinerary";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
-const INITIAL_MESSAGES = [
-  {
-    id: 1,
-    me: false,
-    text: "짜잔! 고민없이 제주 2박 3일 힐링 여행 일정을 완성했어요 🎉",
-    mini: "일정 확인하기 →",
-  },
-];
 
 const CHIPS = [
   "숙소도 추천해주세요",
@@ -28,10 +21,64 @@ const CHIP_LABELS = [
 export default function ChatPanel({ onRevised }) {
   const { id } = useParams();
   const { revise } = useItineraries();
-
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const storageKey = `itinerary-chat-${id}`;
+  const [messages, setMessages] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [input, setInput] = useState("");
+  const [isRevising, setIsRevising] = useState(false);
   const bodyRef = useRef(null);
+
+  
+
+  useEffect(() => {
+    const initializeMessages = async () => {
+      try {
+        const saved = sessionStorage.getItem(storageKey)
+
+        if (saved) {
+          const parsed = JSON.parse(saved)
+
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed)
+            return
+          }
+        }
+
+        const itinerary = await getItinerary(id)
+
+        setMessages([
+          {
+            id: crypto.randomUUID(),
+            me: false,
+            text: `짜잔! ${itinerary.durationLabel} 여행 일정을 완성했어요 🎉`,
+            mini: "일정 확인하기 →",
+          },
+        ])
+      } catch (err) {
+        console.error("채팅 초기화 실패:", err)
+      } finally {
+        setIsInitialized(true)
+      }
+    }
+
+    if (id) {
+      initializeMessages()
+    }
+  }, [id, storageKey])
+
+
+  useEffect(() => {
+    if (!isInitialized) return
+
+    try {
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(messages)
+      )
+    } catch (err) {
+      console.error("채팅 기록 저장 실패:", err);
+    }
+  }, [messages, storageKey, isInitialized]);
 
   useEffect(() => {
     if (bodyRef.current) {
@@ -41,19 +88,28 @@ export default function ChatPanel({ onRevised }) {
 
   const sendMsg = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isRevising) return;
+
+    const userMessageId = crypto.randomUUID();
+    const loadingMessageId = crypto.randomUUID();
 
     // 사용자 메시지 추가
     setMessages((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: userMessageId,
         me: true,
         text,
+      },
+      {
+        id: loadingMessageId,
+        me: false,
+        text: "일정을 수정하고 있어요...",
       },
     ]);
 
     setInput("");
+    setIsRevising(true);
 
     try {
       // 백엔드 일정 수정
@@ -63,27 +119,33 @@ export default function ChatPanel({ onRevised }) {
       onRevised?.();
 
       // AI 응답
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          me: false,
-          text: "일정을 수정했어요 ✨",
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === loadingMessageId
+            ? {
+                ...message,
+                text: "일정을 수정했어요 ✨",
+              }
+            : message
+        )
+      );
     } catch (err) {
       console.error(err);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          me: false,
-          text: "일정 수정에 실패했습니다.",
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === loadingMessageId
+            ? {
+                ...message,
+                text: "일정 수정에 실패했습니다.",
+              }
+            : message
+        )
+      );
+    } finally {
+      setIsRevising(false);
     }
-  };
+  }
 
   return (
     <div className={styles.chatCol}>
@@ -105,7 +167,10 @@ export default function ChatPanel({ onRevised }) {
               {m.me ? "나" : "🌿"}
             </div>
 
-            <div className={styles.bubble}>
+            <div 
+              className={styles.bubble}
+              style={{ whiteSpace: "pre-line"}}
+            >
               {m.text}
 
               {m.mini && (

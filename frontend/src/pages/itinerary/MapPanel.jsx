@@ -1,9 +1,29 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { getRoute } from '../../api/itinerary'
+import { getPackageRecommendations, getRoute } from '../../api/itinerary'
+import { getPackageDetail } from '../../api/packageApi'
+import PackageDetailModal from '../../components/PackageDetailModal.jsx'
 import styles from './itinerary.module.css'
 
-export default function MapPanel({ itineraryId, activeDay }) {
+const normalizePackage = (pkg) => ({
+  id: pkg.id,
+  name: pkg.name,
+  category: pkg.category,
+  categoryLabel: pkg.category_display,
+  style: pkg.style,
+  styleLabel: pkg.style_display,
+  description: pkg.description,
+  thumbnailUrl: pkg.thumbnail_url,
+  price: Number(pkg.price),
+  durationDays: pkg.duration_days,
+  region: pkg.region,
+  accommodationIncluded: pkg.accommodation_included,
+  includedItems: Array.isArray(pkg.included_items) ? pkg.included_items : [],
+  course: Array.isArray(pkg.course) ? pkg.course : [],
+  isActive: pkg.is_active,
+})
+
+export default function MapPanel({ itineraryId, activeDay, refreshKey }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const overlaysRef = useRef([])
@@ -12,6 +32,10 @@ export default function MapPanel({ itineraryId, activeDay }) {
   const openedMarkerContentRef = useRef(null)
 
   const [routes, setRoutes] = useState([])
+  const [recommendations, setRecommendations] = useState([])
+  const [recommendationLoading, setRecommendationLoading] = useState(true)
+  const [recommendationError, setRecommendationError] = useState('')
+  const [selectedPackage, setSelectedPackage] = useState(null)
 
   useEffect(() => {
     if (!itineraryId) return
@@ -26,7 +50,49 @@ export default function MapPanel({ itineraryId, activeDay }) {
     }
 
     loadRoute()
-  }, [itineraryId])
+  }, [itineraryId, refreshKey])
+
+  useEffect(() => {
+    if (!itineraryId) return
+
+    let cancelled = false
+
+    const loadRecommendations = async () => {
+      try {
+        setRecommendationLoading(true)
+        setRecommendationError('')
+        const data = await getPackageRecommendations(itineraryId, 3)
+        const recommendationRows = data.recommendations || []
+        const enrichedRows = await Promise.all(
+          recommendationRows.map(async (recommendation) => {
+            if (!recommendation.id) return recommendation
+            try {
+              const detail = await getPackageDetail(recommendation.id)
+              return { ...recommendation, detail }
+            } catch (detailError) {
+              console.error('추천 패키지 상세 조회 실패:', detailError)
+              return recommendation
+            }
+          })
+        )
+        if (!cancelled) setRecommendations(enrichedRows)
+      } catch (err) {
+        console.error('패키지 추천 조회 실패:', err)
+        if (!cancelled) {
+          setRecommendationError(
+            err.response?.data?.detail || '추천 패키지를 불러오지 못했습니다.'
+          )
+        }
+      } finally {
+        if (!cancelled) setRecommendationLoading(false)
+      }
+    }
+
+    loadRecommendations()
+    return () => {
+      cancelled = true
+    }
+  }, [itineraryId, refreshKey])
 
   useEffect(() => {
     if (!window.kakao?.maps || !mapRef.current) return
@@ -198,17 +264,61 @@ export default function MapPanel({ itineraryId, activeDay }) {
         <span className={styles.badge}>일정 맞춤</span>
       </div>
 
-      <div className={styles.pkgRecommendEmpty}>
-        <strong>추천 패키지를 준비 중이에요.</strong>
-        <p>
-          일정 생성이 완료되면 패키지 중 가장 유사한 패키지를
-          추천해드릴게요.
-        </p>
-      </div>
+      {recommendationLoading ? (
+        <div className={styles.pkgRecommendEmpty}>
+          <strong>추천 패키지를 찾고 있어요.</strong>
+          <p>일정의 관광지와 여행 조건을 비교하고 있습니다.</p>
+        </div>
+      ) : recommendationError ? (
+        <div className={styles.pkgRecommendEmpty}>
+          <strong>추천 패키지를 불러오지 못했습니다.</strong>
+          <p>{recommendationError}</p>
+        </div>
+      ) : recommendations.length === 0 ? (
+        <div className={styles.pkgRecommendEmpty}>
+          <strong>조건에 맞는 패키지가 아직 없어요.</strong>
+          <p>전체 패키지 목록에서 다른 상품을 확인해보세요.</p>
+        </div>
+      ) : (
+        recommendations.map((pkg) => (
+          <div className={styles.pkgRow} key={pkg.package_id}>
+            <div className={styles.pkgThumb}>
+              {pkg.detail?.thumbnail_url ? (
+                <img src={pkg.detail.thumbnail_url} alt={pkg.title} />
+              ) : (
+                <span>✈️</span>
+              )}
+            </div>
+            <div className={styles.pkgInfo}>
+              <div className={styles.rating}>
+                추천 {pkg.rank}위
+              </div>
+              <h5>{pkg.title}</h5>
+              <div className={styles.price}>
+                {Number(pkg.estimated_price || 0).toLocaleString()}원
+              </div>
+            </div>
+            {pkg.detail && (
+              <button
+                type="button"
+                className={styles.pkgDetailBtn}
+                onClick={() => setSelectedPackage(normalizePackage(pkg.detail))}
+              >
+                자세히 보기
+              </button>
+            )}
+          </div>
+        ))
+      )}
 
       <Link to="/packages" className={styles.pkgSeeAll}>
         전체 패키지 보러가기 →
       </Link>
+
+      <PackageDetailModal
+        pkg={selectedPackage}
+        onClose={() => setSelectedPackage(null)}
+      />
     </div>
   )
 }
