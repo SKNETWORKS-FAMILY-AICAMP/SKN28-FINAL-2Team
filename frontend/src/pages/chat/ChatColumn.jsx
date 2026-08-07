@@ -481,7 +481,7 @@ export default function ChatColumn({
           type: 'msg',
           me: false,
           lines: [
-            '알겠습니다! 반영해서 일정에 바로 적용할게요 🌿',
+            '알겠습니다! 반영해서 일정에 바로 적용할게요 🍊',
           ],
         },
       ])
@@ -564,7 +564,7 @@ export default function ChatColumn({
                 key={item.id}
               >
                 <div className={styles.who}>
-                  🌿
+                  🍊
                 </div>
 
                 <div className={styles.bubble}>
@@ -737,7 +737,7 @@ export default function ChatColumn({
               key={item.id}
             >
               <div className={styles.who}>
-                {item.me ? '나' : '🌿'}
+                {item.me ? '나' : '🍊'}
               </div>
 
               <div className={styles.bubble}>
@@ -759,7 +759,7 @@ export default function ChatColumn({
 
         {flowDone && (
           <div className={styles.msg}>
-            <div className={styles.who}>🌿</div>
+            <div className={styles.who}>🍊</div>
 
             {ready ? (
               <div className={styles.bubble}>

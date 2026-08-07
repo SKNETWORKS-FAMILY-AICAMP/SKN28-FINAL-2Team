@@ -3,16 +3,82 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-from ..aihub.similarity import LocalTransport, Pace, PartyType, TravelCondition, VisitPreference
+from ..models.enums import LocalTransport, Pace, PartyType, VisitPreference
 
 SlotRole = str  # "visit" | "activity" | "food" | "shopping"
 
-VALID_SLOT_ROLES: tuple[str, ...] = ("visit", "activity", "food", "shopping")
+VALID_SLOT_ROLES: tuple[str, ...] = (
+    "visit",
+    "activity",
+    "food",
+    "shopping",
+)
 
 
 @dataclass(frozen=True)
-class SlotAddRequest:
+class TravelCondition:
+    duration_days: int
+    party_type: PartyType
+    local_transport: LocalTransport
+    preferred_visit_types: tuple[VisitPreference, ...]
+    companion_count: int
 
+    purpose_codes: tuple[str, ...] = ()
+    pace: Pace | None = None
+    arrival_time: str | None = None
+    departure_time: str | None = None
+    entry_point: str | None = None
+    accommodation_address: str | None = None
+    must_visit_places: tuple[str, ...] = ()
+    excluded_places: tuple[str, ...] = ()
+    mobility_constraints: tuple[str, ...] = ()
+
+    @classmethod
+    def from_mapping(cls, value: dict[str, Any]) -> "TravelCondition":
+        return cls(
+            duration_days=_optional_int(value.get("duration_days")) or 1,
+            party_type=PartyType(value["party_type"]),
+            local_transport=LocalTransport(value["local_transport"]),
+            preferred_visit_types=_visit_type_tuple(
+                value.get("preferred_visit_types")
+            ),
+            companion_count=_optional_int(value.get("companion_count")) or 0,
+            purpose_codes=_string_tuple(value.get("purpose_codes")),
+            pace=Pace(value["pace"]) if value.get("pace") else None,
+            arrival_time=value.get("arrival_time"),
+            departure_time=value.get("departure_time"),
+            entry_point=value.get("entry_point"),
+            accommodation_address=value.get("accommodation_address"),
+            must_visit_places=_string_tuple(value.get("must_visit_places")),
+            excluded_places=_string_tuple(value.get("excluded_places")),
+            mobility_constraints=_string_tuple(
+                value.get("mobility_constraints")
+            ),
+        )
+
+    def to_llm_dict(self) -> dict[str, Any]:
+        return {
+            "duration_days": self.duration_days,
+            "party_type": self.party_type.value,
+            "local_transport": self.local_transport.value,
+            "preferred_visit_types": [
+                preference.value
+                for preference in self.preferred_visit_types
+            ],
+            "companion_count": self.companion_count,
+            "purpose_codes": list(self.purpose_codes),
+            "pace": self.pace.value if self.pace else None,
+            "arrival_time": self.arrival_time,
+            "departure_time": self.departure_time,
+            "entry_point": self.entry_point,
+            "accommodation_address": self.accommodation_address,
+            "must_visit_places": list(self.must_visit_places),
+            "excluded_places": list(self.excluded_places),
+            "mobility_constraints": list(self.mobility_constraints),
+        }
+
+@dataclass(frozen=True)
+class SlotAddRequest:
     role: SlotRole
     count: int = 1
     day: int | None = None
@@ -24,14 +90,19 @@ class SlotAddRequest:
             return None
 
         count = _optional_int(value.get("count")) or 1
-        count = max(1, min(count, 10))  # 방어적으로 상한을 둔다.
+        count = max(1, min(count, 10))
 
         day = _optional_int(value.get("day"))
 
         return cls(role=role, count=count, day=day)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"role": self.role, "count": self.count, "day": self.day}
+        return {
+            "role": self.role,
+            "count": self.count,
+            "day": self.day,
+        }
+
 
 
 @dataclass(frozen=True)
@@ -64,12 +135,12 @@ class ConditionDelta:
                 value.get("remove_preferred_visit_types")
             ),
             duration_days=_optional_int(value.get("duration_days")),
-            party_type=PartyType(value["party_type"]) if value.get("party_type") else None,
-            local_transport=(
-                LocalTransport(value["local_transport"])
-                if value.get("local_transport")
-                else None
-            ),
+            party_type=PartyType(value["party_type"])
+            if value.get("party_type")
+            else None,
+            local_transport=LocalTransport(value["local_transport"])
+            if value.get("local_transport")
+            else None,
             pace=Pace(value["pace"]) if value.get("pace") else None,
             affected_slots=_string_tuple(value.get("affected_slots")),
             add_slots=_slot_add_request_tuple(value.get("add_slots")),
@@ -78,7 +149,6 @@ class ConditionDelta:
 
     def is_empty(self) -> bool:
         return replace(self, notes="") == ConditionDelta()
-
 
 def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCondition:
 

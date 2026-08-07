@@ -160,7 +160,7 @@ export default function ChatPanel({ onRevised }) {
       <div
         className={styles.chatBody}
         ref={bodyRef}
-      >
+      >     
         {messages.map((message) => (
           <div
             key={message.id}
@@ -170,7 +170,7 @@ export default function ChatPanel({ onRevised }) {
             )}
           >
             <div className={styles.who}>
-              {message.me ? "나" : "🌿"}
+              {message.me ? "나" : "🍊"}
             </div>
 
             <div

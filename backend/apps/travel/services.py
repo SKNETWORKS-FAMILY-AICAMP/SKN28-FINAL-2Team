@@ -5,7 +5,7 @@ import traceback
 from django.db import transaction
 
 from src.api import itinerary_engine
-from src.models.itinerary import ItineraryState
+from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
 def _build_place_info_map(
@@ -35,12 +35,6 @@ def _save_itinerary_result(
 ):
     result = state.itinerary
     place_info_map = _build_place_info_map(state)
-    """
-    엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
-
-    기존 일정을 삭제한 뒤 새 일정으로 교체하며,
-    content_id를 이용해 Place 테이블에서 위도와 경도를 조회한다.
-    """
 
     # 기존 일정 삭제
     itinerary.days.all().delete()
@@ -60,7 +54,6 @@ def _save_itinerary_result(
 
         for stop in day_data.get("stops", []):
             content_id = stop.get("content_id")
-
             place = None
 
             if content_id:
@@ -122,10 +115,16 @@ def _save_itinerary_result(
                 accommodation=None,
                 memo="",
             )
-
-
 @transaction.atomic
 def generate_itinerary(itinerary: Itinerary):
+
+    itinerary.title = (
+        f"{itinerary.duration_label} "
+        f"{itinerary.get_style_display()} "
+        f"{itinerary.get_companion_type_display()} 여행"
+    )
+    itinerary.save(update_fields=["title"])
+
     """
     사용자 입력을 이용하여
 

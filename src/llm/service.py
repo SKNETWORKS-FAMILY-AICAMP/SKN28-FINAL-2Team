@@ -87,12 +87,56 @@ class LLMService:
         return query
 
     # ------------------------------------------------------------------
+    # 3-b. RAG Query Generation (whole-trip, role-agnostic)
+    # ------------------------------------------------------------------
+    def generate_style_query(
+        self,
+        condition: TravelCondition,
+        *,
+        reference_keywords: dict[str, list[str]] | None = None,
+    ) -> str:
+        """Build a single broad query for the RAG candidate-pool step.
+
+        Unlike :meth:`generate_search_query`, this is not tied to a single
+        slot's role. It is used once per itinerary to gather a wide pool of
+        candidates driven purely by the user's style (``preferred_visit_types``)
+        and free-text wishes (``must_visit_places``), matching the "RAG"
+        branch of the AIHub/RAG retrieval pipeline.
+
+        ``reference_keywords`` (role -> representative place names, from
+        Top-K similar AIHub trips' actual visit history) is optional
+        supporting context: it nudges the search query toward the kind of
+        places similar travelers actually visited, but it never overrides
+        the user's stated condition and is never inserted into the
+        itinerary directly.
+        """
+
+        raw = self._client.complete_json(
+            system_prompt=prompts.STYLE_QUERY_GENERATION_SYSTEM_PROMPT,
+            user_prompt=prompts.build_style_query_generation_prompt(
+                condition.to_llm_dict(),
+                reference_keywords=reference_keywords,
+            ),
+        )
+
+        query = str(raw.get("query") or "").strip()
+
+        if not query:
+            raise LLMClientError(
+                "style query generation returned an empty query"
+            )
+
+        return query
+
+    # ------------------------------------------------------------------
     # 4. Final Itinerary Generation
     # ------------------------------------------------------------------
     def generate_itinerary(
         self,
         condition: TravelCondition,
         days_with_candidates: list[dict[str, Any]],
+        *,
+        movement_patterns: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
         raw = self._client.complete_json(
@@ -100,6 +144,7 @@ class LLMService:
             user_prompt=prompts.build_itinerary_generation_prompt(
                 condition.to_llm_dict(),
                 days_with_candidates,
+                movement_patterns=movement_patterns,
             ),
         )
 
@@ -127,6 +172,10 @@ class LLMService:
             ),
         )
 
+        print("========== CHAT UPDATE RAW ==========")
+        print(raw)
+        print("=====================================")
+
         try:
             return ConditionDelta.from_mapping(raw)
 
@@ -147,7 +196,22 @@ class LLMService:
 
         print("=" * 80)
         print("changed_slots")
-        print(changed_slots)
+
+        for slot in changed_slots:
+            print(
+                f"day={slot['day']} "
+                f"sequence={slot['sequence']} "
+                f"role={slot['role']}"
+            )
+
+            for i, candidate in enumerate(slot["candidates"], start=1):
+                print(f"[{i}] {candidate['title']}")
+                print("content_id :", candidate.get("content_id"))
+
+                place = candidate.get("place", {})
+                print("overview   :", place.get("overview"))
+                print("-" * 40)
+
         print("=" * 80)
 
         raw = self._client.complete_json(
