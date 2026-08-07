@@ -84,8 +84,8 @@ class AIHubPatternConfig:
     (``aggregate_role_keywords`` 참고).
     """
 
-    top_k: int = 3                      # movement pattern용
-    reference_keyword_top_k: int = 5    # keyword 추출용
+    top_k: int = 5                    # movement pattern용
+    reference_keyword_top_k: int = 8   # keyword 추출용
     min_usable_visits: int = 3
     duration_weight: float = 20.0
     party_weight: float = 20.0
