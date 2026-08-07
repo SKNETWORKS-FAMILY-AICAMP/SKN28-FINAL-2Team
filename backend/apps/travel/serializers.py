@@ -160,7 +160,6 @@ class PackageSerializer(serializers.ModelSerializer):
         ]
     
 class ItineraryItemSerializer(serializers.ModelSerializer):
-    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = ItineraryItem

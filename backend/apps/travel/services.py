@@ -5,60 +5,73 @@ import traceback
 from django.db import transaction
 
 from src.api import itinerary_engine
-from src.models import ItineraryState
-from .models import Itinerary, ItineraryDay, ItineraryItem
+from src.models.itinerary import ItineraryState
+from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 
-
-def _build_place_coordinate_map(
+def _build_place_info_map(
     state: ItineraryState,
-) -> dict[int, tuple[float | None, float | None]]:
-    """엔진 상태(state.slots[*].candidates)에서 content_id -> (위도, 경도) 맵을 만든다.
-
-    LLM이 최종 stops에 돌려주는 값은 sequence/title/notes/content_id 뿐이고
-    좌표는 포함하지 않으므로(할루시네이션 방지를 위해 일부러 요청하지 않음),
-    실제 좌표는 RAG 검색 결과가 담긴 슬롯 후보(candidate.place)에서 가져온다.
-    """
-
-    coordinate_map: dict[int, tuple[float | None, float | None]] = {}
+) -> dict[int, dict]:
+    place_info_map = {}
 
     for slot in state.slots:
         for candidate in slot.candidates:
             place = candidate.place or {}
 
-            print(place)   # 추가
-
-            coordinate_map[candidate.content_id] = {
+            place_info_map[candidate.content_id] = {
                 "latitude": place.get("latitude"),
                 "longitude": place.get("longitude"),
-                "thumbnail": place.get("image_url")
+                "thumbnail": (
+                    place.get("image_url")
                     or place.get("thumbnail_url")
-                    or "",
+                    or ""
+                ),
             }
 
-    return coordinate_map
+    return place_info_map
 
-
-def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
-
+def _save_itinerary_result(
+    itinerary: Itinerary,
+    state: ItineraryState,
+):
     result = state.itinerary
-    coordinate_map = _build_place_coordinate_map(state)
+    place_info_map = _build_place_info_map(state)
+    """
+    엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
+
+    기존 일정을 삭제한 뒤 새 일정으로 교체하며,
+    content_id를 이용해 Place 테이블에서 위도와 경도를 조회한다.
+    """
 
     # 기존 일정 삭제
     itinerary.days.all().delete()
 
     for day_data in result.get("days", []):
+        day_number = day_data.get("day")
+
+        if day_number is None:
+            continue
 
         itinerary_day = ItineraryDay.objects.create(
             itinerary=itinerary,
-            day_number=day_data["day"],
+            day_number=day_number,
             date=itinerary.start_date
-            + timedelta(days=day_data["day"] - 1),
+            + timedelta(days=day_number - 1),
         )
 
         for stop in day_data.get("stops", []):
+            content_id = stop.get("content_id")
 
-            info = coordinate_map.get(
-                stop.get("content_id"),
+            place = None
+
+            if content_id:
+                place = (
+                    Place.objects.using("travel")
+                    .filter(content_id=content_id)
+                    .first()
+                )
+
+            place_info = place_info_map.get(
+                content_id,
                 {
                     "latitude": None,
                     "longitude": None,
@@ -66,9 +79,33 @@ def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
                 },
             )
 
-            latitude = info["latitude"]
-            longitude = info["longitude"]
-            thumbnail = info["thumbnail"]
+            latitude = (
+                place.latitude
+                if place
+                else place_info["latitude"]
+            )
+
+            longitude = (
+                place.longitude
+                if place
+                else place_info["longitude"]
+            )
+
+            thumbnail = (
+                stop.get("image_url")
+                or stop.get("thumbnail_url")
+                or stop.get("thumbnail")
+                or place_info["thumbnail"]
+                or ""
+            )
+            print(
+                "장소 조회:",
+                content_id,
+                place.title if place else "없음",
+                latitude,
+                longitude,
+                thumbnail,
+            )
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
@@ -86,17 +123,9 @@ def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
                 memo="",
             )
 
+
 @transaction.atomic
 def generate_itinerary(itinerary: Itinerary):
-
-    itinerary.title = (
-        f"{itinerary.duration_label} "
-        f"{itinerary.get_style_display()} "
-        f"{itinerary.get_companion_type_display()} 여행"
-    )
-    itinerary.save(update_fields=["title"])
-
-
     """
     사용자 입력을 이용하여
 
@@ -107,6 +136,13 @@ def generate_itinerary(itinerary: Itinerary):
     5. LLM 일정 생성
     6. Django DB 저장
     """
+
+    itinerary.title = (
+        f"{itinerary.duration_label} "
+        f"{itinerary.get_style_display()} "
+        f"{itinerary.get_companion_type_display()} 여행"
+    )
+    itinerary.save(update_fields=["title"])
 
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")
@@ -180,6 +216,7 @@ def generate_itinerary(itinerary: Itinerary):
         print("=" * 80)
 
         return itinerary
+
     except Exception as e:
         print("=" * 80)
         print("===== generate_itinerary 실패 =====")
@@ -187,6 +224,7 @@ def generate_itinerary(itinerary: Itinerary):
         traceback.print_exc()
         print("=" * 80)
         raise
+
 
 @transaction.atomic
 def revise_itinerary(
@@ -213,16 +251,18 @@ def revise_itinerary(
         )
 
         # 엔진을 이용하여 일정 수정
-        new_state = itinerary_engine.update_itinerary_from_chat(
-            state,
-            user_text,
+        new_state = (
+            itinerary_engine.update_itinerary_from_chat(
+                state,
+                user_text,
+            )
         )
 
-        # 수정된 상태 저장
+        # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
-        # 수정된 일정 저장
+        # 수정된 일정 DB 저장
         _save_itinerary_result(
             itinerary,
             new_state,

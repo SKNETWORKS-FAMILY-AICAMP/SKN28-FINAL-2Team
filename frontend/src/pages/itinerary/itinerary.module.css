@@ -139,8 +139,9 @@
 .itTotal .lbl{ font-size:12.5px; color:var(--muted); }
 .itTotal .val{ font-size:19px; font-weight:900; color: var(--green-deep); }
 
-.itActions{ display:flex; gap:10px; margin-top:16px; }
-.itActions .btn{ flex:1; justify-content:center; }
+.itActions{ display: flex; justify-content: center; margin-top: 16px; }
+
+.itActions .btn{ flex: 0 0 360px; justify-content: center; }
 
 /* ================= RIGHT: map + packages ================= */
 .mapCol{ height:100%; overflow:hidden; border-left: 2px solid var(--line); background:#fff; padding: 20px 18px 40px; }
@@ -196,26 +197,16 @@
 .pkgInfo .rating{ font-size:10.5px; color: var(--muted); font-weight:600; }
 .pkgInfo h5{ font-size:12.5px; font-weight:700; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pkgInfo .price{ font-size:12px; font-weight:800; color: var(--green-deep); margin-top:3px; }
-.pkgRecommendEmpty {
-  padding: 20px 14px;
-  border: 1.5px dashed var(--line);
-  border-radius: 16px;
-  background: var(--bg-soft);
-  text-align: center;
-}
-
-.pkgRecommendEmpty strong {
-  display: block;
-  font-size: 13px;
-  color: var(--ink);
-}
-
-.pkgRecommendEmpty p {
-  margin-top: 7px;
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--muted);
-}
+.pkgRecommendEmpty { padding: 20px 14px; border: 1.5px dashed var(--line); border-radius: 16px; background: var(--bg-soft); text-align: center; }
+.pkgRecommendEmpty strong { display: block; font-size: 13px; color: var(--ink); }
+.pkgRecommendEmpty p { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.pkgRecommendCard{width:100%;padding:0;overflow:hidden;border:1.5px dashed var(--line);border-radius:16px;background:var(--bg-soft);color:inherit;text-align:left;cursor:pointer;}
+.pkgRecommendCard:hover{border-color:var(--green);}
+.pkgRecommendCard:disabled{cursor:default;}
+.pkgRecommendImage{display:block;width:100%;height:120px;object-fit:cover;}
+.pkgRecommendBody{padding:14px;text-align:center;}
+.pkgRecommendBody strong{display:block;font-size:13px;color:var(--ink);}
+.pkgRecommendBody p{margin-top:7px;font-size:11px;line-height:1.6;color:var(--muted);}
 @media (max-width: 1150px){
   .stage{ grid-template-columns: 300px 1fr; }
   .mapCol{ display:none; }

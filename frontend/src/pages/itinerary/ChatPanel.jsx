@@ -175,7 +175,7 @@ export default function ChatPanel({ onRevised }) {
 
             <div
               className={styles.bubble}
-              style={{ whiteSpace: "pre-line" }}
+              style={{ whiteSpace: "pre-wrap" }}
             >
               {message.text}
 

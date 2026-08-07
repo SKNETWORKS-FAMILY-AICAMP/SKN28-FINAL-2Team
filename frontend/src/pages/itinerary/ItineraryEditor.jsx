@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
@@ -135,8 +135,10 @@ export default function ItineraryEditor({
           <h1>{itinerary.title}</h1>
 
           <p>
-            {itinerary.subtitle} · {itinerary.startDate} ~{" "}
-            {itinerary.endDate}
+            {itinerary.subtitle} ·{" "}
+            {itinerary.startDate === itinerary.endDate
+              ? itinerary.startDate
+              : `${itinerary.startDate} ~ ${itinerary.endDate}`}
           </p>
         </div>
 
@@ -288,16 +290,6 @@ export default function ItineraryEditor({
       </div>
 
       <div className={styles.itActions}>
-        <Link
-          to="/chat"
-          className={cx(
-            styles.btn,
-            styles.ghost
-          )}
-        >
-          이전 단계로
-        </Link>
-
         <button
           className={cx(
             styles.btn,
@@ -312,4 +304,4 @@ export default function ItineraryEditor({
       </div>
     </div>
   );
-  }
+}

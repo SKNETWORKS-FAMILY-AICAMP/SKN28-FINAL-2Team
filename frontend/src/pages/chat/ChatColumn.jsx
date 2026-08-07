@@ -7,6 +7,7 @@ import { STEPS } from './questionSteps.js'
 
 
 const READY_DELAY_MS = 1800
+const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
 let uid = 100
 const nextId = () => ++uid
@@ -134,27 +135,58 @@ export default function ChatColumn({
   setItineraryId,
   itineraryId,
 }) {
-  const [history, setHistory] = useState([
-    {
-      id: nextId(),
-      type: 'msg',
-      me: false,
-      lines: [
-        '안녕하세요! 😊',
-        '원하시는 제주 여행을 알려주세요.',
-      ],
-    },
-    {
-      id: nextId(),
-      type: 'question',
-      stepIndex: 0,
-    },
-  ])
+  const getSavedChatColumn = () => {
+    try {
+      const saved = sessionStorage.getItem(CHAT_COLUMN_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error("채팅 복원 실패:", error);
+      return null;
+    }
+  };
 
-  const [stepIndex, setStepIndex] = useState(0)
-  const [input, setInput] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const savedChatColumn = getSavedChatColumn();
+
+  const [history, setHistory] = useState(() => {
+    if (Array.isArray(savedChatColumn?.history)) {
+      return savedChatColumn.history;
+    }
+
+    return [
+      {
+        id: nextId(),
+        type: "msg",
+        me: false,
+        lines: [
+          "안녕하세요! 😊",
+          "원하시는 제주 여행을 알려주세요.",
+        ],
+      },
+      {
+        id: nextId(),
+        type: "question",
+        stepIndex: 0,
+      },
+    ];
+  });
+
+  const [stepIndex, setStepIndex] = useState(
+    savedChatColumn?.stepIndex ?? 0
+  );
+
+  const [input, setInput] = useState("");
+  const [extraRequests, setExtraRequests] = useState(
+    savedChatColumn?.extraRequests ?? []
+  )
+  const [isCreating, setIsCreating] = useState(false)
+
+  const [startDate, setStartDate] = useState(
+    savedChatColumn?.startDate ?? ""
+  );
+
+  const [endDate, setEndDate] = useState(
+    savedChatColumn?.endDate ?? ""
+  );
 
   const bodyRef = useRef(null)
   const navigate = useNavigate()
@@ -170,7 +202,28 @@ export default function ChatColumn({
     })
   }, [history, ready, stepIndex])
 
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        CHAT_COLUMN_STORAGE_KEY,
+        JSON.stringify({
+          history,
+          stepIndex,
+          startDate,
+          endDate,
+          extraRequests,
+        })
+      );
+    } catch (error) {
+      console.error("채팅 저장 실패:", error);
+    }
+  }, [history, stepIndex, startDate, endDate, extraRequests]);
+
+
   const finishFlow = async (finalAnswers) => {
+    if (isCreating) return
+
+    setIsCreating(true)
 
     setHistory((prev) => [
       ...prev,
@@ -191,8 +244,16 @@ export default function ChatColumn({
           label: step.label,
           value:
             step.key === 'travelDates'
-              ? finalAnswers.travelDates?.duration
+              ? finalAnswers.travelDates?.duration === '당일'
+                ? [
+                    `${finalAnswers.travelDates?.startDate.replaceAll('-', '.')} · 당일`,
+                  ]
+                : [
+                    `${finalAnswers.travelDates?.startDate} ~ ${finalAnswers.travelDates?.endDate}`,
+                    finalAnswers.travelDates?.duration,
+                  ]
               : finalAnswers[step.key],
+            
         })),
       },
     ])
@@ -225,23 +286,49 @@ export default function ChatColumn({
 
       setItineraryId(itinerary.id)
 
+      const freeChatStartIndex = history.findIndex(
+        (item) =>
+          item.type === 'msg' &&
+          item.me === false &&
+          item.lines?.includes('기본 조건을 모두 확인했어요.')
+      )
+
+      const freeChatHistory =
+        freeChatStartIndex >= 0
+          ? history.slice(freeChatStartIndex + 1)
+          : []
+
+      const convertedHistory = freeChatHistory
+        .filter((item) => item.type === 'msg')
+        .map((item) => ({
+          id: crypto.randomUUID(),
+          me: item.me,
+          text: item.lines.join('\n'),
+        }))
+
+      const dateLines =
+        finalAnswers.travelDates.duration === '당일'
+          ? [
+              `📅 기간: ${finalAnswers.travelDates.startDate.replaceAll('-', '.')} · 당일`,
+            ]
+          : [
+              `📅 기간: ${finalAnswers.travelDates.startDate} ~ ${finalAnswers.travelDates.endDate}`,
+              `          ${finalAnswers.travelDates.duration}`,
+            ]  
+
       const initialMessages = [
         {
           id: crypto.randomUUID(),
           me: false,
-          text: ['✅ 입력한 여행 조건입니다.',
+          text: [
+            '✅ 입력한 여행 조건입니다.',
             '',
             `👥 동행자: ${finalAnswers.companion}`,
-            `📅 기간: ${finalAnswers.travelDates.duration}`,
+            ...dateLines,
             `🍃 여행 스타일: ${finalAnswers.style}`,
           ].join('\n'),
         },
-        {
-          id: crypto.randomUUID(),
-          me: false,
-          text: `짜잔! ${finalAnswers.travelDates.duration} 여행 일정을 완성했어요 🎉`,
-          mini: '일정 확인하기 →',
-        },
+        ...convertedHistory,
       ]
 
       sessionStorage.setItem(
@@ -251,6 +338,8 @@ export default function ChatColumn({
       setTimeout(onReady, READY_DELAY_MS)
     } catch (error) {
       console.error('일정 생성 실패:', error)
+
+      setIsCreating(false)
       
       setHistory((prev) => [
         ...prev,
@@ -263,6 +352,7 @@ export default function ChatColumn({
           ],
         },
       ])
+
     }
   }
 
@@ -325,7 +415,18 @@ export default function ChatColumn({
         },
       ])
     } else {
-      finishFlow(nextAnswers)
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: [
+            '기본 조건을 모두 확인했어요.',
+            '추가하거나 빼고 싶은 장소, 음식, 제약사항을 자유롭게 입력해주세요.',
+          ],
+        },
+      ])
     }
   }
 
@@ -430,7 +531,19 @@ export default function ChatColumn({
                       {row.ic}
                     </div>
 
-                    <b>{row.value}</b>
+                    <b
+                      className={
+                        Array.isArray(row.value)
+                          ? styles.dateValue
+                          : undefined
+                      }
+                    >
+                      {Array.isArray(row.value)
+                        ? row.value.map((line, index) => (
+                            <span key={index}>{line}</span>
+                          ))
+                        : row.value}
+                    </b>
                     <span>{row.label}</span>
                   </div>
                 ))}
@@ -559,9 +672,15 @@ export default function ChatColumn({
                                 id: nextId(),
                                 type: 'msg',
                                 me: true,
-                                lines: [
-                                  duration.label,
-                                ],
+                                lines:
+                                  duration.nights === 0
+                                    ? [
+                                        `${startDate.replaceAll('-', '.')} · 당일`,
+                                      ]
+                                    : [
+                                        `${startDate} ~ ${endDate}`,
+                                        duration.label,
+                                      ],
                               },
                             ])
 
@@ -585,7 +704,18 @@ export default function ChatColumn({
                                 },
                               ])
                             } else {
-                              finishFlow(nextAnswers)
+                              setHistory((prev) => [
+                                ...prev,
+                                {
+                                  id: nextId(),
+                                  type: 'msg',
+                                  me: false,
+                                  lines: [
+                                    '기본 조건을 모두 확인했어요.',
+                                    '추가하거나 빼고 싶은 장소, 음식, 제약사항을 자유롭게 입력해주세요.',
+                                  ],
+                                },
+                              ])
                             }
                           }}
                         >
@@ -629,34 +759,46 @@ export default function ChatColumn({
 
         {flowDone && (
           <div className={styles.msg}>
-            <div className={styles.who}>
-              🌿
-            </div>
+            <div className={styles.who}>🌿</div>
 
             {ready ? (
               <div className={styles.bubble}>
-                일정이 완성됐어요! 확인하러
-                가볼까요? 🎉
+                일정이 완성됐어요! 확인하러 가볼까요? 🎉
                 <br />
 
                 <span
                   className={styles.miniBtn}
                   onClick={() =>
-                    navigate(
-                      `/itinerary/${itineraryId}`
-                    )
+                    navigate(`/itinerary/${itineraryId}`)
                   }
                 >
                   일정 확인하기 →
                 </span>
               </div>
-            ) : (
+            ) : isCreating ? (
               <div className={styles.bubble}>
+                일정을 생성하고 있어요.
+
                 <div className={styles.typing}>
                   <span></span>
                   <span></span>
                   <span></span>
                 </div>
+              </div>
+            ) : (
+              <div className={styles.bubble}>
+                추가 요청을 모두 입력하셨다면
+                <br />
+                아래 버튼을 눌러주세요.
+                <br />
+
+                <button
+                  type="button"
+                  className={styles.miniBtn}
+                  onClick={() => finishFlow(answers)}
+                >
+                  이 조건으로 일정 생성하기 →
+                </button>
               </div>
             )}
           </div>

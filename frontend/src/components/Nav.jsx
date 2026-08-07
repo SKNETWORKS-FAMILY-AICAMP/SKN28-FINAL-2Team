@@ -12,6 +12,9 @@ export default function Nav() {
       return
     }
 
+    sessionStorage.removeItem('travel-chat-page')
+    sessionStorage.removeItem('travel-chat-column')
+
     navigate('/chat')
   }
   return (
