@@ -4,7 +4,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
-
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
@@ -54,7 +54,7 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 class ItineraryViewSet(viewsets.ModelViewSet):
     queryset = Itinerary.objects.none()  
     serializer_class = ItinerarySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
 
 
     @extend_schema(

@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-from ..aihub.similarity import LocalTransport, Pace, PartyType, TravelCondition, VisitPreference
+from ..models.enums import  LocalTransport, Pace, PartyType, VisitPreference
+from .travel_condition import TravelCondition
 
 SlotRole = str  # "visit" | "activity" | "food" | "shopping"
 

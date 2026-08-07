@@ -25,8 +25,6 @@ def _build_place_coordinate_map(
         for candidate in slot.candidates:
             place = candidate.place or {}
 
-            print(place)   # 추가
-
             coordinate_map[candidate.content_id] = {
                 "latitude": place.get("latitude"),
                 "longitude": place.get("longitude"),

@@ -3,186 +3,12 @@ from __future__ import annotations
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
-from enum import Enum
+from src.models.enums import  LocalTransport, Pace, PartyType, VisitPreference
+from src.models.travel_condition import TravelCondition
 import hashlib
 import math
 from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence
-
-
-class PartyType(str, Enum):
-    SOLO = "solo"
-    NON_FAMILY_TWO = "non_family_two"
-    NON_FAMILY_GROUP = "non_family_group"
-    FAMILY_TWO = "family_two"
-    FAMILY_GROUP = "family_group"
-    WITH_CHILDREN = "with_children"
-    WITH_PARENTS = "with_parents"
-    THREE_GENERATIONS = "three_generations"
-
-
-class LocalTransport(str, Enum):
-    RENTAL_CAR = "rental_car"
-    OWN_CAR = "own_car"
-    PUBLIC_TRANSIT = "public_transit"
-    TAXI = "taxi"
-    MIXED = "mixed"
-
-
-class VisitPreference(str, Enum):
-    NATURE = "nature"
-    HISTORY = "history"
-    CULTURE = "culture"
-    MARKET_SHOPPING = "market_shopping"
-    LEISURE = "leisure"
-    THEME_PARK = "theme_park"
-    TRAIL = "trail"
-    FESTIVAL = "festival"
-    FOOD_CAFE = "food_cafe"
-    EXPERIENCE = "experience"
-
-
-class Pace(str, Enum):
-    RELAXED = "relaxed"
-    BALANCED = "balanced"
-    PACKED = "packed"
-
-
-AIHUB_PARTY_LABELS: dict[str, PartyType] = {
-    "나홀로 여행": PartyType.SOLO,
-    "2인 여행(가족 외)": PartyType.NON_FAMILY_TWO,
-    "3인 이상 여행(가족 외)": PartyType.NON_FAMILY_GROUP,
-    "2인 가족 여행": PartyType.FAMILY_TWO,
-    "3인 이상 가족 여행(친척 포함)": PartyType.FAMILY_GROUP,
-    "자녀 동반 여행": PartyType.WITH_CHILDREN,
-    "부모 동반 여행": PartyType.WITH_PARENTS,
-    "3대 동반 여행(친척 포함)": PartyType.THREE_GENERATIONS,
-}
-
-VISIT_TYPE_CODES: dict[VisitPreference, tuple[str, ...]] = {
-    VisitPreference.NATURE: ("1",),
-    VisitPreference.HISTORY: ("2",),
-    VisitPreference.CULTURE: ("3",),
-    VisitPreference.MARKET_SHOPPING: ("4", "10"),
-    VisitPreference.LEISURE: ("5",),
-    VisitPreference.THEME_PARK: ("6",),
-    VisitPreference.TRAIL: ("7",),
-    VisitPreference.FESTIVAL: ("8",),
-    VisitPreference.FOOD_CAFE: ("11",),
-    VisitPreference.EXPERIENCE: ("13",),
-}
-
-VISIT_TYPE_LABELS: dict[str, str] = {
-    "1": "nature",
-    "2": "history",
-    "3": "culture",
-    "4": "market_shopping",
-    "5": "leisure",
-    "6": "theme_park",
-    "7": "trail",
-    "8": "festival",
-    "9": "transit",
-    "10": "market_shopping",
-    "11": "food_cafe",
-    "12": "other",
-    "13": "experience",
-    "24": "lodging",
-}
-
-SLOT_TARGET_COLLECTIONS: dict[str, tuple[str, ...]] = {
-    "visit": ("attractions",),
-    "activity": ("activities", "attractions"),
-    "food": ("restaurants",),
-    "shopping": ("shopping",),
-}
-
-SLOT_ITINERARY_ROLES: dict[str, tuple[str, ...]] = {
-    "visit": ("visit",),
-    "activity": ("activity", "experience", "visit"),
-    "food": ("meal", "cafe_break"),
-    "shopping": ("shopping", "market_visit"),
-}
-
-
-@dataclass(frozen=True)
-class TravelCondition:
-    duration_days: int
-    party_type: PartyType
-    local_transport: LocalTransport
-    preferred_visit_types: tuple[VisitPreference, ...]
-    companion_count: int | None = None
-    purpose_codes: tuple[str, ...] = ()
-    pace: Pace | None = None
-    arrival_time: str | None = None
-    departure_time: str | None = None
-    entry_point: str | None = None
-    accommodation_address: str | None = None
-    must_visit_places: tuple[str, ...] = ()
-    excluded_places: tuple[str, ...] = ()
-    mobility_constraints: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        if not 1 <= self.duration_days <= 30:
-            raise ValueError("duration_days must be between 1 and 30")
-        if not self.preferred_visit_types:
-            raise ValueError("at least one preferred_visit_type is required")
-        if self.companion_count is not None and self.companion_count < 0:
-            raise ValueError("companion_count must be zero or greater")
-
-    @classmethod
-    def from_mapping(cls, value: Mapping[str, Any]) -> TravelCondition:
-        try:
-            preferred_visit_types = tuple(
-                VisitPreference(item) for item in value["preferred_visit_types"]
-            )
-            return cls(
-                duration_days=int(value["duration_days"]),
-                party_type=PartyType(value["party_type"]),
-                local_transport=LocalTransport(value["local_transport"]),
-                preferred_visit_types=preferred_visit_types,
-                companion_count=_optional_int(value.get("companion_count")),
-                purpose_codes=_string_tuple(value.get("purpose_codes")),
-                pace=Pace(value["pace"]) if value.get("pace") else None,
-                arrival_time=_optional_string(value.get("arrival_time")),
-                departure_time=_optional_string(value.get("departure_time")),
-                entry_point=_optional_string(value.get("entry_point")),
-                accommodation_address=_optional_string(
-                    value.get("accommodation_address")
-                ),
-                must_visit_places=_string_tuple(value.get("must_visit_places")),
-                excluded_places=_string_tuple(value.get("excluded_places")),
-                mobility_constraints=_string_tuple(
-                    value.get("mobility_constraints")
-                ),
-            )
-        except KeyError as exc:
-            raise ValueError(f"missing required travel condition: {exc.args[0]}") from exc
-        except (TypeError, ValueError) as exc:
-            if isinstance(exc, ValueError) and str(exc).startswith(
-                ("duration_days", "at least", "companion_count")
-            ):
-                raise
-            raise ValueError(f"invalid travel condition: {exc}") from exc
-
-    def to_llm_dict(self) -> dict[str, Any]:
-        return {
-            "duration_days": self.duration_days,
-            "party_type": self.party_type.value,
-            "local_transport": self.local_transport.value,
-            "preferred_visit_types": [
-                item.value for item in self.preferred_visit_types
-            ],
-            "companion_count": self.companion_count,
-            "purpose_codes": list(self.purpose_codes),
-            "pace": self.pace.value if self.pace else None,
-            "arrival_time": self.arrival_time,
-            "departure_time": self.departure_time,
-            "entry_point": self.entry_point,
-            "accommodation_address": self.accommodation_address,
-            "must_visit_places": list(self.must_visit_places),
-            "excluded_places": list(self.excluded_places),
-            "mobility_constraints": list(self.mobility_constraints),
-        }
-
+from src.mappings.trip_feature_mapping import AIHUB_PARTY_LABELS, VISIT_TYPE_CODES, get_visit_area_type_mapping
 
 @dataclass(frozen=True)
 class TripProfile:
@@ -477,11 +303,18 @@ class AIHubPatternService:
                 ),
             ):
                 visit_type_code = str(row.get("visit_area_type_cd") or "")
-                category = VISIT_TYPE_LABELS.get(visit_type_code, "unknown")
-                role = _template_role(visit_type_code)
-                if role not in SLOT_TARGET_COLLECTIONS:
-                    ignored_role_counts[role] += 1
+
+                mapping = get_visit_area_type_mapping(visit_type_code)
+                if mapping is None:
+                    ignored_role_counts["unknown"] += 1
                     continue
+
+                if not mapping.include_in_rag or mapping.slot_role is None:
+                    ignored_role_counts[mapping.normalized_type] += 1
+                    continue
+
+                category = mapping.normalized_type
+                role = mapping.slot_role
                 longitude, latitude, coordinate_status = _clean_jeju_coordinate(
                     row.get("longitude"),
                     row.get("latitude"),
@@ -494,12 +327,8 @@ class AIHubPatternService:
                         "sequence": len(slots) + 1,
                         "role": role,
                         "category": category,
-                        "target_collections": list(
-                            SLOT_TARGET_COLLECTIONS[role]
-                        ),
-                        "itinerary_roles": list(
-                            SLOT_ITINERARY_ROLES[role]
-                        ),
+                        "target_collections": list(mapping.target_collections),
+                        "itinerary_roles": list(mapping.itinerary_roles),
                         "stay_minutes": _optional_int(
                             row.get("stay_minutes")
                         ),
@@ -662,22 +491,6 @@ def _primary_transport(row: Mapping[str, Any]) -> LocalTransport:
     if movement_name == "대중교통 등":
         return LocalTransport.PUBLIC_TRANSIT
     return LocalTransport.MIXED
-
-
-def _template_role(visit_type_code: str) -> str:
-    if visit_type_code == "9":
-        return "transit"
-    if visit_type_code == "24":
-        return "lodging"
-    if visit_type_code == "11":
-        return "food"
-    if visit_type_code in {"4", "10"}:
-        return "shopping"
-    if visit_type_code in {"5", "13"}:
-        return "activity"
-    if visit_type_code == "12":
-        return "other"
-    return "visit"
 
 
 def _day_region(slots: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
