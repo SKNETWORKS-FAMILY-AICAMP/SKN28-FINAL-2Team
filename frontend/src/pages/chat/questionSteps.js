@@ -19,11 +19,19 @@ export const STEPS = [
   },
   {
     key: 'style',
-    question: '여행 스타일은 어떤 걸 선호하시나요?',
-    type: 'toggle',
-    options: ['힐링', '액티비티', '맛집', '트레킹'],
+    question: '어떤 여행을 하고 싶은지 자유롭게 알려주세요.',
+    subQuestion: '좋아하는 장소나 여행 분위기 등을 편하게 말씀해주세요.',
+    type: 'text',
     icon: '🍃',
     label: '여행 스타일',
+  },
+  {
+    key: 'ageGroup',
+    question: '여행하시는 분의 나이대를 알려주세요.',
+    type: 'toggle',
+    options: ['10대', '20대', '30대', '40대', '50대', '60대 이상'],
+    icon: '🎂',
+    label: '나이대',
   },
 ]
 
