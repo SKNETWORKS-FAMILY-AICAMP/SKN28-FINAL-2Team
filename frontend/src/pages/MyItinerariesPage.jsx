@@ -84,7 +84,7 @@ export default function MyItinerariesPage() {
 
                     <p>
                       {it.styleDisplay?.replace("여행", "")} · {it.startDate} ~ {it.endDate} ·{" "}
-                      {it.durationLabel} · {it.companionCount}명
+                      {it.companionCount}명
                     </p>
                   </div>
                 </Link>

@@ -120,8 +120,8 @@ def generate_itinerary(itinerary: Itinerary):
 
     itinerary.title = (
         f"{itinerary.duration_label} "
+        f"{itinerary.get_companion_type_display()} "
         f"{itinerary.get_style_display()} "
-        f"{itinerary.get_companion_type_display()} 여행"
     )
     itinerary.save(update_fields=["title"])
 
