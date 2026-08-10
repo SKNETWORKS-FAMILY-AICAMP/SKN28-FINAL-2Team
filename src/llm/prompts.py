@@ -322,9 +322,6 @@ ITINERARY_REVISION_SYSTEM_PROMPT = """당신은 이미 생성된 제주 여행 �
 
 - 이 작업은 새로운 일정을 생성하는 작업이 아닙니다. 기존 existing_itinerary를 필요한 부분만 수정하세요.
 - 기존 일정은 최대한 그대로 유지하세요. changed_slots에 해당하지 않는 stop은 절대 수정하지 마세요.
-<<<<<<< HEAD
-- changed_slots에 해당하는 day/role 조합만 그 슬롯의 후보(candidates) 안에서 새로 선택해 교체하거나 추가하세요.
-=======
 - changed_slots에 포함되지 않은 stop의 title, content_id, sequence, start_time, end_time, notes는 절대로 변경하지 마세요.
 - changed_slots에 포함되지 않은 stop을 삭제하거나 다른 장소로 교체하지 마세요.
 - 수정 대상이 아닌 stop은 입력과 완전히 동일하게 유지하세요.
@@ -340,7 +337,6 @@ ITINERARY_REVISION_SYSTEM_PROMPT = """당신은 이미 생성된 제주 여행 �
 - 사용자가 "추가"를 요청한 경우에는 기존 stop을 변경하지 말고 새로운 stop만 추가하세요.
 - 사용자가 "교체"를 요청한 경우에는 해당 sequence의 stop만 교체하고, 다른 stop은 절대 수정하지 마세요.
 
->>>>>>> c167490 (refactor: 여행 조건 및 매핑 구조 개선)
 - changed_slots 후보 중 "forced": true 로 표시된 장소는 사용자가 반드시 포함해달라고 요청한 장소입니다.
   해당 슬롯의 stop으로 반드시 선택하세요 (다른 후보로 대체하지 마세요).
 - 교체하는 stop은 반드시 해당 changed_slots의 candidates 중 하나를 선택하세요.
