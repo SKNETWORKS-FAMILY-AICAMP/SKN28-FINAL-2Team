@@ -11,6 +11,14 @@ export const STEPS = [
     label: '동행자',
   },
   {
+    key: 'ageGroup',
+    question: '여행하시는 분의 나이대를 알려주세요.',
+    type: 'toggle',
+    options: ['10대', '20대', '30대', '40대', '50대', '60대 이상'],
+    icon: '🎂',
+    label: '나이대',
+  },
+  {
     key: 'travelDates',
     question: '여행 날짜를 선택해주세요.',
     type: 'dateRange',
@@ -24,14 +32,6 @@ export const STEPS = [
     type: 'text',
     icon: '🍃',
     label: '여행 스타일',
-  },
-  {
-    key: 'ageGroup',
-    question: '여행하시는 분의 나이대를 알려주세요.',
-    type: 'toggle',
-    options: ['10대', '20대', '30대', '40대', '50대', '60대 이상'],
-    icon: '🎂',
-    label: '나이대',
   },
 ]
 

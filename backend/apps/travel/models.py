@@ -136,13 +136,6 @@ class Package(models.Model):
 class Itinerary(models.Model):
     """최종 여행 일정표 """
 
-    class Style(models.TextChoices):
-        FAMILY = "family", "가족여행"
-        HEALING = "healing", "힐링여행"
-        ACTIVITY = "activity", "액티비티"
-        FOOD = "food", "맛집여행"
-        TREKKING = "trekking", "트레킹"
-
     class Status(models.TextChoices):
         DRAFT = "draft", "임시저장"
         CONFIRMED = "confirmed", "확정"
@@ -161,8 +154,13 @@ class Itinerary(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
+    age_group = models.CharField(
+        max_length=10, blank=True, null=True, help_text="여행 대표자의 나이대 (예: 10, 20, 30, 40, 50, 60)")
     companion_count = models.PositiveSmallIntegerField(default=1)
-    style = models.CharField(max_length=20, choices=Style.choices, blank=True)
+    # 미리 정해둔 카테고리(choices)로 제한하지 않고, 사용자가 자유롭게 입력한
+    # 여행 스타일 텍스트를 그대로 저장한다. 이 값은 필터링에 쓰이지 않고
+    # RAG 검색 조건(user_text)으로 그대로 전달된다.
+    style = models.CharField(max_length=200, blank=True)
     selected_package = models.ForeignKey(
         Package, on_delete=models.SET_NULL, null=True, blank=True, related_name="itineraries"
     )

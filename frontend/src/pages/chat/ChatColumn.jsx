@@ -19,13 +19,16 @@ const COMPANION_TYPE_MAP = {
   혼자: 'solo',
 }
 
-const STYLE_MAP = {
-  힐링: 'healing',
-  힐링여행: 'healing',
-  액티비티: 'activity',
-  맛집: 'food',
-  트레킹: 'trekking',
-  가족여행: 'family',
+// 나이대 토글 옵션("20대" 등)을 백엔드 age_group 필드가 기대하는
+// 숫자 문자열("20")로 변환한다. services.py가 f"{age_group}대" 형태로
+// 다시 조합해서 LLM/AIHub 조회에 사용하기 때문에 접미사 없이 숫자만 저장한다.
+const AGE_GROUP_MAP = {
+  '10대': '10',
+  '20대': '20',
+  '30대': '30',
+  '40대': '40',
+  '50대': '50',
+  '60대 이상': '60',
 }
 
 const parseNights = (durationText) => {
@@ -275,11 +278,15 @@ export default function ChatColumn({
         companion_count: getCompanionCount(
           finalAnswers.companion
         ),
-        style:
-          STYLE_MAP[finalAnswers.style] ??
-          'healing',
-          status: 'draft',
-          is_public: false,
+        age_group:
+          AGE_GROUP_MAP[finalAnswers.ageGroup] ?? '',
+        // 여행 스타일은 미리 정해둔 카테고리로 필터링하지 않고,
+        // 사용자가 입력한 자유 텍스트 그대로 백엔드로 전달한다.
+        // 백엔드는 이 텍스트를 그대로 RAG 검색 조건으로 사용해
+        // 관광지 후보를 찾는다.
+        style: finalAnswers.style ?? '',
+        status: 'draft',
+        is_public: false,
       })
 
       console.log('생성된 일정:', itinerary)
@@ -437,56 +444,39 @@ export default function ChatColumn({
 
       setInput('')
 
-    const currentStep = STEPS[stepIndex]
+      const currentStep = STEPS[stepIndex]
 
-    if (
-      currentStep &&
-      currentStep.type === 'dateRange'
-    ) {
-      return
+      // 날짜 선택 단계에서는 입력창 사용 안 함
+      if (
+        currentStep &&
+        currentStep.type === 'dateRange'
+      ) {
+        return
+      }
+
+      // 선택형 질문은 버튼으로만 답변
+      if (
+        currentStep &&
+        currentStep.type === 'toggle'
+      ) {
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: ['버튼을 눌러 선택해주세요.'],
+          },
+        ])
+
+        return
+      }
+
+      // text 타입 질문 답변
+      if (currentStep) {
+        answerStep(currentStep.key, text)
+      }
     }
-
-    if (
-      currentStep &&
-      currentStep.type === 'toggle'
-    ) {
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          type: 'msg',
-          me: false,
-          lines: ['버튼을 눌러 선택해주세요.'],
-        },
-      ])
-
-      return
-    }
-
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        type: 'msg',
-        me: true,
-        lines: [text],
-      },
-    ])
-
-    setTimeout(() => {
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          type: 'msg',
-          me: false,
-          lines: [
-            '알겠습니다! 반영해서 일정에 바로 적용할게요 🍊',
-          ],
-        },
-      ])
-    }, 700)
-  }
 
   const flowDone =
     stepIndex >= STEPS.length
@@ -853,4 +843,4 @@ export default function ChatColumn({
       </div>
     </div>
   )
-}
+};

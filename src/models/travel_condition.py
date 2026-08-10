@@ -22,6 +22,7 @@ class TravelCondition:
     local_transport: LocalTransport
     preferred_visit_types: tuple[VisitPreference, ...]
     companion_count: int
+    age_group: str | None = None
 
     purpose_codes: tuple[str, ...] = ()
     pace: Pace | None = None
@@ -43,6 +44,7 @@ class TravelCondition:
                 value.get("preferred_visit_types")
             ),
             companion_count=_optional_int(value.get("companion_count")) or 0,
+            age_group=str(value.get("age_group") or "").strip() or None,
             purpose_codes=_string_tuple(value.get("purpose_codes")),
             pace=Pace(value["pace"]) if value.get("pace") else None,
             arrival_time=value.get("arrival_time"),

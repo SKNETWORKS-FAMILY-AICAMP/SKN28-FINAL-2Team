@@ -21,6 +21,7 @@ class TripProfile:
     party_type: PartyType
     local_transport: LocalTransport
     companion_count: int
+    age_group: str | None
     purpose_codes: frozenset[str]
     visit_type_counts: Mapping[VisitPreference, int]
     usable_visit_count: int
@@ -42,6 +43,11 @@ class TripProfile:
             ),
             local_transport=_primary_transport(row),
             companion_count=int(row.get("companion_count") or 0),
+            age_group=(
+                str(row.get("age_group")).strip()
+                if row.get("age_group") is not None
+                else None
+            ),
             purpose_codes=frozenset(
                 _split_codes(
                     row.get("travel_mission_check")
@@ -84,12 +90,10 @@ class AIHubPatternConfig:
     (``aggregate_role_keywords`` 참고).
     """
 
-    top_k: int = 5                    # movement pattern용
-    reference_keyword_top_k: int = 8   # keyword 추출용
-    min_usable_visits: int = 3
-    duration_weight: float = 20.0
-    party_weight: float = 20.0
-    transport_weight: float = 25.0
+    top_k: int = 10
+    reference_keyword_top_k: int = 10
+    min_usable_visits: int = 5
+        
 
     def __post_init__(self) -> None:
         if self.top_k <= 0:
@@ -109,7 +113,15 @@ class AIHubPatternConfig:
             raise ValueError("min_usable_visits must be greater than zero")
 
 class AIHubPatternRepository(Protocol):
-    def fetch_trip_profiles(self, *, min_usable_visits: int) -> list[TripProfile]:
+    def fetch_trip_profiles(
+        self,
+        *,
+        age_groups: Sequence[str],
+        duration_days: int,
+        companion_rel_codes: Sequence[str],
+        min_usable_visits: int,
+        limit: int,
+    ) -> list[TripProfile]:
         ...
 
     def fetch_trip_routes(
@@ -130,17 +142,111 @@ class AIHubSimilarityRepository:
     ) -> None:
         if config is None and connection_factory is None:
             raise ValueError("config or connection_factory is required")
+
         self._config = config
         self._connection_factory = connection_factory
 
-    def fetch_trip_profiles(self, *, min_usable_visits: int) -> list[TripProfile]:
+    def fetch_trip_profiles(
+        self,
+        *,
+        age_groups: Sequence[str],
+        duration_days: int,
+        companion_rel_codes: Sequence[str],
+        min_usable_visits: int,
+        limit: int,
+    ) -> list[TripProfile]:
+
+        if duration_days <= 0:
+            raise ValueError(
+                "duration_days must be greater than zero"
+            )
+
         if min_usable_visits <= 0:
-            raise ValueError("min_usable_visits must be greater than zero")
+            raise ValueError(
+                "min_usable_visits must be greater than zero"
+            )
+
+        if limit <= 0:
+            raise ValueError(
+                "limit must be greater than zero"
+            )
+
+        normalized_age_groups = tuple(
+            dict.fromkeys(
+                str(age).strip()
+                for age in age_groups
+                if str(age).strip()
+            )
+        )
+
+        if not normalized_age_groups:
+            return []
+
+        age_placeholders = ", ".join(
+            ["%s"] * len(normalized_age_groups)
+        )
+
+        normalized_rel_codes = tuple(
+            dict.fromkeys(
+                str(code).strip()
+                for code in companion_rel_codes
+                if str(code).strip()
+            )
+        )
+
+        # 혼자 여행
+        if not normalized_rel_codes:
+            companion_condition = """
+                NOT EXISTS (
+                    SELECT 1
+                    FROM aihub_companion AS c
+                    WHERE c.travel_id = t.travel_id
+                )
+            """
+
+            companion_params = []
+
+        # 친구 / 가족
+        else:
+            companion_placeholders = ", ".join(
+                ["%s"] * len(normalized_rel_codes)
+            )
+
+            companion_condition = f"""
+                EXISTS (
+                    SELECT 1
+                    FROM aihub_companion AS c
+                    WHERE c.travel_id = t.travel_id
+                    AND c.rel_cd IN ({companion_placeholders})
+                )
+            """
+
+            companion_params = list(normalized_rel_codes)
+
+        sql = _TRIP_PROFILE_SQL.format(
+            age_placeholders=age_placeholders,
+            companion_condition=companion_condition,
+        )
+
+        params = [
+            *normalized_age_groups,
+            duration_days,
+            min_usable_visits,
+            *companion_params,
+            limit,
+        ]
+
         with self._connect() as connection:
             cursor = connection.cursor(dictionary=True)
+
             try:
-                cursor.execute(_TRIP_PROFILE_SQL, (min_usable_visits,))
-                return [TripProfile.from_row(row) for row in cursor.fetchall()]
+                cursor.execute(sql, params)
+
+                return [
+                    TripProfile.from_row(row)
+                    for row in cursor.fetchall()
+                ]
+
             finally:
                 cursor.close()
 
@@ -148,16 +254,32 @@ class AIHubSimilarityRepository:
         self,
         travel_ids: Sequence[str],
     ) -> list[dict[str, Any]]:
-        normalized_ids = tuple(dict.fromkeys(str(item) for item in travel_ids if item))
+        normalized_ids = tuple(
+            dict.fromkeys(
+                str(item)
+                for item in travel_ids
+                if item
+            )
+        )
+
         if not normalized_ids:
             return []
-        placeholders = ", ".join(["%s"] * len(normalized_ids))
-        sql = _TRIP_ROUTE_SQL.format(placeholders=placeholders)
+
+        placeholders = ", ".join(
+            ["%s"] * len(normalized_ids)
+        )
+
+        sql = _TRIP_ROUTE_SQL.format(
+            placeholders=placeholders
+        )
+
         with self._connect() as connection:
             cursor = connection.cursor(dictionary=True)
+
             try:
                 cursor.execute(sql, normalized_ids)
                 return list(cursor.fetchall())
+
             finally:
                 cursor.close()
 
@@ -165,6 +287,7 @@ class AIHubSimilarityRepository:
     def _connect(self) -> Iterator[Any]:
         if self._connection_factory is not None:
             connection = self._connection_factory()
+
         else:
             try:
                 import mysql.connector
@@ -172,16 +295,19 @@ class AIHubSimilarityRepository:
                 raise RuntimeError(
                     "mysql-connector-python is not installed"
                 ) from exc
+
             if isinstance(self._config, Mapping):
                 kwargs = dict(self._config)
             else:
                 kwargs = self._config.connection_kwargs()
+
             connection = mysql.connector.connect(**kwargs)
+
         try:
             yield connection
+
         finally:
             connection.close()
-
 
 class AIHubPatternService:
     def __init__(
@@ -197,40 +323,103 @@ class AIHubPatternService:
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
-        profiles = self.repository.fetch_trip_profiles(
-            min_usable_visits=self.config.min_usable_visits
-        )
-        matches = [
-            self._score_trip(normalized, profile) for profile in profiles
-        ]
-        return sorted(
-            matches,
-            key=lambda item: (
-                -item.score,
-                -float(item.profile.average_satisfaction or 0),
-                item.profile.travel_id,
-            ),
-        )[: self.config.top_k]
 
+        companion_rel_codes = _companion_relation_codes(
+            normalized.party_type
+        )
+
+        age_groups = _fallback_age_groups(
+            normalized.age_group
+        )
+
+        print("\n========== AIHub FILTER ==========")
+        print("age_group:", normalized.age_group)
+        print("age_groups:", age_groups)
+        print("duration_days:", normalized.duration_days)
+        print("party_type:", normalized.party_type)
+        print("companion_rel_codes:", companion_rel_codes)
+        print("min_visits:", self.config.min_usable_visits)
+        print("==================================")
+
+        profiles = self.repository.fetch_trip_profiles(
+            age_groups=age_groups,
+            duration_days=normalized.duration_days,
+            companion_rel_codes=companion_rel_codes,
+            min_usable_visits=self.config.min_usable_visits,
+            limit=self.config.top_k,
+        )
+        print(f"[AIHub FILTER RESULT] {len(profiles)}개")
+        for profile in profiles:
+            print(
+                f"travel_id={profile.travel_id}, "
+                f"duration={profile.duration_days}, "
+                f"age_group={profile.age_group}, "
+                f"party={profile.party_type}, "
+                f"visits={profile.usable_visit_count}"
+            )
+
+        return [
+            TripMatch(
+                profile=profile,
+                score=100.0,
+                component_scores={
+                    "age_group": 100.0,
+                    "duration": 100.0,
+                    "party": 100.0,
+                    "visit_count": 100.0,
+                },
+                matched_on=(
+                    "age_group",
+                    "duration",
+                    "party",
+                    "visit_count",
+                ),
+                conflicts=(),
+            )
+            for profile in profiles
+        ]
     def find_reference_keyword_trips(
         self,
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
-        profiles = self.repository.fetch_trip_profiles(
-            min_usable_visits=self.config.min_usable_visits
+
+        companion_rel_codes = _companion_relation_codes(
+            normalized.party_type
         )
-        matches = [
-            self._score_trip(normalized, profile) for profile in profiles
+
+        age_groups = _fallback_age_groups(
+            normalized.age_group
+        )
+
+        profiles = self.repository.fetch_trip_profiles(
+            age_groups=age_groups,
+            duration_days=normalized.duration_days,
+            companion_rel_codes=companion_rel_codes,
+            min_usable_visits=self.config.min_usable_visits,
+            limit=self.config.reference_keyword_top_k,
+        )
+
+        return [
+            TripMatch(
+                profile=profile,
+                score=100.0,
+                component_scores={
+                    "age_group": 100.0,
+                    "duration": 100.0,
+                    "party": 100.0,
+                    "visit_count": 100.0,
+                },
+                matched_on=(
+                    "age_group",
+                    "duration",
+                    "party",
+                    "visit_count",
+                ),
+                conflicts=(),
+            )
+            for profile in profiles
         ]
-        return sorted(
-            matches,
-            key=lambda item: (
-                -item.score,
-                -float(item.profile.average_satisfaction or 0),
-                item.profile.travel_id,
-            ),
-        )[: self.config.reference_keyword_top_k]
 
     def build_llm_context(
         self,
@@ -451,13 +640,57 @@ def _normalize_condition(
         return condition
     return TravelCondition.from_mapping(condition)
 
+def _companion_relation_codes(
+    party_type: PartyType,
+) -> tuple[str, ...]:
+    if party_type == PartyType.SOLO:
+        return ()
+
+    # 친구: 형제/자매 + 친구
+    if party_type in {
+        PartyType.NON_FAMILY_TWO,
+        PartyType.NON_FAMILY_GROUP,
+    }:
+        return ("5", "7")
+
+    # 가족: 자녀 + 부모 + 조부모
+    if party_type in {
+        PartyType.FAMILY_TWO,
+        PartyType.FAMILY_GROUP,
+        PartyType.WITH_CHILDREN,
+        PartyType.WITH_PARENTS,
+        PartyType.THREE_GENERATIONS,
+    }:
+        return ("2", "3", "4")
+
+    return ()
+
+def _fallback_age_groups(
+    age_group: str | None,
+) -> tuple[str, ...]:
+    if not age_group:
+        return ()
+
+    age_order = ("10", "20", "30", "40", "50", "60")
+
+    age_group = str(age_group).strip()
+
+    if age_group not in age_order:
+        return (age_group,)
+
+    index = age_order.index(age_group)
+
+    start = max(0, index - 1)
+    end = min(len(age_order), index + 2)
+
+    return age_order[start:end]
+
 
 def _duration_similarity(requested: int, historical: int) -> float:
     difference = abs(requested - historical)
     return max(0.0, 1.0 - difference / max(requested, 2))
 
-
-def _party_compatibility(requested: PartyType, historical: PartyType) -> float:
+def _party_compatibility(requested: PartyType, historical: PartyType ) -> float:
     if requested == historical:
         return 1.0
     non_family = {
@@ -719,73 +952,103 @@ _TRIP_PROFILE_SQL = f"""
     WITH visit_profile AS (
         SELECT
             v.travel_id,
-            SUM(
-                CASE
-                    WHEN v.visit_area_type_cd NOT IN ('9', '21', '22', '23', '24')
-                    THEN 1 ELSE 0
+
+            COUNT(
+                DISTINCT CASE
+                    WHEN v.visit_area_type_cd NOT IN ('9', '12', '24')
+                    THEN v.visit_area_id
                 END
             ) AS usable_visit_count,
+
             AVG(
                 CASE
-                    WHEN v.visit_area_type_cd NOT IN ('9', '21', '22', '23', '24')
+                    WHEN v.visit_area_type_cd NOT IN ('9', '12', '24')
                     THEN v.residence_time_min
                 END
             ) AS average_stay_minutes,
+
             AVG(
                 CASE
-                    WHEN v.visit_area_type_cd NOT IN ('9', '21', '22', '23', '24')
+                    WHEN v.visit_area_type_cd NOT IN ('9', '12', '24')
                     THEN v.dgstfn
                 END
             ) AS average_satisfaction,
+
 {_VISIT_COUNT_SQL}
+
         FROM aihub_visit AS v
+
         WHERE v.visit_area_type_cd NOT IN ('21', '22', '23')
+
         GROUP BY v.travel_id
     ),
+
     movement_profile AS (
         SELECT
             m.travel_id,
+
             SUM(
                 COALESCE(m.mvmn_cd_1 = '2', 0)
                 + COALESCE(m.mvmn_cd_2 = '2', 0)
             ) AS rental_car_count,
+
             SUM(
                 COALESCE(m.mvmn_cd_1 = '1', 0)
                 + COALESCE(m.mvmn_cd_2 = '1', 0)
             ) AS own_car_count,
+
             SUM(
                 COALESCE(m.mvmn_cd_1 = '4', 0)
                 + COALESCE(m.mvmn_cd_2 = '4', 0)
             ) AS taxi_count,
+
             SUM(
                 COALESCE(
                     m.mvmn_cd_1 IN (
-                        '5', '6', '7', '8', '11', '12', '13', '50'
+                        '5', '6', '7', '8',
+                        '11', '12', '13', '50'
                     ),
                     0
                 )
-                + COALESCE(
+                +
+                COALESCE(
                     m.mvmn_cd_2 IN (
-                        '5', '6', '7', '8', '11', '12', '13', '50'
+                        '5', '6', '7', '8',
+                        '11', '12', '13', '50'
                     ),
                     0
                 )
             ) AS public_transit_count
+
         FROM aihub_move AS m
+
         GROUP BY m.travel_id
     )
+
     SELECT
         t.travel_id,
-        DATEDIFF(t.travel_end_ymd, t.travel_start_ymd) + 1 AS duration_days,
+
+        DATEDIFF(
+            t.travel_end_ymd,
+            t.travel_start_ymd
+        ) + 1 AS duration_days,
+
+        r.age_grp AS age_group,
+
         r.travel_status_accompany AS party_label,
+
         r.travel_companions_num AS companion_count,
+
         t.mvmn_nm AS movement_name,
+
         t.travel_purpose,
         t.travel_mission,
         t.travel_mission_check,
+
         vp.usable_visit_count,
         vp.average_stay_minutes,
         vp.average_satisfaction,
+
         vp.nature_count,
         vp.history_count,
         vp.culture_count,
@@ -796,25 +1059,50 @@ _TRIP_PROFILE_SQL = f"""
         vp.festival_count,
         vp.food_cafe_count,
         vp.experience_count,
+
         COALESCE(mp.rental_car_count, 0) AS rental_car_count,
         COALESCE(mp.own_car_count, 0) AS own_car_count,
         COALESCE(mp.taxi_count, 0) AS taxi_count,
         COALESCE(mp.public_transit_count, 0) AS public_transit_count
+
     FROM aihub_travel AS t
+
     JOIN aihub_traveller AS r
       ON r.traveler_id = t.traveler_id
+
     JOIN visit_profile AS vp
       ON vp.travel_id = t.travel_id
+
     LEFT JOIN movement_profile AS mp
       ON mp.travel_id = t.travel_id
-    WHERE vp.usable_visit_count >= %s
-    ORDER BY t.travel_id
+
+    WHERE
+        r.age_grp IN ({{age_placeholders}})
+
+        AND DATEDIFF(
+            t.travel_end_ymd,
+            t.travel_start_ymd
+        ) + 1 = %s
+
+        AND vp.usable_visit_count >= %s
+
+        AND {{companion_condition}}
+
+    ORDER BY
+        vp.usable_visit_count DESC,
+        t.travel_id
+
+    LIMIT %s
 """
+
 
 _TRIP_ROUTE_SQL = """
     SELECT
         t.travel_id,
-        DATEDIFF(v.visit_start_ymd, t.travel_start_ymd) + 1 AS day_no,
+        DATEDIFF(
+            v.visit_start_ymd,
+            t.travel_start_ymd
+        ) + 1 AS day_no,
         v.visit_area_id,
         v.visit_order,
         v.visit_area_nm AS place_name,
@@ -825,11 +1113,15 @@ _TRIP_ROUTE_SQL = """
         v.visit_area_type_cd,
         v.residence_time_min AS stay_minutes,
         v.dgstfn AS satisfaction
+
     FROM aihub_travel AS t
+
     JOIN aihub_visit AS v
       ON v.travel_id = t.travel_id
+
     WHERE t.travel_id IN ({placeholders})
       AND v.visit_area_type_cd NOT IN ('21', '22', '23')
+
     ORDER BY
         t.travel_id,
         day_no,
