@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import styles from './chat/chat.module.css'
 import AppHeader from './chat/AppHeader.jsx'
 import ChatColumn from './chat/ChatColumn.jsx'
-import SummaryColumn from './chat/SummaryColumn.jsx'
 import { INITIAL_ANSWERS } from './chat/questionSteps.js'
 
 const CHAT_PAGE_STORAGE_KEY = "travel-chat-page";
@@ -60,10 +59,12 @@ useEffect(() => {
   }
 }, [answers, ready, itineraryId]);
 
-  return (
-    <div className={styles.page}>
-      <AppHeader />
-      <div className={styles.stage}>
+return (
+  <div className={styles.page}>
+    <AppHeader />
+
+    <div className={styles.stage}>
+      <div className={styles.chatFrame}>
         <ChatColumn
           answers={answers}
           setAnswers={setAnswers}
@@ -72,8 +73,8 @@ useEffect(() => {
           setItineraryId={setItineraryId}
           itineraryId={itineraryId}
         />
-        <SummaryColumn answers={answers} ready={ready} itineraryId={itineraryId} />
       </div>
     </div>
-  )
+  </div>
+);
 }

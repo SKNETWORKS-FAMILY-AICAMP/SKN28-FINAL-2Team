@@ -36,7 +36,6 @@ export default function MapPanel({ itineraryId, activeDay, refreshKey }) {
   const infoWindowsRef = useRef([])
   const openedInfoWindowRef = useRef(null)
   const openedMarkerContentRef = useRef(null)
-  const [refreshKey, setRefreshKey] = useState(0)
 
   const recommendationCacheKey = itineraryId ? `package-recommendations-${itineraryId}` : null
   const [routes, setRoutes] = useState([])
