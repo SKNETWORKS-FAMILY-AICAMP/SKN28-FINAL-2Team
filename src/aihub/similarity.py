@@ -668,22 +668,44 @@ def _companion_relation_codes(
 def _fallback_age_groups(
     age_group: str | None,
 ) -> tuple[str, ...]:
+    """
+    요청 나이대를 기준으로 ±1단계의 AIHub age_grp 코드를 반환한다.
+
+    AIHub DB:
+        20 = 20대
+        30 = 30대
+        40 = 40대
+        50 = 50대
+        60 = 60대
+    """
     if not age_group:
         return ()
+    
+    normalized = str(age_group).strip().lower()
 
-    age_order = ("10", "20", "30", "40", "50", "60")
+    if normalized.endswith("s"):
+        normalized = normalized[:-1]
 
-    age_group = str(age_group).strip()
+    try:
+        age = int(normalized)
+    except ValueError:
+        return ()
 
-    if age_group not in age_order:
-        return (age_group,)
+    available_age_groups = {
+        20: "20",
+        30: "30",
+        40: "40",
+        50: "50",
+        60: "60",
+    }
 
-    index = age_order.index(age_group)
+    fallback = []
 
-    start = max(0, index - 1)
-    end = min(len(age_order), index + 2)
+    for candidate_age in (age - 10, age, age + 10):
+        if candidate_age in available_age_groups:
+            fallback.append(available_age_groups[candidate_age])
 
-    return age_order[start:end]
+    return tuple(fallback)
 
 
 def _duration_similarity(requested: int, historical: int) -> float:
