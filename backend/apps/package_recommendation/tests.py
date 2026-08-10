@@ -8,6 +8,8 @@ from rest_framework.test import APIRequestFactory
 from apps.travel.serializers import ItinerarySerializer
 from apps.travel.views import ItineraryViewSet
 
+from .services import recommend_package_comparison
+
 
 class PackageRecommendationAPITests(SimpleTestCase):
     def test_direct_schedule_edit_updates_recommendation_engine_state(self):
@@ -62,7 +64,7 @@ class PackageRecommendationAPITests(SimpleTestCase):
         self.assertEqual(itinerary.engine_state["used_content_ids"], [101])
         itinerary.save.assert_called_once_with(update_fields=["engine_state"])
 
-    @patch("apps.travel.views.recommend_packages")
+    @patch("apps.travel.views.recommend_package_comparison")
     @patch.object(ItineraryViewSet, "get_object")
     def test_itinerary_action_uses_saved_rag_engine_state(
         self,
@@ -74,6 +76,7 @@ class PackageRecommendationAPITests(SimpleTestCase):
             "itinerary": {"days": []},
         }
         mocked_get_object.return_value = SimpleNamespace(
+            pk=1,
             engine_state=engine_state,
             start_date=date(2026, 1, 15),
         )
@@ -97,5 +100,53 @@ class PackageRecommendationAPITests(SimpleTestCase):
                 "start_date": "2026-01-15",
             },
         }
-        mocked_recommend.assert_called_once_with(expected_payload, top_k=3)
+        mocked_recommend.assert_called_once_with(expected_payload, itinerary_id=1)
         self.assertNotIn("start_date", engine_state["condition"])
+
+
+class PackageComparisonServiceTests(SimpleTestCase):
+    @patch("apps.package_recommendation.services.recommend_packages")
+    def test_builds_custom_quote_from_top_recommendation(self, mocked_recommend):
+        stored_package = {
+            "package_id": "VIRTUAL-JEJU-D3-01",
+            "title": "제주 동부 2박3일",
+            "estimated_price": 666_000,
+        }
+        mocked_recommend.return_value = {
+            "status": "completed",
+            "recommendations": [stored_package],
+            "meta": {"candidate_count": 9},
+        }
+
+        result = recommend_package_comparison({}, itinerary_id=7)
+
+        mocked_recommend.assert_called_once_with({}, top_k=1)
+        self.assertEqual(result["stored_package"], stored_package)
+        self.assertEqual(result["recommendations"], [stored_package])
+        self.assertEqual(
+            result["custom_package"],
+            {
+                "product_type": "custom_itinerary",
+                "itinerary_id": 7,
+                "title": "내가 확정한 자유패키지",
+                "reference_package_id": "VIRTUAL-JEJU-D3-01",
+                "reference_package_price": 666_000,
+                "customization_fee": 80_000,
+                "price_per_person": 746_000,
+                "pricing_version": "2.0",
+                "is_provisional_quote": True,
+            },
+        )
+
+    @patch("apps.package_recommendation.services.recommend_packages")
+    def test_returns_empty_comparison_when_no_package_matches(self, mocked_recommend):
+        mocked_recommend.return_value = {
+            "status": "no_candidates",
+            "recommendations": [],
+            "meta": {"candidate_count": 0},
+        }
+
+        result = recommend_package_comparison({}, itinerary_id=7)
+
+        self.assertIsNone(result["stored_package"])
+        self.assertIsNone(result["custom_package"])

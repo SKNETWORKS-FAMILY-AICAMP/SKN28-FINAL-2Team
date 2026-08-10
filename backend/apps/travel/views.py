@@ -14,7 +14,7 @@ from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer,
         ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
-from apps.package_recommendation.services import recommend_packages
+from apps.package_recommendation.services import recommend_package_comparison
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -203,22 +203,13 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            top_k = int(request.query_params.get("top_k", 3))
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "top_k는 정수여야 합니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not 1 <= top_k <= 10:
-            return Response(
-                {"detail": "top_k는 1부터 10까지 지정할 수 있습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
             recommendation_payload = copy.deepcopy(itinerary.engine_state)
             conditions = recommendation_payload.setdefault("condition", {})
             conditions["start_date"] = itinerary.start_date.isoformat()
-            result = recommend_packages(recommendation_payload, top_k=top_k)
+            result = recommend_package_comparison(
+                recommendation_payload,
+                itinerary_id=itinerary.pk,
+            )
         except (TypeError, ValueError) as exc:
             return Response(
                 {"detail": str(exc)},
