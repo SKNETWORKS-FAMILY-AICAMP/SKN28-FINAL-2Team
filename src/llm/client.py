@@ -17,29 +17,36 @@ class OpenAIChatClient:
         *,
         api_key: str | None,
         model: str | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
+        client: Any | None = None,
     ) -> None:
         if not api_key:
             raise LLMClientError("OPENAI_API_KEY is required to build an OpenAIChatClient")
-        try:
-            import openai
-        except ImportError as exc:  # pragma: no cover - environment dependent
-            raise LLMClientError("the 'openai' package is not installed") from exc
+        if client is None:
+            try:
+                import openai
+            except ImportError as exc:  # pragma: no cover - environment dependent
+                raise LLMClientError("the 'openai' package is not installed") from exc
 
-        self._client = openai.OpenAI(api_key=api_key)
+            client = openai.OpenAI(api_key=api_key)
+
+        self._client = client
         self.model = model or os.environ.get("OPENAI_CHAT_MODEL", DEFAULT_CHAT_MODEL)
         self.temperature = temperature
 
     def complete_json(self, *, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        response = self._client.chat.completions.create(
-            model=self.model,
-            temperature=self.temperature,
-            response_format={"type": "json_object"},
-            messages=[
+        request: dict[str, Any] = {
+            "model": self.model,
+            "response_format": {"type": "json_object"},
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-        )
+        }
+        if self.temperature is not None:
+            request["temperature"] = self.temperature
+
+        response = self._client.chat.completions.create(**request)
         content = response.choices[0].message.content or "{}"
         try:
             return json.loads(content)

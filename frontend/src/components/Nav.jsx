@@ -35,6 +35,7 @@ export default function Nav() {
         <nav className="nav-links">
           <Link to="/how-to-use">이용 방법</Link>
           <Link to="/packages">추천 패키지</Link>
+          <Link to="/evaluation">RAG 평가</Link>
         </nav>
 
         <div className="nav-right">

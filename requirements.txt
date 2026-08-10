@@ -12,3 +12,7 @@ python-dotenv==1.2.2
 google-auth==2.56.2
 requests==2.34.2
 mysqlclient>=2.2.8,<3.0
+
+# feature/backend RAG evaluation API
+fastapi>=0.115,<1.0
+uvicorn>=0.34,<1.0

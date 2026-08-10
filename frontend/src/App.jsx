@@ -13,6 +13,7 @@ import MyBookmarksPage from './pages/MyBookmarksPage.jsx'
 import MyReservationsPage from './pages/MyReservationsPage.jsx'
 import RequireAuth from './context/RequireAuth.jsx'
 import HowToUsePage from './pages/HowToUsePage'
+import EvaluationPage from './pages/EvaluationPage.jsx'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/booking" element={<BookingPage />} />
       <Route path="/packages" element={<PackagesPage />} />
       <Route path="/how-to-use" element={<HowToUsePage />} />
+      <Route path="/evaluation" element={<EvaluationPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/oauth/kakao/callback" element={<KakaoCallback />} />
 
