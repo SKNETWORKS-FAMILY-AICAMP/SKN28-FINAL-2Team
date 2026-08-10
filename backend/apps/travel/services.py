@@ -143,10 +143,10 @@ def generate_itinerary(itinerary: Itinerary):
 
     itinerary.title = (
         f"{itinerary.duration_label} "
-        f"{itinerary.get_style_display()} "
         f"{itinerary.get_companion_type_display()} 여행"
     )
     itinerary.save(update_fields=["title"])
+
 
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")
@@ -166,17 +166,27 @@ def generate_itinerary(itinerary: Itinerary):
 
         print(
             "display style     :",
-            itinerary.get_style_display(),
+            itinerary.style,
         )
 
         # -------------------------------------------------
         # LLM 입력 생성
+        #
+        # 여행 스타일(itinerary.style)은 미리 정해둔 카테고리로 필터링하지
+        # 않는다. 사용자가 자유 입력한 텍스트를 그대로 user_text에 포함시켜
+        # LLM의 extract_travel_condition이 선호 방문유형/목적/필수 방문지 등을
+        # 직접 추출하게 하고, 그 결과가 RAG 검색 쿼리(generate_style_query)에
+        # 반영되어 관광지 후보를 찾아오도록 한다. AIHub 참고 여행 매칭
+        # (나이대/기간/동행)에는 style 값을 사용하지 않는다.
         # -------------------------------------------------
         user_text = (
             f"{itinerary.duration_label}, "
             f"{itinerary.get_companion_type_display()}, "
-            f"{itinerary.get_style_display()}"
+            f"{itinerary.age_group}대"
         )
+
+        if itinerary.style:
+            user_text = f"{user_text}, {itinerary.style}"
 
         print("=" * 80)
         print("User Input :", user_text)

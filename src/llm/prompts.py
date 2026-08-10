@@ -10,7 +10,7 @@ LOCAL_TRANSPORT_VALUES = [item.value for item in LocalTransport]
 VISIT_PREFERENCE_VALUES = [item.value for item in VisitPreference]
 PACE_VALUES = [item.value for item in Pace]
 
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------s------------------------
 # 1. Condition extraction (first turn: free text -> TravelCondition JSON)
 # ---------------------------------------------------------------------------
 
@@ -25,6 +25,7 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비�
   "local_transport": {LOCAL_TRANSPORT_VALUES} 중 하나,
   "preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 1개 이상을 담은 배열,
   "companion_count": 정수 또는 null,
+  "age_group": 문자열 또는 null,
   "pace": {PACE_VALUES} 중 하나 또는 null,
   "must_visit_places": 문자열 배열 (없으면 []),
   "excluded_places": 문자열 배열 (없으면 [])
@@ -36,6 +37,16 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비�
 - "맛집" -> ["food_cafe"]
 - "트래킹" -> ["trail"]
 여러 스타일이 언급되면 해당하는 값을 모두 포함하세요.
+
+나이대(age_group) 추출 규칙:
+- "20대" -> "20s"
+- "30대" -> "30s"
+- "40대" -> "40s"
+- "50대" -> "50s"
+- "60대" -> "60s"
+- "70대" -> "70s"
+- 사용자가 나이대를 명시하지 않았으면 null
+- 반드시 사용자가 명시한 나이대를 그대로 기준으로 추출하세요.
 
 정보가 불명확하면 합리적인 기본값을 사용하되(party_type 기본값 "non_family_group",
 local_transport 기본값 "rental_car"), duration_days와 preferred_visit_types는

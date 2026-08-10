@@ -177,10 +177,11 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Itinerary.objects.none()
 
-        return Itinerary.objects.filter(
-            user=self.request.user
-        ).prefetch_related("days__items")
-
+        return (
+            Itinerary.objects
+            .filter(user=self.request.user)
+            .order_by("-id")
+        )
     @extend_schema(
         tags=["Package Recommendation"],
         summary="생성된 일정에 맞는 패키지 추천",

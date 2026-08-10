@@ -180,7 +180,9 @@ class ItinerarySerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=False,allow_blank=True)
     days = ItineraryDaySerializer(many=True, required=False)
     duration_label = serializers.ReadOnlyField()
-    style_display = serializers.CharField(source="get_style_display", read_only=True)
+    # style은 더 이상 choices로 제한된 카테고리가 아니라 자유 입력 텍스트이므로
+    # 별도의 "표시용" 값이 없다. style 값 자체를 그대로 노출한다.
+    style_display = serializers.CharField(source="style", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
 
@@ -190,7 +192,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
         fields = (
             "id", "title", "subtitle", "start_date", "end_date",
             "companion_type", "companion_type_display",
-            "companion_count", "style", "style_display",
+            "companion_count",  "age_group", "style", "style_display",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
             "created_at", "updated_at",
