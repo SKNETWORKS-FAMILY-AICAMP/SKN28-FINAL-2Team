@@ -7,16 +7,10 @@ import re
 from typing import Any, Sequence
 
 from .aihub.similarity import AIHubPatternService
-
 from .mappings.trip_feature_mapping import (
     SLOT_ITINERARY_ROLES,
     SLOT_TARGET_COLLECTIONS,
     get_visit_area_type_mapping,
-)
-
-from .mappings.trip_feature_mapping import (
-    SLOT_ITINERARY_ROLES,
-    SLOT_TARGET_COLLECTIONS,
 )
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
@@ -37,16 +31,57 @@ from .recommender import create_pattern_service
 DEFAULT_SEARCH_TOP_K = 30
 
 # --- AIHub(이동 패턴) + RAG(관광지 후보) 조합 (초기 일정 생성) ---
+
 # 각 모듈은 서로 다른 질문에 답한다:
-#   AIHub -> "비슷한 사람들은 어떻게 이동했는가?" (이름 없는 순서/흐름 패턴)
-#   RAG   -> "사용자가 원하는 스타일/자유 요청에 맞는 장소는 어디인가?"
-#            (실제로 슬롯에 채워 넣을 수 있는 유일한 후보군)
-# Planner가 결정한 슬롯 구조(_default_day_structure)는 그대로 유지하고,
-# RAG 후보만으로 슬롯을 채운 뒤, AIHub 이동 패턴은 LLM이 순서를 정할 때
+#
+# AIHub -> "비슷한 사람들은 어떻게 이동했는가?"
+#         비슷한 여행자의 이동/방문 패턴을 참고자료로 제공
+#
+# RAG   -> "사용자가 원하는 스타일/자유 요청에 맞는 장소는 어디인가?"
+#         실제 일정에 사용할 장소 후보군을 제공
+#
+# Planner -> "이번 여행에서 하루에 몇 개의 장소를 사용할 것인가?"
+#           RAG 후보의 실제 가용성과 사용자의 pace를 기준으로
+#           하루별 슬롯 수와 role을 동적으로 결정한다.
+#
+# 하루 5개처럼 고정된 슬롯 구조는 사용하지 않는다.
+# AIHub 이동 패턴은 최종 LLM이 일정 순서와 동선을 정할 때
 # 참고자료로만 사용한다.
+
 RAG_CANDIDATE_POOL_TOP_K = 100
 
-_DEFAULT_DAY_ROLES: tuple[str, ...] = ("visit", "activity", "food", "visit", "food")
+# ------------------------------------------------------------
+# 사용자 여행 속도별 하루 목표 방문 수
+# ------------------------------------------------------------
+
+_PACE_TARGET_STOPS_PER_DAY: dict[str, int] = {
+    "relaxed": 3,
+    "balanced": 4,
+    "packed": 5,
+}
+
+
+# ------------------------------------------------------------
+# 사용자 선호 유형 -> 우선적으로 사용할 일정 role
+# ------------------------------------------------------------
+
+_ROLE_PRIORITY_BY_PREFERENCE: dict[str, tuple[str, ...]] = {
+    "nature": ("visit",),
+    "history": ("visit",),
+    "culture": ("visit",),
+    "market_shopping": ("shopping", "visit"),
+    "leisure": ("visit", "food"),
+    "theme_park": ("activity",),
+    "trail": ("visit",),
+    "festival": ("visit",),
+    "food_cafe": ("food",),
+    "experience": ("activity",),
+}
+
+
+# ------------------------------------------------------------
+# role별 기본 체류 시간
+# ------------------------------------------------------------
 _DEFAULT_STAY_MINUTES_BY_ROLE: dict[str, int] = {
     "visit": 90,
     "activity": 90,
@@ -63,8 +98,9 @@ _TARGET_COLLECTION_TO_ROLE: dict[str, str] = {
     "activities": "activity",
     "attractions": "visit",
 }
-_WHITESPACE_RE = re.compile(r"\s+")
 
+
+_WHITESPACE_RE = re.compile(r"\s+")
 
 @dataclass(frozen=True)
 class AppContainer:
@@ -109,11 +145,12 @@ class ItineraryEngine:
         condition = container.llm_service.extract_travel_condition(user_text)
 
         # ------------------------------------------------------------
-        # 1) 슬롯 구조는 Planner가 결정한다 (AIHub의 하루 방문 개수는
-        #    참고하지 않는다). 슬롯 개수/역할은 이후 절대 줄이거나
-        #    늘리지 않는다.
+        # 1) 기본 여행 조건을 추출한다.
+        #    슬롯 구조는 RAG 후보를 확인한 뒤
+        #    사용자의 pace와 후보 가용성에 따라 동적으로 결정한다.
+        #    하루 5개처럼 고정하지 않는다.
         # ------------------------------------------------------------
-        day_templates = _default_day_structure(condition)
+        matches = container.pattern_service.find_reference_trips(condition)
 
         # ------------------------------------------------------------
         # 2) RAG: 실제로 슬롯에 채워 넣을 수 있는 유일한 관광지 후보군.
@@ -121,6 +158,7 @@ class ItineraryEngine:
         # ------------------------------------------------------------
         rag_pool = self._collect_rag_candidates(condition)
         pool_by_role = _bucket_by_role(rag_pool)
+        day_templates = _dynamic_day_structure(condition, pool_by_role, matches=matches)
 
         # ------------------------------------------------------------
         # 3) AIHub: 실제 장소 이름이 아니라, 여러 유사 여행에서 공통적으로
@@ -128,7 +166,10 @@ class ItineraryEngine:
         #    전달한다. 특정 여행 하나를 그대로 따르지 않도록 top-K 여행을
         #    종합한다.
         # ------------------------------------------------------------
-        movement_patterns = self._build_movement_pattern_context(condition)
+        movement_patterns = self._build_movement_pattern_context(
+            condition,
+            matches=matches,
+        )
 
         print("=" * 50)
         print(f"[candidate-pool] RAG 후보 {len(rag_pool)}개")
@@ -337,6 +378,8 @@ class ItineraryEngine:
     def _build_movement_pattern_context(
         self,
         condition: TravelCondition,
+        *,
+        matches: Sequence[Any] | None = None,
     ) -> dict[str, Any]:
         """AIHub 브랜치: "비슷한 사람들은 어떻게 이동했는가?"
 
@@ -348,7 +391,8 @@ class ItineraryEngine:
         """
 
         container = self._container
-        matches = container.pattern_service.find_reference_trips(condition)
+        if matches is None:
+            matches = container.pattern_service.find_reference_trips(condition)
         if not matches:
             return {"available": False}
 
@@ -751,21 +795,218 @@ def _group_slots_by_day(slots: list[ItinerarySlot]) -> list[dict[str, Any]]:
     ]
 
 
-def _default_day_structure(condition: TravelCondition) -> list[dict[str, Any]]:
-    """Fallback day/slot skeleton used when no AIHub reference trip matches."""
+def _dynamic_day_structure(
+    condition: TravelCondition,
+    pool_by_role: dict[str, list[RetrievedPlace]],
+    *,
+    matches: Sequence[Any] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    하루 슬롯 개수를 "5개 고정"이나 pace 조견표로 정하지 않고,
+    min_usable_visits(>=5) 필터를 통과한 AIHub 참고 여행자들의
+    실제 하루 평균 방문 개수(stops_per_day)를 기준으로 정한다.
+
+    - matches가 있으면: 참고 여행자들의 stops_per_day 평균을 사용한다.
+      (한 사람의 일정을 그대로 베끼지 않도록 top-K 전체의 평균을 쓴다.)
+    - matches가 없으면: pace 조견표로 폴백한다.
+      relaxed=3 / balanced=4 / packed=5
+
+    두 경우 모두, 실제 RAG 후보 가용성보다 많은 슬롯을 만들지는 않는다.
+    """
+
+    total_days = max(condition.duration_days, 1)
+
+    total_candidates = sum(
+        len(places)
+        for places in pool_by_role.values()
+    )
+
+    target_per_day = _target_stops_per_day_from_matches(matches)
+
+    if target_per_day is None:
+        # 참고할 AIHub 여행자가 하나도 없을 때만 pace로 폴백한다.
+        pace = (
+            condition.pace.value
+            if condition.pace is not None
+            else "balanced"
+        )
+        target_per_day = _PACE_TARGET_STOPS_PER_DAY.get(
+            pace,
+            _PACE_TARGET_STOPS_PER_DAY["balanced"],
+        )
+
+    if total_candidates > 0:
+        available_per_day = max(
+            1,
+            total_candidates // total_days,
+        )
+
+        target_per_day = min(
+            target_per_day,
+            available_per_day,
+        )
+    else:
+        target_per_day = 1
+
+    target_per_day = max(1, target_per_day)
 
     days: list[dict[str, Any]] = []
-    for day_no in range(1, condition.duration_days + 1):
-        slots = [
+
+    for day_no in range(1, total_days + 1):
+        roles = _choose_dynamic_roles(
+            condition,
+            pool_by_role,
+            count=target_per_day,
+        )
+
+        slots = []
+
+        for sequence, role in enumerate(roles, start=1):
+            slots.append(
+                {
+                    "sequence": sequence,
+                    "role": role,
+                    "target_collections": list(
+                        SLOT_TARGET_COLLECTIONS.get(role, ())
+                    ),
+                    "itinerary_roles": list(
+                        SLOT_ITINERARY_ROLES.get(role, ())
+                    ),
+                    "stay_minutes": _DEFAULT_STAY_MINUTES_BY_ROLE.get(
+                        role,
+                        90,
+                    ),
+                    "location_hint": None,
+                }
+            )
+
+        days.append(
             {
-                "sequence": sequence,
-                "role": role,
-                "target_collections": list(SLOT_TARGET_COLLECTIONS[role]),
-                "itinerary_roles": list(SLOT_ITINERARY_ROLES[role]),
-                "stay_minutes": 90,
-                "location_hint": None,
+                "day": day_no,
+                "region": None,
+                "slot_count": len(slots),
+                "slots": slots,
             }
-            for sequence, role in enumerate(_DEFAULT_DAY_ROLES, start=1)
-        ]
-        days.append({"day": day_no, "region": None, "slot_count": len(slots), "slots": slots})
+        )
+
+        print(
+            f"[dynamic-slots] day={day_no} "
+            f"slot_count={len(slots)} "
+            f"roles={roles}"
+        )
+
     return days
+
+def _target_stops_per_day_from_matches(
+    matches: Sequence[Any] | None,
+) -> int | None:
+    """min_usable_visits(>=5) 필터를 통과한 참고 여행자들의
+    stops_per_day(방문개수/기간) 평균을 반올림해서 반환한다.
+    참고 여행자가 없으면 None을 반환해서 pace 폴백을 쓰게 한다."""
+
+    if not matches:
+        return None
+
+    stops_per_day_values = [
+        match.profile.stops_per_day
+        for match in matches
+        if getattr(match, "profile", None) is not None
+    ]
+
+    if not stops_per_day_values:
+        return None
+
+    average = sum(stops_per_day_values) / len(stops_per_day_values)
+
+    return max(1, round(average))
+
+
+def _choose_dynamic_roles(
+    condition: TravelCondition,
+    pool_by_role: dict[str, list[RetrievedPlace]],
+    *,
+    count: int,
+) -> list[str]:
+    """사용자 선호와 실제 RAG 후보를 기준으로 하루 role을 구성한다."""
+
+    if count <= 0:
+        return []
+
+    available_counts = {
+        role: len(places)
+        for role, places in pool_by_role.items()
+        if places
+    }
+
+    if not available_counts:
+        return ["visit"] * count
+
+    preferred_roles: list[str] = []
+
+    # 사용자 선호를 먼저 반영
+    for preference in condition.preferred_visit_types:
+        for role in _ROLE_PRIORITY_BY_PREFERENCE.get(
+            preference.value,
+            (),
+        ):
+            if role not in preferred_roles:
+                preferred_roles.append(role)
+
+    # 기본 우선순위
+    for role in (
+        "visit",
+        "food",
+        "activity",
+        "shopping",
+    ):
+        if role in available_counts and role not in preferred_roles:
+            preferred_roles.append(role)
+
+    roles: list[str] = []
+    used_by_role: Counter[str] = Counter()
+
+    while len(roles) < count:
+        selected_role = None
+
+        for role in preferred_roles:
+            available = available_counts.get(role, 0)
+
+            if used_by_role[role] >= available:
+                continue
+
+            # 하루 food는 기본적으로 1개
+            if role == "food" and used_by_role[role] >= 1:
+                continue
+
+            selected_role = role
+            break
+
+        if selected_role is None:
+            break
+
+        roles.append(selected_role)
+        used_by_role[selected_role] += 1
+
+    # 아직 목표 개수보다 부족하면 남은 후보가 많은 role 사용
+    while len(roles) < count:
+        remaining_roles = [
+            role
+            for role, available in available_counts.items()
+            if used_by_role[role] < available
+        ]
+
+        if not remaining_roles:
+            break
+
+        selected_role = max(
+            remaining_roles,
+            key=lambda role: (
+                available_counts[role]
+                - used_by_role[role]
+            ),
+        )
+
+        roles.append(selected_role)
+        used_by_role[selected_role] += 1
+
+    return roles
