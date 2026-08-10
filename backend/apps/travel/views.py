@@ -199,7 +199,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 {"detail": "추천에 필요한 일정 엔진 상태가 없습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             recommendation_payload = copy.deepcopy(itinerary.engine_state)
             conditions = recommendation_payload.setdefault("condition", {})
