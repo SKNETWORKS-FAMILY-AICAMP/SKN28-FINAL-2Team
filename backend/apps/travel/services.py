@@ -1,22 +1,12 @@
 from datetime import timedelta
-import traceback
 import json
+import traceback
 
 from django.db import transaction
 
-from src.models import ItineraryState
+from src.api import itinerary_engine
+from src.models.itinerary import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
-
-_itinerary_engine = None
-
-def _get_itinerary_engine():
-    global _itinerary_engine
-    if _itinerary_engine is None:
-        # Import lazily: login, Swagger and migrations should not require
-        # OpenAI/Chroma/MySQL RAG initialization just to start Django.
-        from src.api import itinerary_engine as engine
-        _itinerary_engine = engine
-    return _itinerary_engine
 
 
 def _build_place_info_map(
@@ -45,6 +35,13 @@ def _save_itinerary_result(
     itinerary: Itinerary,
     state: ItineraryState,
 ):
+    """
+    엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
+
+    기존 일정을 삭제한 뒤 새 일정으로 교체하며,
+    content_id를 이용해 Place 테이블에서 위도와 경도를 조회한다.
+    """
+
     result = state.itinerary
     place_info_map = _build_place_info_map(state)
 
@@ -52,16 +49,19 @@ def _save_itinerary_result(
     itinerary.days.all().delete()
 
     for day_data in result.get("days", []):
+        day_number = day_data.get("day")
+
+        if day_number is None:
+            continue
 
         itinerary_day = ItineraryDay.objects.create(
             itinerary=itinerary,
-            day_number=day_data["day"],
+            day_number=day_number,
             date=itinerary.start_date
-            + timedelta(days=day_data["day"] - 1),
+            + timedelta(days=day_number - 1),
         )
 
         for stop in day_data.get("stops", []):
-
             content_id = stop.get("content_id")
 
             place = None
@@ -126,16 +126,10 @@ def _save_itinerary_result(
                 accommodation=None,
                 memo="",
             )
+
+
 @transaction.atomic
 def generate_itinerary(itinerary: Itinerary):
-
-    itinerary.title = (
-        f"{itinerary.duration_label} "
-        f"{itinerary.get_style_display()} "
-        f"{itinerary.get_companion_type_display()} 여행"
-    )
-    itinerary.save(update_fields=["title"])
-
     """
     사용자 입력을 이용하여
 
@@ -146,6 +140,13 @@ def generate_itinerary(itinerary: Itinerary):
     5. LLM 일정 생성
     6. Django DB 저장
     """
+
+    itinerary.title = (
+        f"{itinerary.duration_label} "
+        f"{itinerary.get_style_display()} "
+        f"{itinerary.get_companion_type_display()} 여행"
+    )
+    itinerary.save(update_fields=["title"])
 
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")
@@ -185,20 +186,26 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         # 전체 파이프라인 실행
         # -------------------------------------------------
-        state = _get_itinerary_engine().create_itinerary(user_text)
+        state = itinerary_engine.create_itinerary(user_text)
 
         # -------------------------------------------------
         # 최종 일정
         # -------------------------------------------------
         result = state.itinerary
 
+        # 이후 채팅 수정에 사용할 엔진 상태 저장
         itinerary.engine_state = state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
         print("===== LLM 일정 생성 완료 =====")
-
         print("최종 JSON")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                result,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
 
         # -------------------------------------------------
         # DB 저장
@@ -237,7 +244,6 @@ def revise_itinerary(
     print("=" * 80)
 
     try:
-
         if not itinerary.engine_state:
             raise ValueError(
                 "엔진 상태가 없습니다. 기존 일정을 다시 생성해주세요."
@@ -249,16 +255,18 @@ def revise_itinerary(
         )
 
         # 엔진을 이용하여 일정 수정
-        new_state = _get_itinerary_engine().update_itinerary_from_chat(
-            state,
-            user_text,
+        new_state = (
+            itinerary_engine.update_itinerary_from_chat(
+                state,
+                user_text,
+            )
         )
 
-        # 수정된 상태 저장
+        # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
-        # 수정된 일정 저장
+        # 수정된 일정 DB 저장
         _save_itinerary_result(
             itinerary,
             new_state,
@@ -271,7 +279,6 @@ def revise_itinerary(
         return itinerary
 
     except Exception as e:
-
         print("=" * 80)
         print("===== revise_itinerary 실패 =====")
         print("Exception :", e)

@@ -163,9 +163,9 @@ class Itinerary(models.Model):
     companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
     companion_count = models.PositiveSmallIntegerField(default=1)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
-    # Package records live in the separate travel database. Django does not
-    # support cross-database foreign keys, so keep only the external numeric id.
-    selected_package_id = models.BigIntegerField(null=True, blank=True)
+    selected_package = models.ForeignKey(
+        Package, on_delete=models.SET_NULL, null=True, blank=True, related_name="itineraries"
+    )
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     is_public = models.BooleanField(default=False, help_text="공개 설정 (선택)")

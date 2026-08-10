@@ -178,7 +178,6 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
 
 class ItinerarySerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=False,allow_blank=True)
-    selected_package = serializers.IntegerField(source="selected_package_id", required=False, allow_null=True)
     days = ItineraryDaySerializer(many=True, required=False)
     duration_label = serializers.ReadOnlyField()
     style_display = serializers.CharField(source="get_style_display", read_only=True)

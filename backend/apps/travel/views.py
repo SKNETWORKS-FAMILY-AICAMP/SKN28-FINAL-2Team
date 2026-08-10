@@ -4,13 +4,18 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 from apps.package_recommendation.services import recommend_packages
 
 from .models import Itinerary, Package
-from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
+from .serializers import (
+    ItineraryRouteSerializer,
+    ItinerarySerializer,
+    ItineraryShareSerializer,
+    ItineraryRevisionSerializer,
+    PackageSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
 
@@ -100,7 +105,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["post"])
     def revise(self, request, pk=None):
-
         itinerary = self.get_object()
 
         serializer = ItineraryRevisionSerializer(data=request.data)
@@ -115,6 +119,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
             self.get_serializer(itinerary).data,
             status=status.HTTP_200_OK,
         )
+
     @extend_schema(
         tags=["Itinerary"],
         summary="일정 생성",
@@ -122,7 +127,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses={201: ItinerarySerializer},
     )
     def create(self, request, *args, **kwargs):
-
         serializer = self.get_serializer(data=request.data)
 
         if not serializer.is_valid():

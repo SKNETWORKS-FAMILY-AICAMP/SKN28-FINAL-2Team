@@ -64,7 +64,6 @@ def get_kakao_access_token(code: str) -> str:
             "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
         },
         data=data,
-        timeout=15,
     )
 
     response.raise_for_status()
@@ -81,8 +80,7 @@ def kakao_login(access_token: str):
         "https://kapi.kakao.com/v2/user/me",
         headers={
             "Authorization": f"Bearer {access_token}"
-        },
-        timeout=15,
+        }
     )
 
     response.raise_for_status()
@@ -92,10 +90,10 @@ def kakao_login(access_token: str):
     account = info.get("kakao_account", {})
     profile = account.get("profile", {})
 
-    provider_id = str(info["id"])
-    email = account.get("email") or f"kakao_{provider_id}@users.tamnaplan.local"
+    email = account.get("email")
     nickname = profile.get("nickname", "")
     picture = profile.get("profile_image_url", "")
+    provider_id = str(info["id"])
 
     user, created = User.objects.get_or_create(
         email=email,

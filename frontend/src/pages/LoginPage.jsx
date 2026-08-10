@@ -42,20 +42,15 @@ export default function LoginPage() {
         throw new Error('카카오 로그인 SDK를 불러오지 못했습니다.')
       }
 
-      const kakaoKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY
-      if (!kakaoKey) {
-        throw new Error('VITE_KAKAO_JAVASCRIPT_KEY가 설정되지 않았습니다.')
-      }
-
       if (!window.Kakao.isInitialized()) {
-        window.Kakao.init(kakaoKey)
+        window.Kakao.init(import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY)
       }
 
       const next = searchParams.get('next') || '/'
       sessionStorage.setItem('kakaoLoginNext', next)
 
       window.Kakao.Auth.authorize({
-        redirectUri: import.meta.env.VITE_KAKAO_REDIRECT_URI || 'http://localhost:5173/oauth/kakao/callback',
+        redirectUri: 'http://localhost:5173/oauth/kakao/callback',
         prompt: 'login',
       })
     } catch (err) {

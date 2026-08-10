@@ -29,14 +29,13 @@ const normalizePackage = (pkg) => ({
   isActive: pkg.is_active,
 })
 
-export default function MapPanel({ itineraryId, activeDay }) {
+export default function MapPanel({ itineraryId, activeDay, refreshKey }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const overlaysRef = useRef([])
   const infoWindowsRef = useRef([])
   const openedInfoWindowRef = useRef(null)
   const openedMarkerContentRef = useRef(null)
-  const [refreshKey, setRefreshKey] = useState(0)
 
   const recommendationCacheKey = itineraryId ? `package-recommendations-${itineraryId}` : null
   const [routes, setRoutes] = useState([])
@@ -71,7 +70,7 @@ export default function MapPanel({ itineraryId, activeDay }) {
     }
 
     loadRoute()
-  }, [itineraryId])
+  }, [itineraryId, refreshKey])
 
   useEffect(() => {
   if (!itineraryId) return

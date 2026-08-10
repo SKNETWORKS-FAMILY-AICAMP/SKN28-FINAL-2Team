@@ -5,6 +5,7 @@ import { getItinerary } from "../../api/itinerary";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
+
 const CHIPS = [
   "숙소도 추천해주세요",
   "근처 맛집도 알려주세요",
@@ -20,8 +21,9 @@ const CHIP_LABELS = [
 export default function ChatPanel({ onRevised }) {
   const { id } = useParams();
   const { revise } = useItineraries();
-
+  const storageKey = `itinerary-chat-${id}`;
   const [messages, setMessages] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [input, setInput] = useState("");
   const [isRevising, setIsRevising] = useState(false);
   const bodyRef = useRef(null);
@@ -29,9 +31,20 @@ export default function ChatPanel({ onRevised }) {
   
 
   useEffect(() => {
-    const fetchItinerary = async () => {
+    const initializeMessages = async () => {
       try {
-        const itinerary = await getItinerary(id);
+        const saved = sessionStorage.getItem(storageKey)
+
+        if (saved) {
+          const parsed = JSON.parse(saved)
+
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed)
+            return
+          }
+        }
+
+        const itinerary = await getItinerary(id)
 
         setMessages([
           {
@@ -40,17 +53,32 @@ export default function ChatPanel({ onRevised }) {
             text: `짜잔! ${itinerary.durationLabel} 여행 일정을 완성했어요 🎉`,
             mini: "일정 확인하기 →",
           },
-        ]);
+        ])
       } catch (err) {
-        console.error(err);
+        console.error("채팅 초기화 실패:", err)
+      } finally {
+        setIsInitialized(true)
       }
-    };
+    }
 
     if (id) {
-      fetchItinerary();
+      initializeMessages()
     }
-  }, [id]);
+  }, [id, storageKey])
 
+
+  useEffect(() => {
+    if (!isInitialized) return
+
+    try {
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(messages)
+      )
+    } catch (err) {
+      console.error("채팅 기록 저장 실패:", err);
+    }
+  }, [messages, storageKey, isInitialized]);
 
   useEffect(() => {
     if (bodyRef.current) {

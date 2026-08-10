@@ -81,8 +81,13 @@ Repository는 `mysql.connector.connect()`에 전달할 설정 딕셔너리를 �
 | `MYSQL_PORT` | X | `3306` | MySQL 포트 |
 | `MYSQL_USER` | O | 없음 | 접속 계정 |
 | `MYSQL_PASSWORD` | O | 없음 | 접속 비밀번호 |
-| `AIHUB_MYSQL_DATABASE` | X | `tour_recommender_aihub` | AIHub DB 이름 |
+| `MYSQL_DATABASE` | O | 없음 | TourAPI와 AIHub가 공유하는 DB 이름 |
 | `MYSQL_CONNECT_TIMEOUT` | X | `10` | 연결 제한시간(초) |
+
+로컬 VS Code에서 Docker MySQL에 연결할 때는 `.env.example`처럼
+`MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=13306`을 사용합니다. 같은 Compose
+네트워크의 컨테이너나 AWS RDS에 연결할 때는 일반적으로 내부 포트 `3306`을
+사용합니다.
 
 애플리케이션 시작 시 `.env`가 이미 로드되어 있다고 가정한 생성 예제다.
 
@@ -101,10 +106,7 @@ db_config = {
     "port": int(os.getenv("MYSQL_PORT", "3306")),
     "user": os.environ["MYSQL_USER"],
     "password": os.environ["MYSQL_PASSWORD"],
-    "database": os.getenv(
-        "AIHUB_MYSQL_DATABASE",
-        "tour_recommender_aihub",
-    ),
+    "database": os.environ["MYSQL_DATABASE"],
     "connection_timeout": int(
         os.getenv("MYSQL_CONNECT_TIMEOUT", "10")
     ),

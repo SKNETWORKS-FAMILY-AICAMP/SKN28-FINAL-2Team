@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const AuthContext = createContext(null)
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace(/\/$/, '')
+const API_BASE_URL = 'http://localhost:8000'
 
 const normalizeUser = (user) => ({
   id: user.id,
@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/accounts/me/`,
+          `${API_BASE_URL}/api/accounts/me/`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/accounts/${provider}/`,
+        `${API_BASE_URL}/api/accounts/${provider}/`,
         {
           method: 'POST',
           headers: {
@@ -86,7 +86,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('refreshToken', data.refresh)
 
       const userResponse = await fetch(
-        `${API_BASE_URL}/accounts/me/`,
+        `${API_BASE_URL}/api/accounts/me/`,
         {
           headers: {
             Authorization: `Bearer ${data.access}`,
@@ -118,7 +118,7 @@ export function AuthProvider({ children }) {
 
     try {
       if (accessToken && refreshToken) {
-        await fetch(`${API_BASE_URL}/accounts/logout/`, {
+        await fetch(`${API_BASE_URL}/api/accounts/logout/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -6,12 +6,29 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
-from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
+from .aihub.similarity import AIHubPatternService
+
+from .mappings.trip_feature_mapping import (
+    SLOT_ITINERARY_ROLES,
+    SLOT_TARGET_COLLECTIONS,
+    get_visit_area_type_mapping,
+)
+
+from .mappings.trip_feature_mapping import (
+    SLOT_ITINERARY_ROLES,
+    SLOT_TARGET_COLLECTIONS,
+)
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
-from .models import ItinerarySlot, ItineraryState, SlotAddRequest, SlotCandidate, TravelCondition, apply_delta, infer_affected_slots
-
+from .models import (
+    ItinerarySlot,
+    ItineraryState,
+    SlotAddRequest,
+    SlotCandidate,
+    TravelCondition,
+    apply_delta,
+    infer_affected_slots,
+)
 from .planner import PlannerConfig, select_candidates
 from .rag import PlaceSearchFilters, PlaceSearchService, create_place_search_service
 from .rag.models import RetrievedPlace
@@ -30,14 +47,16 @@ DEFAULT_SEARCH_TOP_K = 30
 RAG_CANDIDATE_POOL_TOP_K = 100
 
 _DEFAULT_DAY_ROLES: tuple[str, ...] = ("visit", "activity", "food", "visit", "food")
-
 _DEFAULT_STAY_MINUTES_BY_ROLE: dict[str, int] = {
     "visit": 90,
-    "activity": 120,
+    "activity": 90,
     "food": 60,
-    "shopping": 30,
+    "shopping": 60,
 }
-
+# Reverse of aihub.similarity.SLOT_TARGET_COLLECTIONS, used to guess which
+# itinerary slot role a specific must-visit place belongs to. "attractions"
+# is shared by visit/activity, so it defaults to "visit" -- good enough for
+# picking *a* slot to force the place into.
 _TARGET_COLLECTION_TO_ROLE: dict[str, str] = {
     "restaurants": "food",
     "shopping": "shopping",
@@ -76,6 +95,7 @@ def create_container(
 
 
 class ItineraryEngine:
+    """The single pipeline entry point the frontend/API layer talks to."""
 
     def __init__(self, container: AppContainer) -> None:
         self._container = container
@@ -96,24 +116,10 @@ class ItineraryEngine:
         day_templates = _default_day_structure(condition)
 
         # ------------------------------------------------------------
-        # 1.5) AIHub Top-K 참고 여행과 방문 기록을 한 번만 조회해서,
-        #      이동 패턴 요약(movement_patterns)과 role별 대표 키워드
-        #      (reference_keywords)를 만드는 데 함께 사용한다. 같은
-        #      travel_id 세트를 쓰는데 DB를 두 번 긁지 않기 위함이다.
-        # ------------------------------------------------------------
-        matches, routes = self._fetch_reference_trips_and_routes(condition)
-
-        # ------------------------------------------------------------
         # 2) RAG: 실제로 슬롯에 채워 넣을 수 있는 유일한 관광지 후보군.
         #    role에 국한하지 않고 폭넓게 검색한 뒤, role별로 나눠 둔다.
-        #    검색 쿼리는 사용자 조건 + AIHub 참고 키워드(reference_keywords)로
-        #    보강한다. reference_keywords는 최종 후보가 아니라 검색 방향을
-        #    보강하는 참고 자료일 뿐이며, 실제 후보는 항상 RAG 결과에서만 나온다.
         # ------------------------------------------------------------
-        reference_keywords = aggregate_role_keywords(routes)
-        rag_pool = self._collect_rag_candidates(
-            condition, reference_keywords=reference_keywords
-        )
+        rag_pool = self._collect_rag_candidates(condition)
         pool_by_role = _bucket_by_role(rag_pool)
 
         # ------------------------------------------------------------
@@ -122,9 +128,7 @@ class ItineraryEngine:
         #    전달한다. 특정 여행 하나를 그대로 따르지 않도록 top-K 여행을
         #    종합한다.
         # ------------------------------------------------------------
-        movement_patterns = self._build_movement_pattern_context(
-            condition, matches=matches, routes=routes
-        )
+        movement_patterns = self._build_movement_pattern_context(condition)
 
         print("=" * 50)
         print(f"[candidate-pool] RAG 후보 {len(rag_pool)}개")
@@ -132,7 +136,6 @@ class ItineraryEngine:
             "[candidate-pool] role별 개수:",
             {role: len(places) for role, places in pool_by_role.items()},
         )
-        print("[reference-keywords] AIHub 참고 키워드:", reference_keywords)
         print("[movement-pattern] AIHub 참고 패턴:", movement_patterns)
 
         # ------------------------------------------------------------
@@ -189,14 +192,23 @@ class ItineraryEngine:
     # Free-chat modification
     # ------------------------------------------------------------------
     def update_itinerary_from_chat(
-        self, state: ItineraryState, user_text: str
+        self,
+        state: ItineraryState,
+        user_text: str,
     ) -> ItineraryState:
         container = self._container
-        delta = container.llm_service.extract_condition_delta(state.condition, user_text)
-        new_condition = apply_delta(state.condition, delta)
+
+        delta = container.llm_service.extract_condition_delta(
+            state.condition,
+            user_text,
+        )
+
+        new_condition = apply_delta(
+            state.condition,
+            delta,
+        )
 
         if delta.is_empty():
-            print("[revise] delta.is_empty() == True -> 변경할 내용 없음, 그대로 반환")
             return ItineraryState(
                 condition=new_condition,
                 slots=state.slots,
@@ -204,9 +216,14 @@ class ItineraryEngine:
                 used_content_ids=set(state.used_content_ids),
             )
 
-        affected_roles = set(infer_affected_slots(delta))
-        print("[revise] affected_roles :", affected_roles)
-        used_content_ids = set(state.used_content_ids)
+        affected_roles = set(
+            infer_affected_slots(delta)
+        )
+
+        used_content_ids = set(
+            state.used_content_ids
+        )
+
         updated_slots: list[ItinerarySlot] = []
         re_searched_keys: set[tuple[int, int]] = set()
 
@@ -215,67 +232,96 @@ class ItineraryEngine:
                 updated_slots.append(slot)
                 continue
 
-            own_previous_ids = {candidate.content_id for candidate in slot.candidates}
-            exclude_ids = used_content_ids - own_previous_ids
+            own_previous_ids = {
+                candidate.content_id
+                for candidate in slot.candidates
+            }
+
+            exclude_ids = (
+                used_content_ids - own_previous_ids
+            )
+
             refreshed = self._search_and_plan_slot(
                 new_condition,
                 day_no=slot.day,
                 slot_template={
                     "sequence": slot.sequence,
                     "role": slot.role,
-                    "target_collections": list(slot.target_collections),
-                    "itinerary_roles": list(slot.itinerary_roles),
+                    "target_collections": list(
+                        slot.target_collections
+                    ),
+                    "itinerary_roles": list(
+                        slot.itinerary_roles
+                    ),
                     "stay_minutes": slot.stay_minutes,
                     "location_hint": slot.location_hint,
                 },
                 exclude_content_ids=exclude_ids,
                 extra_request=delta.notes or None,
             )
+
             used_content_ids -= own_previous_ids
-            used_content_ids.update(candidate.content_id for candidate in refreshed.candidates)
+
+            used_content_ids.update(
+                candidate.content_id
+                for candidate in refreshed.candidates
+            )
+
             updated_slots.append(refreshed)
-            re_searched_keys.add((refreshed.day, refreshed.sequence))
 
-        forced_slots = self._force_include_must_visit_places(
-            new_condition, updated_slots, used_content_ids
-        )
+            re_searched_keys.add(
+                (
+                    refreshed.day,
+                    refreshed.sequence,
+                )
+            )
 
-        new_slots = self._create_added_slots(
+        # "카페 하나 더 추가해줘"처럼
+        # 기존 슬롯 교체가 아니라 새 슬롯 추가 요청 처리
+        added_slots = self._create_added_slots(
             new_condition,
             delta.add_slots,
             updated_slots,
             used_content_ids,
             extra_request=delta.notes or None,
         )
-        updated_slots.extend(new_slots)
 
-        print("[revise] re_searched_keys:", re_searched_keys)
-        print(
-            "[revise] forced_slots (must-visit):",
-            [(s.day, s.sequence, s.role) for s in forced_slots],
+        updated_slots.extend(added_slots)
+
+        forced_slots = self._force_include_must_visit_places(
+            new_condition,
+            updated_slots,
+            used_content_ids,
         )
-        print(
-            "[revise] new_slots (add_slots)    :",
-            [(s.day, s.sequence, s.role, len(s.candidates)) for s in new_slots],
-        )
-        
+
         changed_keys = (
             re_searched_keys
-            | {(slot.day, slot.sequence) for slot in forced_slots}
-            | {(slot.day, slot.sequence) for slot in new_slots}
+            | {
+                (slot.day, slot.sequence)
+                for slot in forced_slots
+            }
+            | {
+                (slot.day, slot.sequence)
+                for slot in added_slots
+            }
         )
+
         changed_slot_payloads = [
-            slot.to_dict() for slot in updated_slots if (slot.day, slot.sequence) in changed_keys
+            slot.to_dict()
+            for slot in updated_slots
+            if (
+                slot.day,
+                slot.sequence,
+            ) in changed_keys
         ]
-        print("[revise] changed_keys       :", changed_keys)
-        print("[revise] changed_slot_payloads count:", len(changed_slot_payloads))
 
         if changed_slot_payloads:
             itinerary = container.llm_service.revise_itinerary(
-                new_condition, state.itinerary, changed_slot_payloads
+                new_condition,
+                state.itinerary,
+                changed_slot_payloads,
             )
         else:
-            print("[revise] changed_slot_payloads가 비어있어서 LLM 재구성 없이 그대로 반환")
             itinerary = state.itinerary
 
         return ItineraryState(
@@ -288,38 +334,9 @@ class ItineraryEngine:
     # ------------------------------------------------------------------
     # AIHub 이동 패턴 / RAG 후보군 조회
     # ------------------------------------------------------------------
-    def _fetch_reference_trips_and_routes(
-        self,
-        condition: TravelCondition,
-    ) -> tuple[list[Any], list[dict[str, Any]]]:
-        """조건에 맞는 Top-K 참고 여행(matches)과 그 방문 기록(routes)을 한 번만
-        조회한다. movement_patterns 계산과 reference_keywords 집계가 같은
-        travel_id 세트를 쓰기 때문에, 이 결과를 두 곳에 함께 넘겨서 DB를
-        중복으로 긁지 않도록 한다."""
-
-        container = self._container
-        matches = container.pattern_service.find_reference_trips(condition)
-        if not matches:
-            return [], []
-
-        keyword_matches = (container.pattern_service.find_reference_keyword_trips(condition))
-        if not matches:
-            return [], []
-
-        travel_ids = [
-            match.profile.travel_id
-            for match in keyword_matches
-        ]
-        routes = container.pattern_service.repository.fetch_trip_routes(travel_ids)
-
-        return matches, routes
-
     def _build_movement_pattern_context(
         self,
         condition: TravelCondition,
-        *,
-        matches: Sequence[Any] | None = None,
-        routes: Sequence[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """AIHub 브랜치: "비슷한 사람들은 어떻게 이동했는가?"
 
@@ -328,15 +345,15 @@ class ItineraryEngine:
         동행/기간이 유사한 top-K 여행에서 공통적으로 나타나는
         "역할(role) 순서"와 "흐름(role -> role 전이)"만 집계해서
         LLM 참고자료로 돌려준다.
-
-        ``matches``/``routes``를 넘기면 (예: ``create_itinerary``에서 이미
-        조회한 결과) 재조회하지 않고 그대로 사용한다.
         """
 
-        if matches is None or routes is None:
-            matches, routes = self._fetch_reference_trips_and_routes(condition)
+        container = self._container
+        matches = container.pattern_service.find_reference_trips(condition)
         if not matches:
             return {"available": False}
+
+        travel_ids = [match.profile.travel_id for match in matches]
+        routes = container.pattern_service.repository.fetch_trip_routes(travel_ids)
 
         rows_by_trip: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in routes:
@@ -362,14 +379,17 @@ class ItineraryEngine:
                     day_rows,
                     key=lambda item: int(item.get("visit_order") or 0),
                 )
-                roles = tuple(
-                    role
-                    for role in (
-                        VIS_TO_SLOT_ROLE.get(str(row.get("visit_area_type_cd") or ""))
-                        for row in ordered
+                roles_list = []
+
+                for row in ordered:
+                    mapping = get_visit_area_type_mapping(
+                        str(row.get("visit_area_type_cd") or "")
                     )
-                    if role in SLOT_TARGET_COLLECTIONS
-                )
+
+                    if mapping and mapping.slot_role in SLOT_TARGET_COLLECTIONS:
+                        roles_list.append(mapping.slot_role)
+
+                roles = tuple(roles_list)
                 if not roles:
                     continue
                 role_sequences.append(roles)
@@ -417,23 +437,15 @@ class ItineraryEngine:
         *,
         top_k: int = RAG_CANDIDATE_POOL_TOP_K,
         extra_request: str | None = None,
-        reference_keywords: dict[str, list[str]] | None = None,
     ) -> list[RetrievedPlace]:
         """"사용자가 원하는 장소는?"을 찾는다 (RAG 브랜치).
 
         여행 스타일(preferred_visit_types)과 자유 요청(must_visit_places 등)을
         하나의 검색어로 합쳐, role에 국한하지 않고 폭넓게 후보를 가져온다.
-
-        ``reference_keywords``가 있으면(Top-K AIHub 참고 여행에서 뽑은 role별
-        대표 방문 장소명) 검색어 생성 프롬프트에 참고 자료로 함께 전달한다.
-        이 키워드는 검색 방향을 보강할 뿐, 그대로 후보에 들어가지는 않는다 —
-        실제 후보는 항상 이 검색으로 얻은 RAG 결과에서만 선택된다.
         """
 
         container = self._container
-        query = container.llm_service.generate_style_query(
-            condition, reference_keywords=reference_keywords
-        )
+        query = container.llm_service.generate_style_query(condition)
         if extra_request:
             query = f"{query} {extra_request}".strip()
 
@@ -547,6 +559,15 @@ class ItineraryEngine:
         slots: list[ItinerarySlot],
         used_content_ids: set[int],
     ) -> list[ItinerarySlot]:
+        """Guarantee every ``TravelCondition.must_visit_places`` entry is
+        offered to the LLM as a candidate, instead of leaving it to Planner's
+        ranking (which has no way to know "the traveller named this place").
+
+        Returns the slots that were actually modified, so callers can make
+        sure those slots are included in the LLM prompt (initial generation
+        already sends every slot; free-chat revision only sends changed
+        slots, so it needs this list explicitly).
+        """
 
         if not condition.must_visit_places:
             return []
@@ -684,7 +705,6 @@ class ItineraryEngine:
 
         return new_slots
 
-
 def _normalize_title(title: str) -> str:
     return _WHITESPACE_RE.sub("", title).strip().lower()
 
@@ -710,6 +730,9 @@ def _bucket_by_role(pool: Sequence[RetrievedPlace]) -> dict[str, list[RetrievedP
 
 
 def _best_name_match(places: Sequence[RetrievedPlace], name: str) -> RetrievedPlace:
+    """Prefer a result whose title actually contains the requested name;
+    RAG similarity search can otherwise surface a merely-related place."""
+
     normalized_name = _normalize_title(name)
     for place in places:
         normalized_title = _normalize_title(place.title)
@@ -729,6 +752,8 @@ def _group_slots_by_day(slots: list[ItinerarySlot]) -> list[dict[str, Any]]:
 
 
 def _default_day_structure(condition: TravelCondition) -> list[dict[str, Any]]:
+    """Fallback day/slot skeleton used when no AIHub reference trip matches."""
+
     days: list[dict[str, Any]] = []
     for day_no in range(1, condition.duration_days + 1):
         slots = [
