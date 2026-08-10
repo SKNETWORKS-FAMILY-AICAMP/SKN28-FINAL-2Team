@@ -36,6 +36,7 @@ class UserScenario:
             party_type=self.party_type,
             local_transport=self.local_transport,
             preferred_visit_types=self.preferences,
+            companion_count=1,
             pace=self.pace,
             purpose_codes=self.purpose_codes,
             entry_point="제주공항",
@@ -193,6 +194,7 @@ class TravelConditionTests(unittest.TestCase):
                 party_type=PartyType.SOLO,
                 local_transport=LocalTransport.PUBLIC_TRANSIT,
                 preferred_visit_types=(),
+                companion_count=1,
             )
 
 

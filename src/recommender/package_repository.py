@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Protocol, Sequence
 
 from src.config.settings import MySQLConfig
 from src.storage.mysql_repository import MySQLPlaceRepository
 
 from .models import PackageCandidate, PackageItem
+from .package_profile import build_match_profile
 
 
 class PackageRepository(Protocol):
@@ -60,9 +60,6 @@ def _group_packages(rows: list[dict[str, Any]]) -> list[PackageCandidate]:
     candidates: list[PackageCandidate] = []
     for entry in grouped.values():
         row = entry["row"]
-        profile = row.get("match_profile") or {}
-        if isinstance(profile, str):
-            profile = json.loads(profile)
         candidates.append(
             PackageCandidate(
                 package_id=str(row["package_id"]),
@@ -72,7 +69,10 @@ def _group_packages(rows: list[dict[str, Any]]) -> list[PackageCandidate]:
                 duration_days=int(row["duration_days"]),
                 estimated_price=int(row["estimated_price"]),
                 thumbnail_url=str(row.get("thumbnail_url") or ""),
-                match_profile=dict(profile),
+                match_profile=build_match_profile(
+                    row.get("companion"),
+                    row.get("package_tags"),
+                ),
                 items=tuple(entry["items"]),
             )
         )
@@ -96,7 +96,8 @@ SELECT
     tp.region,
     tp.duration_days,
     tp.estimated_price,
-    tp.match_profile,
+    tp.companion,
+    tp.tags AS package_tags,
     (
         SELECT COALESCE(
             NULLIF(img.image_url, ''),

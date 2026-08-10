@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
+from src.recommender.package_profile import build_match_profile
 User = get_user_model()
 
 
@@ -111,7 +112,8 @@ class Package(models.Model):
         db_index=True,
     )
 
-    match_profile = models.JSONField()
+    companion = models.CharField(max_length=100, blank=True)
+    tags = models.CharField(max_length=255, blank=True)
 
     schema_version = models.CharField(
         max_length=20,
@@ -130,6 +132,10 @@ class Package(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def match_profile(self):
+        return build_match_profile(self.companion, self.tags)
 
 
 

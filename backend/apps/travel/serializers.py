@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from src.recommender.package_profile import infer_package_style
 
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
@@ -13,11 +14,13 @@ class PackageSerializer(serializers.ModelSerializer):
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    match_profile = serializers.ReadOnlyField()
 
     class Meta:
         model = Package
         fields = (
-            "id", "package_id", "name", "description", "price", "region", "duration_days", "match_profile", 
+            "id", "package_id", "name", "description", "price", "region", "duration_days",
+            "companion", "tags", "match_profile",
             "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
         )
 
@@ -39,24 +42,7 @@ class PackageSerializer(serializers.ModelSerializer):
             return bool(cursor.fetchone()[0])
 
     def get_style(self, obj):
-        profile = obj.match_profile or {}
-        paces = profile.get("paces", [])
-        themes = profile.get("themes", [])
-        party_types = profile.get("party_types", [])
-
-        if "with_children" in party_types or "family_group" in party_types:
-            return "family"
-
-        if "relaxed" in paces:
-            return "healing"
-
-        if "experience" in themes:
-            return "activity"
-
-        if "food" in themes or "market_shopping" in themes:
-            return "food"
-
-        return ""
+        return infer_package_style(obj.companion, obj.tags)
 
     def get_style_display(self, obj):
         labels = {

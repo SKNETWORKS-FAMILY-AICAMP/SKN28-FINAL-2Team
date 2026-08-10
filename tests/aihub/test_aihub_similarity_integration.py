@@ -37,7 +37,11 @@ class AIHubSimilarityIntegrationTests(unittest.TestCase):
         cls.repository = repository
         cls.service = AIHubPatternService(
             repository,
-            AIHubPatternConfig(top_k=1, min_usable_visits=3),
+            AIHubPatternConfig(
+                top_k=1,
+                reference_keyword_top_k=1,
+                min_usable_visits=3,
+            ),
         )
 
     def test_real_db_returns_llm_route_template(self) -> None:
