@@ -14,6 +14,8 @@ from src.config.settings import MySQLConfig
 from src.common.env import load_env_file
 from src.recommender import MySQLPackageRepository, PackageRecommendationService
 
+from .pricing import calculate_custom_package_price
+
 
 def recommend_packages(payload: dict[str, Any], *, top_k: int = 3) -> dict[str, Any]:
     """Run deterministic content-id matching against the travel database."""
@@ -21,6 +23,46 @@ def recommend_packages(payload: dict[str, Any], *, top_k: int = 3) -> dict[str, 
     repository = MySQLPackageRepository(_travel_database_config())
     service = PackageRecommendationService(repository)
     return service.recommend(payload, top_k=top_k)
+
+
+def recommend_package_comparison(
+    payload: dict[str, Any],
+    *,
+    itinerary_id: int,
+) -> dict[str, Any]:
+    """Return one stored recommendation and a provisional custom quote.
+
+    ``custom_package`` is intentionally a response-only quote.  It does not
+    depend on, or persist, a final custom-package database schema.
+    """
+
+    result = recommend_packages(payload, top_k=1)
+    recommendations = result.get("recommendations") or []
+    if not recommendations:
+        return {
+            **result,
+            "stored_package": None,
+            "custom_package": None,
+        }
+
+    stored_package = recommendations[0]
+    quote = calculate_custom_package_price(
+        int(stored_package["estimated_price"])
+    )
+    return {
+        **result,
+        # Keep the existing list during the frontend transition.
+        "recommendations": [stored_package],
+        "stored_package": stored_package,
+        "custom_package": {
+            "product_type": "custom_itinerary",
+            "itinerary_id": itinerary_id,
+            "title": "내가 확정한 자유패키지",
+            "reference_package_id": stored_package["package_id"],
+            **quote.to_dict(),
+            "is_provisional_quote": True,
+        },
+    }
 
 
 def _travel_database_config() -> MySQLConfig:
