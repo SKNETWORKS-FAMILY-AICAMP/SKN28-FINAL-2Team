@@ -12,13 +12,12 @@ const mapItinerary = (data) => ({
   companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
 
+  status: data.status,
+  statusDisplay: data.status_display,
+
   style: data.style_display,
   styleCode: data.style,
   styleDisplay: data.style_display,
-
-  budgetPerPerson: data.budget_per_person,
-  totalCost: data.total_cost,
-  costBreakdown: data.cost_breakdown,
 
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
@@ -37,8 +36,9 @@ export const getItineraries = async () => {
     startDate: item.start_date,
     endDate: item.end_date,
     durationLabel: item.duration_label,
+    companionTypeDisplay: item.companion_type_display,
     companionCount: item.companion_count,
-    totalCost: item.total_cost,
+    styleDisplay: item.style_display,
     status: item.status,
     statusDisplay: item.status_display,
   }));
@@ -50,13 +50,11 @@ export const getItinerary = async (id) => {
   return mapItinerary(data);
 };
 
-export const createItinerary = async (data) => {
-  const { data: response } = await api.post(
-    "/travel/itineraries/",
-    data
-  );
+// 일정 생성
 
-  return mapItinerary(response);
+export const createItinerary = async (payload) => {
+  const { data } = await api.post("/travel/itineraries/", payload);
+  return mapItinerary(data);
 };
 
 export const regenerateItinerary = async (id) => {
@@ -110,6 +108,14 @@ export const patchItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
+export const confirmItinerary = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/confirm/`
+  );
+
+  return mapItinerary(data);
+};
+
 // 여행 경로 조회
 export const getRoute = async (id) => {
   const { data } = await api.get(
@@ -119,14 +125,16 @@ export const getRoute = async (id) => {
   return data;
 };
 
-// 생성된 일정과 가장 유사한 패키지 조회
+// 생성된 일정 기반 패키지 추천 조회
 export const getPackageRecommendations = async (id, topK = 3) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/package-recommendations/`,
     {
-      params: { top_k: topK },
+      params: {
+        top_k: topK,
+      },
     }
-  );
+  )
 
-  return data;
-};
+  return data
+}

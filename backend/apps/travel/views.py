@@ -59,7 +59,14 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 class ItineraryViewSet(viewsets.ModelViewSet):
     queryset = Itinerary.objects.none()  
     serializer_class = ItinerarySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _confirmed_edit_response():
+        return Response(
+            {"detail": "확정된 일정은 수정할 수 없습니다."},
+            status=status.HTTP_409_CONFLICT,
+        )
 
 
     @extend_schema(
@@ -88,6 +95,9 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def regenerate(self, request, pk=None):
         itinerary = self.get_object()
+        if itinerary.status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
+
         generate_itinerary(itinerary)
         serializer = self.get_serializer(itinerary)
         return Response(serializer.data)
@@ -95,26 +105,18 @@ class ItineraryViewSet(viewsets.ModelViewSet):
 
 
     @extend_schema(
-    tags=["Itinerary"],
-    summary="채팅으로 일정 수정",
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "협재해변도 가고 싶어",
-                }
-            },
-            "required": ["message"],
-        }
-    },
-    responses={200: ItinerarySerializer},
-)
+        tags=["Itinerary"],
+        summary="채팅으로 일정 수정",
+        request=ItineraryRevisionSerializer,
+        responses={200: ItinerarySerializer},
+    )
+    
     @action(detail=True, methods=["post"])
     def revise(self, request, pk=None):
 
         itinerary = self.get_object()
+        if itinerary.status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
 
         serializer = ItineraryRevisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -162,6 +164,8 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses=ItinerarySerializer,
     )
     def update(self, request, *args, **kwargs):
+        if self.get_object().status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
         return super().update(request, *args, **kwargs)
 
     @extend_schema(
@@ -171,7 +175,34 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses=ItinerarySerializer,
     )
     def partial_update(self, request, *args, **kwargs):
+        if self.get_object().status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
         return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        tags=["Itinerary"],
+        summary="일정 확정",
+        request=None,
+        responses={200: ItinerarySerializer},
+    )
+    @action(detail=True, methods=["post"])
+    def confirm(self, request, pk=None):
+        itinerary = self.get_object()
+
+        if not itinerary.engine_state:
+            return Response(
+                {"detail": "확정할 일정 데이터가 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if itinerary.status != Itinerary.Status.CONFIRMED:
+            itinerary.status = Itinerary.Status.CONFIRMED
+            itinerary.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            self.get_serializer(itinerary).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["Itinerary"],
@@ -186,23 +217,36 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Itinerary.objects.none()
 
-        return Itinerary.objects.filter(
-            user=self.request.user
-        ).prefetch_related("days__items")
-
+        return (
+            Itinerary.objects
+            .filter(user=self.request.user)
+            .order_by("-id")
+        )
     @extend_schema(
         tags=["Package Recommendation"],
         summary="생성된 일정에 맞는 패키지 추천",
         responses={200: OpenApiTypes.OBJECT},
     )
-    @action(detail=True, methods=["get"], url_path="package-recommendations")
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="package-recommendations",
+    )
     def package_recommendations(self, request, pk=None):
         itinerary = self.get_object()
+
+        if itinerary.status != Itinerary.Status.CONFIRMED:
+            return Response(
+                {"detail": "일정을 먼저 확정해주세요."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         if not itinerary.engine_state:
             return Response(
                 {"detail": "추천에 필요한 일정 엔진 상태가 없습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         try:
             recommendation_payload = copy.deepcopy(itinerary.engine_state)
             conditions = recommendation_payload.setdefault("condition", {})
@@ -221,7 +265,11 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 {"detail": str(exc)},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        return Response(result, status=status.HTTP_200_OK)
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
     
     @extend_schema(
         tags=["Itinerary"],

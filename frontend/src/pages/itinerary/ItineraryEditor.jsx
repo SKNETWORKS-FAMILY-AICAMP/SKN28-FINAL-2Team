@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
-import { getItinerary } from "../../api/itinerary";
+import { confirmItinerary, getItinerary } from "../../api/itinerary";
 import { useItineraries } from "../../context/ItineraryContext";
 
 export default function ItineraryEditor({
   activeDay,
   setActiveDay,
   refreshKey = 0,
-  onChanged = () => {},
 }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -20,6 +19,7 @@ export default function ItineraryEditor({
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -56,7 +56,6 @@ export default function ItineraryEditor({
         title: item.title,
         description: item.description ?? "",
         thumbnail: item.thumbnail ?? "",
-        cost: item.cost ?? 0,
         spot: item.spot ?? null,
         restaurant: item.restaurant ?? null,
         accommodation: item.accommodation ?? null,
@@ -92,7 +91,6 @@ export default function ItineraryEditor({
 
       setItinerary(updated);
       setDays(updated.days);
-      onChanged();
     } catch (err) {
       console.error(err);
       alert("삭제 저장 실패");
@@ -115,7 +113,6 @@ export default function ItineraryEditor({
 
       setItinerary(data);
       setDays(data.days);
-      onChanged();
     } catch (err) {
       console.error(err);
       alert("일정 재생성 실패");
@@ -124,6 +121,21 @@ export default function ItineraryEditor({
     }
   };
 
+  const handleConfirmItinerary = async () => {
+    if (!itinerary || isConfirming) return;
+
+    try {
+      setIsConfirming(true);
+      const confirmed = await confirmItinerary(itinerary.id);
+      setItinerary(confirmed);
+      navigate(`/review/${itinerary.id}`);
+    } catch (err) {
+      console.error("일정 확정 실패:", err);
+      alert(err.response?.data?.detail ?? "일정을 확정하지 못했습니다.");
+    } finally {
+      setIsConfirming(false);
+    }
+  };
 
   if (!itinerary || !current) {
     return <div>일정을 불러오는 중...</div>;
@@ -137,11 +149,15 @@ export default function ItineraryEditor({
             ✓ 일정 확인 및 수정
           </div>
 
-          <h1>{itinerary.title}</h1>
+          <h1>
+            {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
+          </h1>
 
           <p>
-            {itinerary.subtitle} · {itinerary.startDate} ~{" "}
-            {itinerary.endDate}
+            {itinerary.styleDisplay?.replace('여행', '')} ·{' '}
+            {itinerary.startDate === itinerary.endDate
+              ? itinerary.startDate
+              : `${itinerary.startDate} ~ ${itinerary.endDate}`}
           </p>
         </div>
 
@@ -293,28 +309,17 @@ export default function ItineraryEditor({
       </div>
 
       <div className={styles.itActions}>
-        <Link
-          to="/chat"
-          className={cx(
-            styles.btn,
-            styles.ghost
-          )}
-        >
-          이전 단계로
-        </Link>
-
         <button
           className={cx(
             styles.btn,
             styles.primary
           )}
-          onClick={() =>
-            navigate(`/review/${itinerary.id}`)
-          }
+          onClick={handleConfirmItinerary}
+          disabled={isConfirming}
         >
-          이 일정으로 확정하기 →
+          {isConfirming ? "확정 중..." : "이 일정으로 확정하기 →"}
         </button>
       </div>
     </div>
   );
-  }
+}

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { createItinerary } from '../../api/itinerary'
-import { useNavigate } from 'react-router-dom'
+import { confirmItinerary, createItinerary, reviseItinerary } from '../../api/itinerary'
 import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
+import ItineraryPreview from "./ItineraryPreview.jsx"
+import { useNavigate } from "react-router-dom"
 
 
 const READY_DELAY_MS = 1800
+const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
 let uid = 100
 const nextId = () => ++uid
@@ -27,69 +29,12 @@ const STYLE_MAP = {
   가족여행: 'family',
 }
 
-const parseNights = (durationText) => {
-  if (!durationText) return 1
-
-  if (durationText.includes('당일')) {
-    return 0
-  }
-
-  const match = durationText.match(/(\d+)\s*박/)
-
-  if (match) {
-    return Number.parseInt(match[1], 10)
-  }
-
-  return 1
-}
-
-const normalizeDuration = (text) => {
-  const value = text.trim().replace(/\s+/g, '');
-
-  if (value === '당일' || value === '당일치기') {
-    return '당일';
-  }
-
-  const nightOnlyMatch = value.match(/^(\d+)박$/);
-
-  if (nightOnlyMatch) {
-    const nights = Number(nightOnlyMatch[1]);
-
-    if (nights < 1) return null;
-
-    return `${nights}박 ${nights + 1}일`;
-  }
-
-  const nightDayMatch = value.match(/^(\d+)박(\d+)일$/);
-
-  if (!nightDayMatch) return null;
-
-  const nights = Number(nightDayMatch[1]);
-  const days = Number(nightDayMatch[2]);
-
-  if (nights < 1 || days !== nights + 1) return null;
-
-  return `${nights}박 ${days}일`;
-};
-
-const formatLocalDate = (date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-const buildDateRange = (nights) => {
-  const start = new Date()
-  const end = new Date(start)
-
-  end.setDate(end.getDate() + nights)
-
-  return {
-    start_date: formatLocalDate(start),
-    end_date: formatLocalDate(end),
-  }
+const getItemTypeLabel = (item) => {
+  if (item.restaurant) return '식당'
+  if (item.accommodation) return '숙소'
+  if (item.item_type === 'restaurant') return '식당'
+  if (item.item_type === 'accommodation') return '숙소'
+  return '관광지'
 }
 
 const getCompanionCount = (companion) => {
@@ -134,30 +79,65 @@ export default function ChatColumn({
   setItineraryId,
   itineraryId,
 }) {
-  const [history, setHistory] = useState([
-    {
-      id: nextId(),
-      type: 'msg',
-      me: false,
-      lines: [
-        '안녕하세요! 😊',
-        '원하시는 제주 여행을 알려주세요.',
-      ],
-    },
-    {
-      id: nextId(),
-      type: 'question',
-      stepIndex: 0,
-    },
-  ])
+  const getSavedChatColumn = () => {
+    try {
+      const saved = sessionStorage.getItem(CHAT_COLUMN_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error("채팅 복원 실패:", error);
+      return null;
+    }
+  };
 
-  const [stepIndex, setStepIndex] = useState(0)
-  const [input, setInput] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const savedChatColumn = getSavedChatColumn();
+  const navigate = useNavigate()
+  const [history, setHistory] = useState(() => {
+    if (Array.isArray(savedChatColumn?.history)) {
+      return savedChatColumn.history;
+    }
+
+    return [
+      {
+        id: nextId(),
+        type: "question",
+        stepIndex: 0,
+      },
+    ];
+  });
+
+  const [stepIndex, setStepIndex] = useState(
+    savedChatColumn?.stepIndex ?? 0
+  );
+
+  const [input, setInput] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
+  const [isRevising, setIsRevising] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
+  const [openPreviewId, setOpenPreviewId] = useState(null)
+  const [startDate, setStartDate] = useState(
+    savedChatColumn?.startDate ?? ""
+  );
+
+  const [endDate, setEndDate] = useState(
+    savedChatColumn?.endDate ?? ""
+  );
+
+  const handleConfirmItinerary = async (id) => {
+    if (isConfirming) return
+
+    try {
+      setIsConfirming(true)
+      await confirmItinerary(id)
+      navigate(`/review/${id}`)
+    } catch (err) {
+      console.error('일정 확정 실패:', err)
+      alert(err.response?.data?.detail ?? '일정을 확정하지 못했습니다.')
+    } finally {
+      setIsConfirming(false)
+    }
+  }
 
   const bodyRef = useRef(null)
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (!bodyRef.current) return
@@ -170,32 +150,27 @@ export default function ChatColumn({
     })
   }, [history, ready, stepIndex])
 
-  const finishFlow = async (finalAnswers) => {
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        CHAT_COLUMN_STORAGE_KEY,
+        JSON.stringify({
+          history,
+          stepIndex,
+          startDate,
+          endDate,
+        })
+      );
+    } catch (error) {
+      console.error("채팅 저장 실패:", error);
+    }
+  }, [history, stepIndex, startDate, endDate]);
 
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        type: 'msg',
-        me: false,
-        lines: [
-          '완벽해요! 정보를 정리해서 멋진 일정을 만들어볼게요 🎉',
-        ],
-      },
-      {
-        id: nextId(),
-        type: 'card',
-        title: '✅ 입력된 조건 확인',
-        rows: STEPS.map((step) => ({
-          ic: step.icon,
-          label: step.label,
-          value:
-            step.key === 'travelDates'
-              ? finalAnswers.travelDates?.duration
-              : finalAnswers[step.key],
-        })),
-      },
-    ])
+
+  const finishFlow = async (finalAnswers) => {
+    if (isCreating) return
+
+    setIsCreating(true)
 
     try {
       const {
@@ -204,56 +179,57 @@ export default function ChatColumn({
       } = finalAnswers.travelDates
 
       const itinerary = await createItinerary({
-        title: '제주 맞춤 여행',
         subtitle: `${finalAnswers.companion} 여행`,
-
         start_date: startDate,
         end_date: endDate,
-
         companion_type:
           COMPANION_TYPE_MAP[
             finalAnswers.companion
           ] ?? 'solo',
-
         companion_count: getCompanionCount(
           finalAnswers.companion
         ),
-
         style:
           STYLE_MAP[finalAnswers.style] ??
           'healing',
-
-        budget_per_person: 500000,
-
-        accommodation_cost: 150000,
-        activity_cost: 50000,
-        food_cost: 100000,
-        etc_cost: 50000,
-
-        status: 'draft',
-        is_public: false,
+          status: 'draft',
+          is_public: false,
       })
 
       console.log('생성된 일정:', itinerary)
 
       setItineraryId(itinerary.id)
 
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'itinerary',
+          itinerary,
+        },
+      ])
+
+      const dateLines =
+        finalAnswers.travelDates.duration === '당일'
+          ? [
+              `📅 기간: ${finalAnswers.travelDates.startDate.replaceAll('-', '.')} · 당일`,
+            ]
+          : [
+              `📅 기간: ${finalAnswers.travelDates.startDate} ~ ${finalAnswers.travelDates.endDate}`,
+              `          ${finalAnswers.travelDates.duration}`,
+            ]  
+
       const initialMessages = [
         {
           id: crypto.randomUUID(),
           me: false,
-          text: ['✅ 입력한 여행 조건입니다.',
+          text: [
+            '✅ 입력한 여행 조건입니다.',
             '',
             `👥 동행자: ${finalAnswers.companion}`,
-            `📅 기간: ${finalAnswers.travelDates.duration}`,
+            ...dateLines,
             `🍃 여행 스타일: ${finalAnswers.style}`,
           ].join('\n'),
-        },
-        {
-          id: crypto.randomUUID(),
-          me: false,
-          text: '짜잔! 고민없이 제주 여행 일정을 완성했어요 🎉',
-          mini: '일정 확인하기 →',
         },
       ]
 
@@ -261,9 +237,14 @@ export default function ChatColumn({
         `itinerary-chat-${itinerary.id}`,
         JSON.stringify(initialMessages),
       )
-      setTimeout(onReady, READY_DELAY_MS)
+      setTimeout(() => {
+        setIsCreating(false)
+        onReady()
+      }, READY_DELAY_MS)
     } catch (error) {
       console.error('일정 생성 실패:', error)
+
+      setIsCreating(false)
       
       setHistory((prev) => [
         ...prev,
@@ -276,6 +257,7 @@ export default function ChatColumn({
           ],
         },
       ])
+
     }
   }
 
@@ -293,30 +275,6 @@ export default function ChatColumn({
           lines: [finalValue],
         },
       ])
-
-      if (key === 'duration') {
-        const normalized = normalizeDuration(finalValue);
-
-        if (!normalized) {
-          setHistory((prev) => [
-            ...prev,
-            {
-              id: nextId(),
-              type: 'msg',
-              me: false,
-              lines: [
-                '여행 기간 형식이 올바르지 않아요.',
-                '(예: 당일, 1박 2일, 2박 3일)',
-              ],
-            },
-          ]);
-
-          return;
-        }
-
-        finalValue = normalized;
-      }
-
 
     const nextAnswers = {
       ...answers,
@@ -342,79 +300,132 @@ export default function ChatColumn({
     }
   }
 
-    const sendMsg = () => {
+    const sendMsg = async () => {
       const text = input.trim()
 
       if (!text) return
 
+      if (
+        currentStep &&
+        currentStep.type === 'dateRange'
+      ) {
+        return
+      }
+
+      if (
+        currentStep &&
+        currentStep.type === 'toggle'
+      ) {
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: ['버튼을 눌러 선택해주세요.'],
+          },
+        ])
+
+        return
+      }
+
+      if (
+        currentStep &&
+        currentStep.type === 'text'
+      ) {
+        answerStep(currentStep.key, text)
+        setInput('')
+        return
+      }
+
       setInput('')
 
-    const currentStep = STEPS[stepIndex]
-
-    if (
-      currentStep &&
-      currentStep.type === 'dateRange'
-    ) {
-      return
-    }
-
-    if (
-      currentStep &&
-      currentStep.type === 'toggle'
-    ) {
       setHistory((prev) => [
         ...prev,
         {
           id: nextId(),
           type: 'msg',
-          me: false,
-          lines: ['버튼을 눌러 선택해주세요.'],
+          me: true,
+          lines: [text],
         },
       ])
 
-      return
+      if (!itineraryId) {
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: ['수정할 일정이 아직 없어요.'],
+          },
+        ])
+        return
+      }
+
+      try {
+        setIsRevising(true)
+
+        const updatedItinerary = await reviseItinerary(
+          itineraryId,
+          text
+        )
+
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: [
+              '요청하신 내용을 일정에 반영했어요. 🍊',
+            ],
+          },
+          {
+            id: nextId(),
+            type: 'itinerary',
+            itinerary: updatedItinerary,
+          },
+        ])
+
+        setOpenPreviewId(null)
+      } catch (error) {
+        console.error('일정 수정 실패:', error)
+
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: [
+              '일정을 수정하지 못했어요. 잠시 후 다시 시도해주세요.',
+            ],
+          },
+        ])
+      } finally {
+        setIsRevising(false)
+      }
     }
-
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        type: 'msg',
-        me: true,
-        lines: [text],
-      },
-    ])
-
-    setTimeout(() => {
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          type: 'msg',
-          me: false,
-          lines: [
-            '알겠습니다! 반영해서 일정에 바로 적용할게요 🌿',
-          ],
-        },
-      ])
-    }, 700)
-  }
 
   const flowDone =
     stepIndex >= STEPS.length
+  const currentStep = STEPS[stepIndex]
+
+  const latestItineraryItem = [...history]
+    .reverse()
+    .find((item) => item.type === 'itinerary')
+
+  const latestItineraryHistoryId = latestItineraryItem?.id
+
+  const isInputDisabled =
+    !flowDone &&
+    (currentStep?.type === 'toggle' ||
+    currentStep?.type === 'dateRange')
 
   return (
     <div className={styles.chatCol}>
       <div className={styles.chatHead}>
-        <div className={styles.mark}>🗿</div>
-
-        <div>
-          <h2>AI 여행 코치</h2>
-          <p>
-            조건을 말해주시면 일정을 만들어드려요
-          </p>
-        </div>
-
         <div className={styles.status}>
           <span className={styles.pulse}></span>
           대화 중
@@ -425,32 +436,98 @@ export default function ChatColumn({
         className={styles.chatBody}
         ref={bodyRef}
       >
+        <div className={styles.chatIntro}>
+          <div className={styles.introMascot}>🗿</div>
+
+          <h2>안녕하세요! 탐나플랜 AI예요 👋</h2>
+
+          <p>여행을 시작하기 전에 알려주세요.</p>
+
+        </div>
         {history.map((item) => {
-          if (item.type === 'card') {
+          if (item.type === 'itinerary') {
+            const isLatest = item.id === latestItineraryHistoryId
+            const isPreviewOpen = openPreviewId === item.id
             return (
-              <div
-                className={styles.chatCard}
-                key={item.id}
-              >
-                <h5>{item.title}</h5>
+              <div key={item.id}>
+                {/* 기존 텍스트 일정 */}
+                <div className={styles.itineraryResult}>
+                  {item.itinerary.days.map((day) => (
+                    <div
+                      key={day.dayNumber}
+                      className={styles.itineraryDay}
+                    >
+                      <h2>{day.dayNumber}일차</h2>
 
-                {item.rows.map((row) => (
-                  <div
-                    className={styles.ccRow}
-                    key={row.label}
-                  >
-                    <div className={styles.ic}>
-                      {row.ic}
+                      {day.items.map((place, index) => (
+                        <div
+                          key={`${day.dayNumber}-${index}`}
+                          className={styles.itineraryItem}
+                        >
+                          <strong>
+                            [{getItemTypeLabel(place)}] {place.title}
+                          </strong>
+
+                          {place.description && (
+                            <p>{place.description}</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
+                  ))}
+                </div>
 
-                    <b>{row.value}</b>
-                    <span>{row.label}</span>
+                {/* AI 안내 멘트 */}
+                <div className={styles.previewMessageRow}>
+                  <div className={styles.previewAvatar}>🍊</div>
+
+                  <div className={styles.previewMessageBubble}>
+                    <p>
+                      제안해 드린 일정은 어떠셨나요?
+                      <br />
+                      일정은 취향에 맞게 자유롭게 변경할 수 있습니다.
+                    </p>
+
+                    <p>
+                      복잡한 여행 일정을 한눈에 보기 쉽게 정리했어요!
+                      <br />
+                      [일정 미리보기] 버튼을 눌러 확인해 보세요.
+                    </p>
                   </div>
-                ))}
+                </div>
+
+                {/* 말풍선 밖에 있는 미리보기 버튼 */}
+                <button
+                  type="button"
+                  className={styles.previewBtn}
+                  onClick={() =>
+                    setOpenPreviewId(
+                      isPreviewOpen ? null : item.id
+                    )
+                  }
+                >
+                  일정 미리보기
+                </button>
+
+                {isPreviewOpen && (
+                  <div className={styles.previewArea}>
+                    <ItineraryPreview itinerary={item.itinerary} />
+                  </div>
+                )}
+
+                {isLatest && (
+                  <button
+                    type="button"
+                    className={styles.confirmItineraryBtn}
+                    onClick={() => handleConfirmItinerary(item.itinerary.id)}
+                    disabled={isConfirming}
+                  >
+                    {isConfirming ? '확정 중...' : '이 일정으로 확정하기 →'}
+                  </button>
+                )}
               </div>
             )
           }
-
           if (item.type === 'question') {
             const step =
               STEPS[item.stepIndex]
@@ -464,7 +541,7 @@ export default function ChatColumn({
                 key={item.id}
               >
                 <div className={styles.who}>
-                  🌿
+                  🍊
                 </div>
 
                 <div className={styles.bubble}>
@@ -572,9 +649,15 @@ export default function ChatColumn({
                                 id: nextId(),
                                 type: 'msg',
                                 me: true,
-                                lines: [
-                                  duration.label,
-                                ],
+                                lines:
+                                  duration.nights === 0
+                                    ? [
+                                        `${startDate.replaceAll('-', '.')} · 당일`,
+                                      ]
+                                    : [
+                                        `${startDate} ~ ${endDate}`,
+                                        duration.label,
+                                      ],
                               },
                             ])
 
@@ -620,7 +703,7 @@ export default function ChatColumn({
               key={item.id}
             >
               <div className={styles.who}>
-                {item.me ? '나' : '🌿'}
+                {item.me ? '나' : '🍊'}
               </div>
 
               <div className={styles.bubble}>
@@ -640,38 +723,34 @@ export default function ChatColumn({
           )
         })}
 
-        {flowDone && (
+        {flowDone && isCreating && !ready && (
           <div className={styles.msg}>
-            <div className={styles.who}>
-              🌿
+            <div className={styles.who}>🍊</div>
+
+            <div className={styles.bubble}>
+              입력한 조건으로 일정 생성 중
+
+              <div className={styles.typing}>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
+          </div>
+        )}
+        {flowDone && isRevising && (
+          <div className={styles.msg}>
+            <div className={styles.who}>🍊</div>
 
-            {ready ? (
-              <div className={styles.bubble}>
-                일정이 완성됐어요! 확인하러
-                가볼까요? 🎉
-                <br />
+            <div className={styles.bubble}>
+              요청하신 내용으로 일정 수정 중
 
-                <span
-                  className={styles.miniBtn}
-                  onClick={() =>
-                    navigate(
-                      `/itinerary/${itineraryId}`
-                    )
-                  }
-                >
-                  일정 확인하기 →
-                </span>
+              <div className={styles.typing}>
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
-            ) : (
-              <div className={styles.bubble}>
-                <div className={styles.typing}>
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>
@@ -680,19 +759,15 @@ export default function ChatColumn({
         <div className={styles.inputBar}>
           <input
             type="text"
-            disabled={
-              !flowDone &&
-              (
-                STEPS[stepIndex]?.type === 'toggle' ||
-                STEPS[stepIndex]?.type === 'dateRange'
-              )
-            }
+            disabled={isInputDisabled}
             placeholder={
-              !flowDone && STEPS[stepIndex]?.type === 'toggle'
+              currentStep?.type === 'toggle'
                 ? '위 버튼을 눌러 선택해주세요'
-                : !flowDone && STEPS[stepIndex]?.type === 'dateRange'
+                : currentStep?.type === 'dateRange'
                   ? '위 달력에서 날짜를 선택해주세요'
-                  : '메시지를 입력하세요...'
+                  : currentStep?.type === 'text'
+                    ? '원하는 여행 스타일을 자유롭게 입력해주세요'
+                    : '메시지를 입력하세요...'
             }
                           
             value={input}
@@ -710,13 +785,7 @@ export default function ChatColumn({
             type="button"
             className={styles.sendBtn}
             onClick={sendMsg}
-            disabled={
-              !flowDone &&
-              (
-                STEPS[stepIndex]?.type === 'toggle' ||
-                STEPS[stepIndex]?.type === 'dateRange'
-              )
-            }
+            disabled={isInputDisabled}
           >
             →
           </button>
