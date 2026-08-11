@@ -89,3 +89,29 @@
   .grid{ grid-template-columns: 1fr; }
   .summary{ grid-column: span 1; }
 }
+
+.dayButtons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dayButton,
+.dayButtonActive {
+  padding: 6px 13px;
+  border: 1.5px solid #1b211d;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dayButton {
+  background: #fff;
+  color: #1b211d;
+}
+
+.dayButtonActive {
+  background: #2e9e62;
+  color: #fff;
+}

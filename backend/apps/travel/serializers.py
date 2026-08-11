@@ -236,10 +236,17 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
 
 class ItineraryRouteSerializer(serializers.Serializer):
-    """일자별 순서대로의 좌표 목록."""
+    """
+    일자별 최적 방문 순서와 실제 자동차 도로 경로.
+    """
 
     day_number = serializers.IntegerField()
+
     points = serializers.ListField(
+        child=serializers.DictField(),
+    )
+
+    path = serializers.ListField(
         child=serializers.DictField(),
     )
 
