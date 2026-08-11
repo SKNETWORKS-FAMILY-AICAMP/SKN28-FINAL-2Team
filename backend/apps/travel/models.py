@@ -111,7 +111,20 @@ class Package(models.Model):
         db_index=True,
     )
 
-    match_profile = models.JSONField()
+    match_profile = models.JSONField(
+        null=True,
+        blank=True,
+    )
+
+    companion = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    tags = models.TextField(
+        null=True,
+        blank=True,
+    )
 
     schema_version = models.CharField(
         max_length=20,
@@ -130,7 +143,6 @@ class Package(models.Model):
 
     def __str__(self):
         return self.title
-
 
 
 class Itinerary(models.Model):

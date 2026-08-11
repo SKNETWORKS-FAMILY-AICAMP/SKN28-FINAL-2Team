@@ -560,7 +560,7 @@ export default function ReviewPage() {
                       onClick={handleAddToCart}
                       disabled={addingToCart || (
                         selectedProduct === 'stored'
-                          ? !packageComparison.stored_package?.id
+                          ? !packageComparison.stored_package
                           : !packageComparison.custom_package
                       )}
                     >
@@ -572,7 +572,7 @@ export default function ReviewPage() {
                     onClick={handleBooking}
                     disabled={
                       selectedProduct === 'stored'
-                        ? !packageComparison.stored_package?.id
+                        ? !packageComparison.stored_package
                         : !packageComparison.custom_package
                     }
                   >
