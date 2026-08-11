@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from './CartWidget.module.css'
 import cx from '../utils/cx.js'
@@ -12,28 +11,13 @@ export default function CartWidget() {
     openCart,
     closeCart,
     updateQuantity,
-    updateOptions,
     removeFromCart,
     clearCart,
     totalCount,
     totalPrice,
   } = useCart()
 
-  const [editingId, setEditingId] = useState(null)
-  const [draft, setDraft] = useState({ optionDate: '', optionPeople: 2 })
   const navigate = useNavigate()
-
-  const startEdit = (item) => {
-    setEditingId(item.cartId)
-    setDraft({ optionDate: item.optionDate, optionPeople: item.optionPeople })
-  }
-
-  const cancelEdit = () => setEditingId(null)
-
-  const saveEdit = (cartId) => {
-    updateOptions(cartId, draft)
-    setEditingId(null)
-  }
 
   return (
     <>
@@ -90,50 +74,6 @@ export default function CartWidget() {
                         🗑️
                       </button>
                     </div>
-
-                    {editingId === item.cartId ? (
-                      <div className={styles.editBox}>
-                        <div className={styles.editField}>
-                          <label>이용 날짜</label>
-                          <input
-                            type="date"
-                            value={draft.optionDate}
-                            onChange={(e) => setDraft({ ...draft, optionDate: e.target.value })}
-                          />
-                        </div>
-                        <div className={styles.editField}>
-                          <label>인원</label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={draft.optionPeople}
-                            onChange={(e) =>
-                              setDraft({ ...draft, optionPeople: Number(e.target.value) })
-                            }
-                          />
-                        </div>
-                        <div className={styles.editActions}>
-                          <button className={cx(styles.btn, styles.ghost, styles.xs)} onClick={cancelEdit}>
-                            취소
-                          </button>
-                          <button
-                            className={cx(styles.btn, styles.primary, styles.xs)}
-                            onClick={() => saveEdit(item.cartId)}
-                          >
-                            저장
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={styles.cartItemMeta}>
-                        <span>📅 {item.optionDate || '날짜 미지정'}</span>
-                        <span>👥 {item.optionPeople}인</span>
-                        <button className={styles.editLink} onClick={() => startEdit(item)}>
-                          ✏️ 옵션 수정
-                        </button>
-                      </div>
-                    )}
 
                     <div className={styles.qtyRow}>
                       <span className={styles.qtyLabel}>수량</span>

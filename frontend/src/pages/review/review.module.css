@@ -99,7 +99,11 @@
 .comparisonDayLegend span{ display:flex; align-items:center; gap:5px; color:var(--ink); font-size:10px; font-weight:800; white-space:nowrap; }
 .comparisonDayLegend i{ display:block; width:9px; height:9px; border-radius:50%; }
 .packageComparisonGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
-.packageChoiceCard{ min-width:0; padding:22px; border:2.5px solid var(--ink); border-radius:20px; background:#fff; box-shadow:5px 5px 0 var(--line); }
+.packageChoiceCard{ position:relative; min-width:0; padding:22px; border:2.5px solid var(--ink); border-radius:20px; background:#fff; box-shadow:5px 5px 0 var(--line); cursor:pointer; transition:transform .15s ease, box-shadow .15s ease, outline-color .15s ease, border-color .15s ease, background-color .15s ease; }
+.packageChoiceCard:hover{ transform:translateY(-2px); }
+.selectedChoiceCard{ border-color:var(--green-deep); outline:5px solid rgba(79,157,106,.32); outline-offset:4px; background:#f3fbf5; box-shadow:9px 9px 0 var(--green); }
+.selectionStatus{ display:table; margin:0 0 14px auto; padding:7px 12px; border:1.5px solid #9aa39e; border-radius:999px; background:#fff; color:#68716c; font-size:12px; font-weight:900; line-height:1; }
+.selectionStatusActive{ border-color:var(--green-deep); background:var(--green-deep); color:#fff; box-shadow:2px 2px 0 var(--ink); }
 .recommendedChoiceCard{ position:relative; padding-top:52px; border:3px solid var(--green-deep); background:linear-gradient(180deg,var(--green-soft) 0,#fff 210px); box-shadow:7px 7px 0 var(--green); }
 .customChoiceCard{ border-color:#7d8781; background:#f7f8f7; box-shadow:4px 4px 0 #d8dcda; }
 .bestMatchRibbon{ position:absolute; top:0; right:0; left:0; padding:10px 16px; border-bottom:2px solid var(--green-deep); border-radius:16px 16px 0 0; background:var(--green); color:#fff; font-family:var(--display); font-size:12px; font-weight:800; letter-spacing:.02em; text-align:center; }
@@ -125,6 +129,10 @@
 .packageAdvantages{ display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; padding-top:15px; border-top:1px dashed var(--green); }
 .packageAdvantages span{ padding:6px 9px; border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
 .packageMessage{ padding:18px; border:2px dashed var(--line); border-radius:16px; background:#fff; color:var(--muted); }
+.bookingAction{ display:flex; align-items:center; justify-content:space-between; gap:18px; margin-top:22px; padding:18px 20px; border:2px solid var(--ink); border-radius:18px; background:#fff; box-shadow:5px 5px 0 var(--green-soft-2); }
+.bookingAction span{ color:var(--muted); font-size:13px; font-weight:700; }
+.bookingButtons{ display:flex; align-items:center; gap:10px; }
+.bookingAction button:disabled{ cursor:not-allowed; opacity:.5; transform:none; box-shadow:none; }
 
 @media (max-width: 1150px){
   .grid{ grid-template-columns: 1fr 1fr; }
@@ -134,6 +142,9 @@
   .grid{ grid-template-columns: 1fr; }
   .summary{ grid-column: span 1; }
   .packageComparisonGrid{ grid-template-columns:1fr; }
+  .bookingAction{ align-items:stretch; flex-direction:column; }
+  .bookingButtons{ flex-direction:column; align-items:stretch; }
+  .bookingAction button{ justify-content:center; }
 }
 
 .dayButtons {
