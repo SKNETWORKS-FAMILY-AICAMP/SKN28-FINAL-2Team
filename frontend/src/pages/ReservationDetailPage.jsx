@@ -23,6 +23,7 @@ const packageDays = (course = []) =>
   course.map((day, index) => ({
     dayNumber: Number(day.day ?? index + 1),
     date: '',
+    path: day.path || [],
     items: (day.items || []).map((item) => ({
       ...item,
       item_type: item.item_type || 'tourism',
@@ -288,7 +289,6 @@ export default function ReservationDetailPage() {
                         <strong>{item.title}</strong>
                         <p>
                           {itemTypeLabel(item.item_type)}
-                          {item.stay_minutes ? ` · ${item.stay_minutes}분` : ''}
                         </p>
                         {item.description && <p>{item.description}</p>}
                       </div>
