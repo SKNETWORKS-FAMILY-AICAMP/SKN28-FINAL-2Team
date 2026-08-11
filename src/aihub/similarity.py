@@ -84,9 +84,9 @@ class AIHubPatternConfig:
     (``aggregate_role_keywords`` 참고).
     """
 
-    top_k: int = 5                    # movement pattern용
-    reference_keyword_top_k: int = 8   # keyword 추출용
-    min_usable_visits: int = 3
+    top_k: int = 10
+    reference_keyword_top_k: int = 10
+    min_stops_per_day: int = 5
     duration_weight: float = 20.0
     party_weight: float = 20.0
     transport_weight: float = 25.0
@@ -105,11 +105,19 @@ class AIHubPatternConfig:
                 "reference_keyword_top_k must be greater than or equal to top_k"
             )
 
-        if self.min_usable_visits <= 0:
-            raise ValueError("min_usable_visits must be greater than zero")
+        if self.min_stops_per_day <= 0:
+            raise ValueError("min_stops_per_day must be greater than zero")
 
 class AIHubPatternRepository(Protocol):
-    def fetch_trip_profiles(self, *, min_usable_visits: int) -> list[TripProfile]:
+    def fetch_trip_profiles(
+        self,
+        *,
+        age_groups: Sequence[str],
+        duration_days: int,
+        companion_rel_codes: Sequence[str],
+        min_stops_per_day: int,
+        limit: int,
+    ) -> list[TripProfile]:
         ...
 
     def fetch_trip_routes(
@@ -133,13 +141,99 @@ class AIHubSimilarityRepository:
         self._config = config
         self._connection_factory = connection_factory
 
-    def fetch_trip_profiles(self, *, min_usable_visits: int) -> list[TripProfile]:
-        if min_usable_visits <= 0:
-            raise ValueError("min_usable_visits must be greater than zero")
+    def fetch_trip_profiles(
+        self,
+        *,
+        age_groups: Sequence[str],
+        duration_days: int,
+        companion_rel_codes: Sequence[str],
+        min_stops_per_day: int,
+        limit: int,
+    ) -> list[TripProfile]:
+
+        if duration_days <= 0:
+            raise ValueError(
+                "duration_days must be greater than zero"
+            )
+
+        if min_stops_per_day <= 0:
+            raise ValueError(
+                "min_stops_per_day must be greater than zero"
+            )
+
+        if limit <= 0:
+            raise ValueError(
+                "limit must be greater than zero"
+            )
+
+        normalized_age_groups = tuple(
+            dict.fromkeys(
+                str(age).strip()
+                for age in age_groups
+                if str(age).strip()
+            )
+        )
+
+        if not normalized_age_groups:
+            return []
+
+        age_placeholders = ", ".join(
+            ["%s"] * len(normalized_age_groups)
+        )
+
+        normalized_rel_codes = tuple(
+            dict.fromkeys(
+                str(code).strip()
+                for code in companion_rel_codes
+                if str(code).strip()
+            )
+        )
+
+        # 혼자 여행
+        if not normalized_rel_codes:
+            companion_condition = """
+                NOT EXISTS (
+                    SELECT 1
+                    FROM aihub_companion AS c
+                    WHERE c.travel_id = t.travel_id
+                )
+            """
+
+            companion_params = []
+
+        # 친구 / 가족
+        else:
+            companion_placeholders = ", ".join(
+                ["%s"] * len(normalized_rel_codes)
+            )
+
+            companion_condition = f"""
+                EXISTS (
+                    SELECT 1
+                    FROM aihub_companion AS c
+                    WHERE c.travel_id = t.travel_id
+                    AND c.rel_cd IN ({companion_placeholders})
+                )
+            """
+
+            companion_params = list(normalized_rel_codes)
+
+        sql = _TRIP_PROFILE_SQL.format(
+            age_placeholders=age_placeholders,
+            companion_condition=companion_condition,
+        )
+
+        params = [
+            *normalized_age_groups,
+            duration_days,
+            min_stops_per_day,
+            *companion_params,
+            limit,
+        ]
         with self._connect() as connection:
             cursor = connection.cursor(dictionary=True)
             try:
-                cursor.execute(_TRIP_PROFILE_SQL, (min_usable_visits,))
+                cursor.execute(sql, params)
                 return [TripProfile.from_row(row) for row in cursor.fetchall()]
             finally:
                 cursor.close()
@@ -197,8 +291,30 @@ class AIHubPatternService:
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
+
+        companion_rel_codes = _companion_relation_codes(
+            normalized.party_type
+        )
+
+        age_groups = _fallback_age_groups(
+            normalized.age_group
+        )
+
+        print("\n========== AIHub FILTER ==========")
+        print("age_group:", normalized.age_group)
+        print("age_groups:", age_groups)
+        print("duration_days:", normalized.duration_days)
+        print("party_type:", normalized.party_type)
+        print("companion_rel_codes:", companion_rel_codes)
+        print("min_visits:", self.config.min_stops_per_day)
+        print("==================================")
+
         profiles = self.repository.fetch_trip_profiles(
-            min_usable_visits=self.config.min_usable_visits
+            age_groups=age_groups,
+            duration_days=normalized.duration_days,
+            companion_rel_codes=companion_rel_codes,
+            min_stops_per_day=self.config.min_stops_per_day,
+            limit=self.config.top_k,
         )
         matches = [
             self._score_trip(normalized, profile) for profile in profiles
@@ -217,8 +333,14 @@ class AIHubPatternService:
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
+        companion_rel_codes = _companion_relation_codes(normalized.party_type)
+        age_groups = _fallback_age_groups(normalized.age_group)
         profiles = self.repository.fetch_trip_profiles(
-            min_usable_visits=self.config.min_usable_visits
+            age_groups=age_groups,
+            duration_days=normalized.duration_days,
+            companion_rel_codes=companion_rel_codes,
+            min_stops_per_day=self.config.min_stops_per_day,
+            limit=self.config.reference_keyword_top_k,
         )
         matches = [
             self._score_trip(normalized, profile) for profile in profiles
@@ -807,8 +929,30 @@ _TRIP_PROFILE_SQL = f"""
       ON vp.travel_id = t.travel_id
     LEFT JOIN movement_profile AS mp
       ON mp.travel_id = t.travel_id
-    WHERE vp.usable_visit_count >= %s
-    ORDER BY t.travel_id
+    WHERE
+        r.age_grp IN ({{age_placeholders}})
+
+        AND DATEDIFF(
+            t.travel_end_ymd,
+            t.travel_start_ymd
+        ) + 1 = %s
+
+        AND vp.usable_visit_count >= (
+            (
+                DATEDIFF(
+                    t.travel_end_ymd,
+                    t.travel_start_ymd
+                ) + 1
+            ) * %s
+        )
+
+        AND {{companion_condition}}
+
+    ORDER BY
+        vp.usable_visit_count DESC,
+        t.travel_id
+
+    LIMIT %s
 """
 
 _TRIP_ROUTE_SQL = """
