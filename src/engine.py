@@ -6,7 +6,11 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
+from .mappings.trip_feature_mapping import (
+    SLOT_ITINERARY_ROLES,
+    SLOT_TARGET_COLLECTIONS,
+    get_visit_area_type_mapping,
+)
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
@@ -419,12 +423,14 @@ class ItineraryEngine:
                     key=lambda item: int(item.get("visit_order") or 0),
                 )
                 roles = tuple(
-                    role
-                    for role in (
-                        VIS_TO_SLOT_ROLE.get(str(row.get("visit_area_type_cd") or ""))
-                        for row in ordered
-                    )
-                    if role in SLOT_TARGET_COLLECTIONS
+                    mapping.slot_role
+                    for row in ordered
+                    if (
+                        mapping := get_visit_area_type_mapping(
+                            row.get("visit_area_type_cd")
+                        )
+                    ) is not None
+                    and mapping.slot_role in SLOT_TARGET_COLLECTIONS
                 )
                 if not roles:
                     continue
