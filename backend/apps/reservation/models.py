@@ -6,13 +6,31 @@ from apps.travel.models import Itinerary
 
 class CartItem(models.Model):
 
+    class ProductType(models.TextChoices):
+        STORED_PACKAGE = "stored_package", "Stored package"
+        CUSTOM_ITINERARY = "custom_itinerary", "Custom itinerary"
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="cart_items",
     )
 
-    package_db_id = models.BigIntegerField()
+    product_type = models.CharField(
+        max_length=30,
+        choices=ProductType.choices,
+        default=ProductType.STORED_PACKAGE,
+    )
+    package_db_id = models.BigIntegerField(null=True, blank=True)
+    itinerary = models.ForeignKey(
+        Itinerary,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="cart_product_items",
+    )
+    product_name = models.CharField(max_length=255, blank=True, default="")
+    unit_price = models.PositiveIntegerField(default=0)
 
     quantity = models.PositiveSmallIntegerField(default=1)
     option_date = models.DateField(null=True, blank=True)
@@ -81,7 +99,12 @@ class ReservationItem(models.Model):
         related_name="items",
     )
 
-    package_db_id = models.BigIntegerField()
+    product_type = models.CharField(
+        max_length=30,
+        choices=CartItem.ProductType.choices,
+        default=CartItem.ProductType.STORED_PACKAGE,
+    )
+    package_db_id = models.BigIntegerField(null=True, blank=True)
 
     package_id = models.CharField(
         max_length=50,
