@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createItinerary, reviseItinerary } from '../../api/itinerary'
+import { confirmItinerary, createItinerary, reviseItinerary } from '../../api/itinerary'
 import styles from './chat.module.css'
 import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
@@ -7,6 +7,7 @@ import ItineraryPreview from "./ItineraryPreview.jsx"
 import { useNavigate } from "react-router-dom"
 
 
+const READY_DELAY_MS = 1800
 const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
 let uid = 100
@@ -117,6 +118,7 @@ export default function ChatColumn({
   const [input, setInput] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [isRevising, setIsRevising] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
   const [openPreviewId, setOpenPreviewId] = useState(null)
   const [startDate, setStartDate] = useState(
     savedChatColumn?.startDate ?? ""
@@ -125,6 +127,20 @@ export default function ChatColumn({
   const [endDate, setEndDate] = useState(
     savedChatColumn?.endDate ?? ""
   );
+  const handleConfirmItinerary = async (id) => {
+    if (isConfirming) return
+
+    try {
+      setIsConfirming(true)
+      await confirmItinerary(id)
+      navigate(`/review/${id}`)
+    } catch (err) {
+      console.error('일정 확정 실패:', err)
+      alert(err.response?.data?.detail ?? '일정을 확정하지 못했습니다.')
+    } finally {
+      setIsConfirming(false)
+    }
+  }
 
   const bodyRef = useRef(null)
 
@@ -180,10 +196,7 @@ export default function ChatColumn({
         ),
         age_group:
           AGE_GROUP_MAP[finalAnswers.ageGroup] ?? '',
-        // 여행 스타일은 미리 정해둔 카테고리로 필터링하지 않고,
-        // 사용자가 입력한 자유 텍스트 그대로 백엔드로 전달한다.
-        // 백엔드는 이 텍스트를 그대로 RAG 검색 조건으로 사용해
-        // 관광지 후보를 찾는다.
+        // 여행 스타일은 사용자가 입력한 자유 텍스트 그대로 백엔드로 전달한다.
         style: finalAnswers.style ?? '',
         status: 'draft',
         is_public: false,
@@ -230,10 +243,11 @@ export default function ChatColumn({
         `itinerary-chat-${itinerary.id}`,
         JSON.stringify(initialMessages),
       )
-      setIsCreating(false)
-      onReady()
-      
-      } catch (error) {
+      setTimeout(() => {
+        setIsCreating(false)
+        onReady()
+      }, READY_DELAY_MS)
+    } catch (error) {
       console.error('일정 생성 실패:', error)
 
       setIsCreating(false)
@@ -293,115 +307,113 @@ export default function ChatColumn({
   }
 
     const sendMsg = async () => {
-    const text = input.trim()
+      const text = input.trim()
 
-    if (!text) return
+      if (!text) return
 
-    const currentStep = STEPS[stepIndex]
+      const currentStep = STEPS[stepIndex]
 
-    // 아직 질문 단계인 경우
-    if (currentStep) {
-      // 날짜 선택은 달력 버튼으로만 처리
-      if (currentStep.type === 'dateRange') {
-        return
+      // 아직 질문 단계인 경우
+      if (currentStep) {
+        // 날짜 선택은 달력 버튼으로만 처리
+        if (currentStep.type === 'dateRange') {
+          return
+        }
+
+        // 선택형 질문은 토글 버튼으로만 처리
+        if (currentStep.type === 'toggle') {
+          setHistory((prev) => [
+            ...prev,
+            {
+              id: nextId(),
+              type: 'msg',
+              me: false,
+              lines: ['버튼을 눌러 선택해주세요.'],
+            },
+          ])
+
+          return
+        }
+
+        // 자유 입력 질문
+        if (currentStep.type === 'text') {
+          answerStep(currentStep.key, text)
+          setInput('')
+          return
+        }
       }
 
-      // 선택형 질문은 토글 버튼으로만 처리
-      if (currentStep.type === 'toggle') {
+      // 질문이 끝난 뒤에는 기존 일정을 수정한다.
+      setInput('')
+
+      if (!itineraryId) {
         setHistory((prev) => [
           ...prev,
           {
             id: nextId(),
             type: 'msg',
             me: false,
-            lines: ['버튼을 눌러 선택해주세요.'],
+            lines: ['수정할 일정이 아직 없어요.'],
+          },
+        ])
+        return
+      }
+
+      // 사용자의 수정 요청을 채팅에 표시한다.
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: true,
+          lines: [text],
+        },
+      ])
+
+      try {
+        setIsRevising(true)
+
+        const updatedItinerary = await reviseItinerary(
+          itineraryId,
+          text
+        )
+
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: [
+              '요청하신 내용을 일정에 반영했어요. 🍊',
+            ],
+          },
+          {
+            id: nextId(),
+            type: 'itinerary',
+            itinerary: updatedItinerary,
           },
         ])
 
-        return
+        setOpenPreviewId(null)
+      } catch (error) {
+        console.error('일정 수정 실패:', error)
+
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: nextId(),
+            type: 'msg',
+            me: false,
+            lines: [
+              '일정을 수정하지 못했어요. 잠시 후 다시 시도해주세요.',
+            ],
+          },
+        ])
+      } finally {
+        setIsRevising(false)
       }
-
-      // 자유 입력 질문
-      if (currentStep.type === 'text') {
-        answerStep(currentStep.key, text)
-        setInput('')
-        return
-      }
     }
-
-    // 질문이 모두 끝나지 않았다면 여기까지
-    if (!itineraryId) {
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          type: 'msg',
-          me: false,
-          lines: ['수정할 일정이 아직 없어요.'],
-        },
-      ])
-
-      return
-    }
-
-    // 일정 수정
-    setInput('')
-
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        type: 'msg',
-        me: true,
-        lines: [text],
-      },
-    ])
-
-    try {
-      setIsRevising(true)
-
-      const updatedItinerary = await reviseItinerary(
-        itineraryId,
-        text
-      )
-
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          type: 'msg',
-          me: false,
-          lines: [
-            '요청하신 내용을 일정에 반영했어요. 🍊',
-          ],
-        },
-        {
-          id: nextId(),
-          type: 'itinerary',
-          itinerary: updatedItinerary,
-        },
-      ])
-
-      setOpenPreviewId(null)
-    } catch (error) {
-      console.error('일정 수정 실패:', error)
-
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          type: 'msg',
-          me: false,
-          lines: [
-            '일정을 수정하지 못했어요. 잠시 후 다시 시도해주세요.',
-          ],
-        },
-      ])
-    } finally {
-      setIsRevising(false)
-    }
-  }
-
   const flowDone =
     stepIndex >= STEPS.length
   const currentStep = STEPS[stepIndex]
@@ -513,11 +525,10 @@ export default function ChatColumn({
                   <button
                     type="button"
                     className={styles.confirmItineraryBtn}
-                    onClick={() =>
-                      navigate(`/review/${item.itinerary.id}`)
-                    }
+                    onClick={() => handleConfirmItinerary(item.itinerary.id)}
+                    disabled={isConfirming}
                   >
-                    이 일정으로 확정하기 →
+                    {isConfirming ? '확정 중...' : '이 일정으로 확정하기 →'}
                   </button>
                 )}
               </div>
@@ -718,7 +729,7 @@ export default function ChatColumn({
           )
         })}
 
-        {flowDone && isCreating && !ready && !latestItineraryItem && (
+        {flowDone && isCreating && !ready && (
           <div className={styles.msg}>
             <div className={styles.who}>🍊</div>
 
@@ -788,4 +799,4 @@ export default function ChatColumn({
       </div>
     </div>
   )
-};
+}

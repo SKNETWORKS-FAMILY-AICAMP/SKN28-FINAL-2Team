@@ -12,6 +12,9 @@ const mapItinerary = (data) => ({
   companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
 
+  status: data.status,
+  statusDisplay: data.status_display,
+
   style: data.style_display,
   styleCode: data.style,
   styleDisplay: data.style_display,
@@ -116,15 +119,15 @@ export const patchItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
+export const confirmItinerary = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/confirm/`
+  );
 
- 
-//  일정 삭제
-export const deleteItinerary = async (id) => {
-  await api.delete(`/travel/itineraries/${id}/`);
+  return mapItinerary(data);
 };
 
-
-//  여행 경로 조회
+// 여행 경로 조회
 export const getRoute = async (id) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/route/`
