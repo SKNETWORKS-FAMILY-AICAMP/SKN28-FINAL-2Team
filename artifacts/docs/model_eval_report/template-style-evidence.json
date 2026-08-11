@@ -1,0 +1,168 @@
+{
+  "input": "C:\\Users\\Playdata\\Downloads\\\ubaa8\ub378\ub9c1 \ubc0f \ud3c9\uac00_\ud14c\uc2a4\ud2b8 \uacc4\ud68d \ubc0f \uacb0\uacfc \ubcf4\uace0\uc11c_2\ud300.docx",
+  "fonts_by_char_count": {},
+  "direct_run_formatting_runs": 90,
+  "direct_paragraph_formatting_paragraphs": 190,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 1,
+      "text": "SK\ub124\ud2b8\uc6cd\uc2a4 Family AI \uacfc\uc815 28\uae30",
+      "style": "Normal"
+    },
+    {
+      "para_index": 2,
+      "text": "\ubaa8\ub378\ub9c1 \ubc0f \ud3c9\uac00 \ud14c\uc2a4\ud2b8 \uacc4\ud68d \ubc0f \uacb0\uacfc \ubcf4\uace0\uc11c",
+      "style": "Normal"
+    },
+    {
+      "para_index": 40,
+      "text": "\uc0b0\ucd9c\ubb3c \ub2e8\uacc4",
+      "style": "Normal"
+    },
+    {
+      "para_index": 42,
+      "text": "\ud3c9\uac00 \uc0b0\ucd9c\ubb3c",
+      "style": "Normal"
+    },
+    {
+      "para_index": 44,
+      "text": "\uc81c\ucd9c \uc77c\uc790",
+      "style": "Normal"
+    },
+    {
+      "para_index": 46,
+      "text": "\uae43\ud5c8\ube0c \uacbd\ub85c",
+      "style": "Normal"
+    },
+    {
+      "para_index": 48,
+      "text": "\uc791\uc131 \ud300\uc6d0",
+      "style": "Normal"
+    },
+    {
+      "para_index": 50,
+      "text": "TC ID",
+      "style": "Normal"
+    },
+    {
+      "para_index": 51,
+      "text": "\ud14c\uc2a4\ud2b8 \ud56d\ubaa9",
+      "style": "Normal"
+    },
+    {
+      "para_index": 52,
+      "text": "\ud14c\uc2a4\ud2b8 \uc124\uba85",
+      "style": "Normal"
+    },
+    {
+      "para_index": 53,
+      "text": "\uc608\uc0c1 \uacb0\uacfc",
+      "style": "Normal"
+    },
+    {
+      "para_index": 54,
+      "text": "\uc2e4\uc81c \uacb0\uacfc",
+      "style": "Normal"
+    },
+    {
+      "para_index": 55,
+      "text": "\ube44\uace0",
+      "style": "Normal"
+    },
+    {
+      "para_index": 128,
+      "text": "TC ID",
+      "style": "Normal"
+    },
+    {
+      "para_index": 129,
+      "text": "\ud14c\uc2a4\ud2b8 \ud56d\ubaa9",
+      "style": "Normal"
+    },
+    {
+      "para_index": 130,
+      "text": "\ud14c\uc2a4\ud2b8 \uc124\uba85",
+      "style": "Normal"
+    },
+    {
+      "para_index": 131,
+      "text": "\uc131\ub2a5 \uae30\uc900",
+      "style": "Normal"
+    },
+    {
+      "para_index": 132,
+      "text": "\uc2e4\uc81c \uacb0\uacfc",
+      "style": "Normal"
+    },
+    {
+      "para_index": 133,
+      "text": "\ube44\uace0",
+      "style": "Normal"
+    },
+    {
+      "para_index": 158,
+      "text": "TC ID",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "SK\ub124\ud2b8\uc6cd\uc2a4 Family AI \uacfc\uc815 28\uae30",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "\ubaa8\ub378\ub9c1 \ubc0f \ud3c9\uac00 \ud14c\uc2a4\ud2b8 \uacc4\ud68d \ubc0f \uacb0\uacfc \ubcf4\uace0\uc11c",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 28,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 32,
+        "text": "",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 1,
+        "run_text": "SK",
+        "style": "Normal"
+      },
+      {
+        "para_index": 1,
+        "run_text": "\ub124\ud2b8\uc6cd\uc2a4",
+        "style": "Normal"
+      },
+      {
+        "para_index": 1,
+        "run_text": " Family AI ",
+        "style": "Normal"
+      },
+      {
+        "para_index": 1,
+        "run_text": "\uacfc\uc815",
+        "style": "Normal"
+      },
+      {
+        "para_index": 1,
+        "run_text": " 28",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

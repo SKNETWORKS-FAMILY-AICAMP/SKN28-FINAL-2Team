@@ -1,0 +1,18 @@
+{
+  "file": "C:\\Users\\Playdata\\Desktop\\feature_backend\\artifacts\\docs\\모델링 및 평가_테스트 계획 및 결과 보고서_2팀_기능명세기반_재작성.docx",
+  "counts": {
+    "high": 0,
+    "medium": 1,
+    "low": 0
+  },
+  "findings": [
+    {
+      "severity": "medium",
+      "kind": "table_no_header_row",
+      "message": "Table first row is not marked as header (w:tblHeader missing)",
+      "context": {
+        "part": "word/document.xml"
+      }
+    }
+  ]
+}

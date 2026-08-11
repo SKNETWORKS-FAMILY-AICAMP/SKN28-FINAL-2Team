@@ -1,0 +1,228 @@
+{
+  "executed_at": "2026-08-10T15:58:55+0900",
+  "base_url": "http://localhost:8000",
+  "model": "gpt-5-mini",
+  "summary": {
+    "total": 27,
+    "passed": 26,
+    "failed": 1
+  },
+  "results": [
+    {
+      "tc_id": "TC-AUTH-01",
+      "feature": "인증 필요 기능 차단",
+      "expected": "비로그인 일정 목록 요청 HTTP 401",
+      "actual": "HTTP 401",
+      "status": "PASS",
+      "elapsed_ms": 2067.2
+    },
+    {
+      "tc_id": "TC-AUTH-02",
+      "feature": "전용 테스트 사용자 JWT 발급",
+      "expected": "HTTP 200 및 access token 반환",
+      "actual": "HTTP 200",
+      "status": "PASS",
+      "elapsed_ms": 2790.2
+    },
+    {
+      "tc_id": "TC-ACC-01",
+      "feature": "내 정보 조회",
+      "expected": "현재 사용자의 이메일·닉네임·선호 스타일 반환",
+      "actual": "HTTP 200, email=codex.e2e@tamna-plan.local",
+      "status": "PASS",
+      "elapsed_ms": 2014.7
+    },
+    {
+      "tc_id": "TC-ACC-02",
+      "feature": "내 정보 수정",
+      "expected": "닉네임과 선호 여행 스타일 저장",
+      "actual": "HTTP 200, nickname=자동화 여행자",
+      "status": "PASS",
+      "elapsed_ms": 2059.2
+    },
+    {
+      "tc_id": "TC-PKG-01",
+      "feature": "패키지 목록 조회",
+      "expected": "비로그인 상태에서 활성 패키지 목록 반환",
+      "actual": "HTTP 200, count=30",
+      "status": "PASS",
+      "elapsed_ms": 2089.1
+    },
+    {
+      "tc_id": "TC-PKG-02",
+      "feature": "패키지 상세 조회",
+      "expected": "상품 식별자·가격·기간·일정별 코스 반환",
+      "actual": "HTTP 200, fields=['course', 'duration_days', 'id', 'name', 'package_id', 'price']",
+      "status": "PASS",
+      "elapsed_ms": 2031.0
+    },
+    {
+      "tc_id": "TC-PKG-03",
+      "feature": "패키지 기간·가격 필터",
+      "expected": "필터 조건을 만족하는 패키지만 반환",
+      "actual": "HTTP 200, count=2",
+      "status": "PASS",
+      "elapsed_ms": 2040.5
+    },
+    {
+      "tc_id": "TC-BMK-01",
+      "feature": "패키지 찜 추가",
+      "expected": "유효한 패키지를 찜하고 상세 정보를 반환",
+      "actual": "HTTP 201, bookmark_id=1",
+      "status": "PASS",
+      "elapsed_ms": 2065.3
+    },
+    {
+      "tc_id": "TC-BMK-02",
+      "feature": "패키지 중복 찜 방지",
+      "expected": "재요청은 HTTP 200이며 동일 패키지 찜은 1건 유지",
+      "actual": "HTTP 200, saved_count=1",
+      "status": "PASS",
+      "elapsed_ms": 2047.1
+    },
+    {
+      "tc_id": "TC-BMK-03",
+      "feature": "패키지 찜 해제",
+      "expected": "본인 찜 항목 삭제 HTTP 204",
+      "actual": "HTTP 204",
+      "status": "PASS",
+      "elapsed_ms": 2059.6
+    },
+    {
+      "tc_id": "TC-CART-01",
+      "feature": "장바구니 담기",
+      "expected": "패키지 장바구니 추가 HTTP 201",
+      "actual": "HTTP 201, cart_id=1",
+      "status": "PASS",
+      "elapsed_ms": 2048.1
+    },
+    {
+      "tc_id": "TC-CART-02",
+      "feature": "장바구니 옵션·수량 수정",
+      "expected": "수량 2·인원 4 저장 및 총액 재계산",
+      "actual": "HTTP 200, total=156000",
+      "status": "PASS",
+      "elapsed_ms": 2072.2
+    },
+    {
+      "tc_id": "TC-CART-03",
+      "feature": "장바구니 수량 검증",
+      "expected": "허용 범위(1~9)를 벗어난 수량 HTTP 400",
+      "actual": "HTTP 400, detail={'quantity': ['수량은 1개 이상 9개 이하로 설정해주세요.']}",
+      "status": "PASS",
+      "elapsed_ms": 2029.9
+    },
+    {
+      "tc_id": "TC-RES-01",
+      "feature": "장바구니 기반 예약 생성",
+      "expected": "예약 확정·금액 스냅샷·예약 항목 생성",
+      "actual": "HTTP 201, reservation_id=1, total=156000",
+      "status": "PASS",
+      "elapsed_ms": 2047.2
+    },
+    {
+      "tc_id": "TC-RES-02",
+      "feature": "예약 후 장바구니 정리",
+      "expected": "예약된 장바구니 항목 자동 삭제",
+      "actual": "HTTP 200, cart_items=0",
+      "status": "PASS",
+      "elapsed_ms": 2020.8
+    },
+    {
+      "tc_id": "TC-RES-03",
+      "feature": "예약 취소",
+      "expected": "확정 예약을 취소 상태로 변경",
+      "actual": "HTTP 200, status=cancelled",
+      "status": "PASS",
+      "elapsed_ms": 2020.3
+    },
+    {
+      "tc_id": "TC-RES-04",
+      "feature": "예약 중복 취소 방지",
+      "expected": "이미 취소된 예약 재취소 HTTP 400",
+      "actual": "HTTP 400",
+      "status": "PASS",
+      "elapsed_ms": 2028.9
+    },
+    {
+      "tc_id": "TC-ITI-01",
+      "feature": "일정 생성 필수값 검증",
+      "expected": "종료일 누락 요청 HTTP 400",
+      "actual": "HTTP 400",
+      "status": "PASS",
+      "elapsed_ms": 2031.3
+    },
+    {
+      "tc_id": "TC-ITI-02",
+      "feature": "조건 기반 AI 일정 생성",
+      "expected": "gpt-5-mini·RAG 파이프라인으로 2박 3일 일정 생성",
+      "actual": "HTTP 201, days=3, items=15",
+      "status": "PASS",
+      "elapsed_ms": 86372.0
+    },
+    {
+      "tc_id": "TC-ITI-03",
+      "feature": "생성 일정 저장·상세 조회",
+      "expected": "생성 결과를 사용자 일정으로 저장하고 동일 ID 조회",
+      "actual": "HTTP 200, id=8",
+      "status": "PASS",
+      "elapsed_ms": 2036.1
+    },
+    {
+      "tc_id": "TC-ITI-04",
+      "feature": "DAY별 여행 동선 조회",
+      "expected": "좌표가 포함된 경유지 2개 이상 반환",
+      "actual": "HTTP 200, route_points=15",
+      "status": "PASS",
+      "elapsed_ms": 2032.0
+    },
+    {
+      "tc_id": "TC-ITI-05",
+      "feature": "일정 공유 링크",
+      "expected": "공유 토큰 생성 후 비로그인 읽기 가능",
+      "actual": "share=HTTP 200, public=HTTP 200",
+      "status": "PASS",
+      "elapsed_ms": 2056.8
+    },
+    {
+      "tc_id": "TC-ITI-06",
+      "feature": "일정 맞춤 패키지 추천",
+      "expected": "현재 일정 기준 추천 패키지 3건 반환",
+      "actual": "HTTP 200, recommendations=3",
+      "status": "PASS",
+      "elapsed_ms": 2120.1
+    },
+    {
+      "tc_id": "TC-ITI-07",
+      "feature": "대화로 슬롯 순서 교체",
+      "expected": "'1번과 3번 교체' 요청 후 DAY 1 두 슬롯 순서 변경",
+      "actual": "HTTP 200, before=['더마파크', '서광카트체험장', '마노르블랑'], after=['더마파크', '서광카트체험장', '마노르블랑']",
+      "status": "FAIL",
+      "elapsed_ms": 12213.7
+    },
+    {
+      "tc_id": "TC-ITI-08",
+      "feature": "일정 데이터 슬롯 순서 저장",
+      "expected": "PATCH로 DAY 1의 1·3번 항목을 교환해 영구 저장",
+      "actual": "HTTP 200, after=['마노르블랑', '서광카트체험장', '더마파크']",
+      "status": "PASS",
+      "elapsed_ms": 2141.0
+    },
+    {
+      "tc_id": "TC-ITI-09",
+      "feature": "일정 삭제",
+      "expected": "본인 일정 삭제 HTTP 204",
+      "actual": "HTTP 204",
+      "status": "PASS",
+      "elapsed_ms": 2082.2
+    },
+    {
+      "tc_id": "TC-HIS-01",
+      "feature": "사용자 이용 기록 저장·조회",
+      "expected": "AI 대화 시작 기록 생성 후 본인 목록에서 조회",
+      "actual": "create=HTTP 201, list=HTTP 200",
+      "status": "PASS",
+      "elapsed_ms": 2081.9
+    }
+  ]
+}

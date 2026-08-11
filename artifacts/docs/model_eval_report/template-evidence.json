@@ -1,0 +1,2817 @@
+{
+  "reference": {
+    "path": "C:\\Users\\Playdata\\Downloads\\모델링 및 평가_테스트 계획 및 결과 보고서_2팀.docx",
+    "sha256": "1e461f93b43c76f9a0bbe573b985133a839ab10295a1d3bae55af50a31f5d0f2",
+    "page_count": 4,
+    "section_count": 1
+  },
+  "section": {
+    "width_in": 8.2681,
+    "height_in": 11.6931,
+    "top_margin_in": 1.0,
+    "bottom_margin_in": 1.0,
+    "left_margin_in": 1.0,
+    "right_margin_in": 1.0,
+    "header_distance_in": 0.4917,
+    "footer_distance_in": 0.4917
+  },
+  "paragraph_samples": {
+    "0": {
+      "text": "SK네트웍스 Family AI 과정 28기",
+      "style": "Normal",
+      "alignment": 1,
+      "space_before_pt": 10.0,
+      "space_after_pt": 3.0,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "SK",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "네트웍스",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " Family AI ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "과정",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " 28",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "기",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "1": {
+      "text": "모델링 및 평가 테스트 계획 및 결과 보고서",
+      "style": "Normal",
+      "alignment": 1,
+      "space_before_pt": null,
+      "space_after_pt": 16.0,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "모델링",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "및",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "평가",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "계획",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "및",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "결과",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "보고서",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": 15.0,
+          "bold": true,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "3": {
+      "text": "1. 테스트 개요",
+      "style": "Heading 1",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "1. ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "개요",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "4": {
+      "text": "테스트 기간: ",
+      "style": "List Paragraph",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "기간",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": ": ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "12": {
+      "text": "3.1 하드웨어 환경",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "3.1 ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "하드웨어",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "환경",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "16": {
+      "text": "3.2 소프트웨어 환경",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "3.2 ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "소프트웨어",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "환경",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "23": {
+      "text": "3.4 테스트 도구 및 소프트웨어",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "3.4 ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "도구",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "및",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "소프트웨어",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "25": {
+      "text": "4. 테스트 케이스",
+      "style": "Heading 1",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "4. ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "케이스",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "26": {
+      "text": "4.1 기능 테스트 케이스",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "4.1 ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "기능",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "케이스",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "28": {
+      "text": "4.2 AI 모델 품질 테스트 (전수 사람 평가)",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "4.2 AI ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "모델",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "품질",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " (",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "전수",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "사",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "람",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "평가",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": ")",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "30": {
+      "text": "4.3 성능 테스트 케이스",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "4.3 ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "성능",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "케이스",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "32": {
+      "text": "4.4 안정성·에러 테스트 케이스",
+      "style": "Heading 2",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "4.4 ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "안정성",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "·",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "에러",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "케이스",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "34": {
+      "text": "5. 과거 이력 관리",
+      "style": "Heading 1",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "5. ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "과거",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "이력",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "관리",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    },
+    "37": {
+      "text": "6. 테스트 결과 및 결론",
+      "style": "Heading 1",
+      "alignment": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_pt": null,
+      "first_line_indent_pt": null,
+      "keep_with_next": null,
+      "page_break_before": null,
+      "runs": [
+        {
+          "text": "6. ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "테스트",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "결과",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "및",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": " ",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        },
+        {
+          "text": "결론",
+          "font_name": null,
+          "font_ascii": null,
+          "font_east_asia": null,
+          "size_pt": null,
+          "bold": null,
+          "italic": null,
+          "color": null
+        }
+      ]
+    }
+  },
+  "tables": [
+    {
+      "index": 0,
+      "rows": 5,
+      "cols": 2,
+      "style": "Normal Table",
+      "tblW": "9026",
+      "tblW_type": "dxa",
+      "tblInd": null,
+      "grid_twips": [
+        2000,
+        7026
+      ],
+      "column_widths_in": [
+        1.3889,
+        4.8792
+      ],
+      "header": [
+        "산출물 단계",
+        "모델링 및 평가"
+      ],
+      "header_paragraphs": [
+        {
+          "text": "산출물 단계",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "산출물",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "단계",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "모델링 및 평가",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "모델링",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "및",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "평가",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            }
+          ]
+        }
+      ],
+      "body_paragraphs": [
+        {
+          "text": "평가 산출물",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "평가",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "산출물",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 계획 및 결과 보고서",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "계획",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "및",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "결과",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "보고서",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": null,
+              "bold": null,
+              "italic": null,
+              "color": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "rows": 13,
+      "cols": 6,
+      "style": "Normal Table",
+      "tblW": "9026",
+      "tblW_type": "dxa",
+      "tblInd": null,
+      "grid_twips": [
+        1050,
+        1500,
+        2650,
+        2226,
+        800,
+        800
+      ],
+      "column_widths_in": [
+        0.7292,
+        1.0417,
+        1.8403,
+        1.5458,
+        0.5556,
+        0.5556
+      ],
+      "header": [
+        "TC ID",
+        "테스트 항목",
+        "테스트 설명",
+        "예상 결과",
+        "실제 결과",
+        "비고"
+      ],
+      "header_paragraphs": [
+        {
+          "text": "TC ID",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "TC ID",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 항목",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "항목",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 설명",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "설명",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "예상 결과",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "예상",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "결과",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "실제 결과",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "실제",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "결과",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "비고",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "비고",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        }
+      ],
+      "body_paragraphs": [
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "rows": 5,
+      "cols": 6,
+      "style": "Normal Table",
+      "tblW": "9026",
+      "tblW_type": "dxa",
+      "tblInd": null,
+      "grid_twips": [
+        1050,
+        1750,
+        2650,
+        1500,
+        1150,
+        926
+      ],
+      "column_widths_in": [
+        0.7292,
+        1.2153,
+        1.8403,
+        1.0417,
+        0.7986,
+        0.6431
+      ],
+      "header": [
+        "TC ID",
+        "테스트 항목",
+        "테스트 설명",
+        "성능 기준",
+        "실제 결과",
+        "비고"
+      ],
+      "header_paragraphs": [
+        {
+          "text": "TC ID",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "TC ID",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 항목",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "항목",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 설명",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "설명",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "성능 기준",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "성능",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "기준",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "실제 결과",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "실제",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "결과",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "비고",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "비고",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        }
+      ],
+      "body_paragraphs": [
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "rows": 6,
+      "cols": 5,
+      "style": "Normal Table",
+      "tblW": "9026",
+      "tblW_type": "dxa",
+      "tblInd": null,
+      "grid_twips": [
+        1050,
+        1900,
+        3000,
+        2200,
+        876
+      ],
+      "column_widths_in": [
+        0.7292,
+        1.3194,
+        2.0833,
+        1.5278,
+        0.6083
+      ],
+      "header": [
+        "TC ID",
+        "테스트 항목",
+        "테스트 설명",
+        "예상·실제 결과",
+        "판정"
+      ],
+      "header_paragraphs": [
+        {
+          "text": "TC ID",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "TC ID",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 항목",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "항목",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 설명",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "설명",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "예상·실제 결과",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "예상",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "·",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "실제",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "결과",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "판정",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "판정",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        }
+      ],
+      "body_paragraphs": [
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "rows": 7,
+      "cols": 5,
+      "style": "Normal Table",
+      "tblW": "9026",
+      "tblW_type": "dxa",
+      "tblInd": null,
+      "grid_twips": [
+        2400,
+        900,
+        1400,
+        1300,
+        3026
+      ],
+      "column_widths_in": [
+        1.6667,
+        0.625,
+        0.9722,
+        0.9028,
+        2.1014
+      ],
+      "header": [
+        "테스트 항목",
+        "버전",
+        "테스트 날짜",
+        "테스트 결과",
+        "수정 사항"
+      ],
+      "header_paragraphs": [
+        {
+          "text": "테스트 항목",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "항목",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "버전",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "버전",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 날짜",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "날짜",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "테스트 결과",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "테스트",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "결과",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        },
+        {
+          "text": "수정 사항",
+          "style": "Normal",
+          "alignment": 1,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": [
+            {
+              "text": "수정",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": " ",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            },
+            {
+              "text": "사항",
+              "font_name": null,
+              "font_ascii": null,
+              "font_east_asia": null,
+              "size_pt": 9.0,
+              "bold": true,
+              "italic": null,
+              "color": null
+            }
+          ]
+        }
+      ],
+      "body_paragraphs": [
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        },
+        {
+          "text": "",
+          "style": "Normal",
+          "alignment": null,
+          "space_before_pt": null,
+          "space_after_pt": 2.0,
+          "line_spacing": 1.15,
+          "left_indent_pt": null,
+          "first_line_indent_pt": null,
+          "keep_with_next": null,
+          "page_break_before": null,
+          "runs": []
+        }
+      ]
+    }
+  ],
+  "package_parts": [
+    {
+      "path": "[Content_Types].xml",
+      "size": 1709,
+      "sha256": "0920beaa39d6d223fe8eb528e75e366ee673e79595ab60bde513f4a6024274a2"
+    },
+    {
+      "path": "_rels/.rels",
+      "size": 590,
+      "sha256": "e19238d7a71fa7a2490776252686f70e2de6238c87cd509b5e3a3cc07c2ea4df"
+    },
+    {
+      "path": "word/_rels/document.xml.rels",
+      "size": 1214,
+      "sha256": "4984fd80e83f7eeb9c75574e31c0c298e29ede9c9d3dd94b06f2d9f8ba657054"
+    },
+    {
+      "path": "word/document.xml",
+      "size": 144142,
+      "sha256": "cf0497b60bd80c390b29af1258566a76e42728bb0684010f30bcb747c06f5b15"
+    },
+    {
+      "path": "word/footnotes.xml",
+      "size": 1130,
+      "sha256": "f7522b4bb3f92123d410d8fbce489af07b2ef232e8788ad49cae9d99baa31cbc"
+    },
+    {
+      "path": "word/endnotes.xml",
+      "size": 1124,
+      "sha256": "b1f8fecdc7fc4663f63bfd2b4d98a69a70476830fe59a976fb28f60c3759e79f"
+    },
+    {
+      "path": "word/theme/theme1.xml",
+      "size": 8675,
+      "sha256": "0d414b88b72f2d5cf85fd5930effce8a29ef7faad2e90b28669f08ea623ab1ba"
+    },
+    {
+      "path": "word/settings.xml",
+      "size": 2013,
+      "sha256": "d4064a181c87e8d311b61014e091d9036777fe832c458d481da189966c4413d1"
+    },
+    {
+      "path": "word/webSettings.xml",
+      "size": 222,
+      "sha256": "e8aa1e162c9eafef567aa50aecf0fda4221b8e4e77e4b4e4a0432cd0904171f0"
+    },
+    {
+      "path": "word/styles.xml",
+      "size": 19960,
+      "sha256": "ee210f1b822183ef0d194c5cb65ee191c2479be22e7a12eaac5312185f434094"
+    },
+    {
+      "path": "word/numbering.xml",
+      "size": 5478,
+      "sha256": "78c32479bd91ff9439d1a1b3a3150cf927b196bd544e0c9b8150c74e66115b16"
+    },
+    {
+      "path": "docProps/core.xml",
+      "size": 637,
+      "sha256": "786e76f51c89f55b4ddb25ed48f1df48530d8cfeafe5cc49926cdb8bd62ba280"
+    },
+    {
+      "path": "word/fontTable.xml",
+      "size": 772,
+      "sha256": "fdce558eb839e96289da592aacf57670f0fb5f30e6c5d55d6db303ac972e216b"
+    },
+    {
+      "path": "docProps/app.xml",
+      "size": 710,
+      "sha256": "9d03fc722ae700f07001a40c9284eeb6ee50197c18ae614f64cb5bee2a41ecaf"
+    }
+  ]
+}
