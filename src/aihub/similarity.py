@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from src.models.enums import  LocalTransport, Pace, PartyType, VisitPreference
 from src.models.travel_condition import TravelCondition
 import hashlib
+import inspect
 import math
 import re
 from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence
@@ -286,22 +287,43 @@ class AIHubPatternService:
         self.repository = repository
         self.config = config or AIHubPatternConfig()
 
+    def _fetch_profiles(
+        self,
+        condition: TravelCondition,
+        *,
+        limit: int,
+    ) -> list[TripProfile]:
+        """Query both the new filtered repository and legacy test adapters."""
+
+        fetch = self.repository.fetch_trip_profiles
+        parameters = inspect.signature(fetch).parameters
+
+        if "age_groups" not in parameters:
+            return fetch(min_usable_visits=self.config.min_stops_per_day)
+
+        return fetch(
+            age_groups=_fallback_age_groups(
+                getattr(condition, "age_group", None)
+            ),
+            duration_days=condition.duration_days,
+            companion_rel_codes=_companion_relation_codes(
+                condition.party_type
+            ),
+            min_stops_per_day=self.config.min_stops_per_day,
+            limit=limit,
+        )
+
     def find_reference_trips(
         self,
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
 
-        companion_rel_codes = _companion_relation_codes(
-            normalized.party_type
-        )
-
-        age_groups = _fallback_age_groups(
-            normalized.age_group
-        )
+        companion_rel_codes = _companion_relation_codes(normalized.party_type)
+        age_groups = _fallback_age_groups(getattr(normalized, "age_group", None))
 
         print("\n========== AIHub FILTER ==========")
-        print("age_group:", normalized.age_group)
+        print("age_group:", getattr(normalized, "age_group", None))
         print("age_groups:", age_groups)
         print("duration_days:", normalized.duration_days)
         print("party_type:", normalized.party_type)
@@ -309,13 +331,7 @@ class AIHubPatternService:
         print("min_visits:", self.config.min_stops_per_day)
         print("==================================")
 
-        profiles = self.repository.fetch_trip_profiles(
-            age_groups=age_groups,
-            duration_days=normalized.duration_days,
-            companion_rel_codes=companion_rel_codes,
-            min_stops_per_day=self.config.min_stops_per_day,
-            limit=self.config.top_k,
-        )
+        profiles = self._fetch_profiles(normalized, limit=self.config.top_k)
         matches = [
             self._score_trip(normalized, profile) for profile in profiles
         ]
@@ -333,13 +349,8 @@ class AIHubPatternService:
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
-        companion_rel_codes = _companion_relation_codes(normalized.party_type)
-        age_groups = _fallback_age_groups(normalized.age_group)
-        profiles = self.repository.fetch_trip_profiles(
-            age_groups=age_groups,
-            duration_days=normalized.duration_days,
-            companion_rel_codes=companion_rel_codes,
-            min_stops_per_day=self.config.min_stops_per_day,
+        profiles = self._fetch_profiles(
+            normalized,
             limit=self.config.reference_keyword_top_k,
         )
         matches = [
@@ -572,6 +583,48 @@ def _normalize_condition(
     if isinstance(condition, TravelCondition):
         return condition
     return TravelCondition.from_mapping(condition)
+
+
+def _companion_relation_codes(party_type: PartyType) -> tuple[str, ...]:
+    if party_type == PartyType.SOLO:
+        return ()
+
+    if party_type in {PartyType.NON_FAMILY_TWO, PartyType.NON_FAMILY_GROUP}:
+        return ("5", "7")
+
+    if party_type in {
+        PartyType.FAMILY_TWO,
+        PartyType.FAMILY_GROUP,
+        PartyType.WITH_CHILDREN,
+        PartyType.WITH_PARENTS,
+        PartyType.THREE_GENERATIONS,
+    }:
+        return ("2", "3", "4")
+
+    return ()
+
+
+def _fallback_age_groups(age_group: str | None) -> tuple[str, ...]:
+    """Return the requested AIHub age group plus its adjacent groups."""
+
+    if not age_group:
+        return ("20", "30", "40", "50", "60")
+
+    normalized = str(age_group).strip().lower()
+    if normalized.endswith("s"):
+        normalized = normalized[:-1]
+
+    try:
+        age = int(normalized)
+    except ValueError:
+        return ()
+
+    available = {20: "20", 30: "30", 40: "40", 50: "50", 60: "60"}
+    return tuple(
+        available[candidate]
+        for candidate in (age - 10, age, age + 10)
+        if candidate in available
+    )
 
 
 def _duration_similarity(requested: int, historical: int) -> float:
