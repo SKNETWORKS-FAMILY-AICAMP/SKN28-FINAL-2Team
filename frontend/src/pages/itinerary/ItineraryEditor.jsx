@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import styles from "./itinerary.module.css";
 import cx from "../../utils/cx.js";
 
-import { getItinerary } from "../../api/itinerary";
+import { confirmItinerary, getItinerary } from "../../api/itinerary";
 import { useItineraries } from "../../context/ItineraryContext";
 
 export default function ItineraryEditor({
@@ -19,6 +19,7 @@ export default function ItineraryEditor({
   const [itinerary, setItinerary] = useState(null);
   const [days, setDays] = useState([]);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -117,6 +118,22 @@ export default function ItineraryEditor({
       alert("일정 재생성 실패");
     } finally {
       setIsRegenerating(false);
+    }
+  };
+
+  const handleConfirmItinerary = async () => {
+    if (!itinerary || isConfirming) return;
+
+    try {
+      setIsConfirming(true);
+      const confirmed = await confirmItinerary(itinerary.id);
+      setItinerary(confirmed);
+      navigate(`/review/${itinerary.id}`);
+    } catch (err) {
+      console.error("일정 확정 실패:", err);
+      alert(err.response?.data?.detail ?? "일정을 확정하지 못했습니다.");
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -297,11 +314,10 @@ export default function ItineraryEditor({
             styles.btn,
             styles.primary
           )}
-          onClick={() =>
-            navigate(`/review/${itinerary.id}`)
-          }
+          onClick={handleConfirmItinerary}
+          disabled={isConfirming}
         >
-          이 일정으로 확정하기 →
+          {isConfirming ? "확정 중..." : "이 일정으로 확정하기 →"}
         </button>
       </div>
     </div>

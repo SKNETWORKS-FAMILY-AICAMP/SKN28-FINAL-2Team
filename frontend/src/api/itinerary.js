@@ -12,6 +12,9 @@ const mapItinerary = (data) => ({
   companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
 
+  status: data.status,
+  statusDisplay: data.status_display,
+
   style: data.style_display,
   styleCode: data.style,
   styleDisplay: data.style_display,
@@ -100,6 +103,14 @@ export const patchItinerary = async (id, payload) => {
   const { data } = await api.patch(
     `/travel/itineraries/${id}/`,
     payload
+  );
+
+  return mapItinerary(data);
+};
+
+export const confirmItinerary = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/confirm/`
   );
 
   return mapItinerary(data);
