@@ -13,7 +13,9 @@ class CartItemSerializer(serializers.ModelSerializer):
         model = CartItem
         fields = (
             "id",
+            "product_type",
             "package_db_id",
+            "itinerary_id",
             "package_detail",
             "quantity",
             "option_date",
@@ -27,6 +29,17 @@ class CartItemSerializer(serializers.ModelSerializer):
         )
 
     def get_package_detail(self, obj):
+        if obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY:
+            return {
+                "id": f"custom-{obj.itinerary_id}",
+                "package_id": f"CUSTOM-{obj.itinerary_id}",
+                "name": obj.product_name or "Custom itinerary package",
+                "description": "확정한 일정 그대로 예약하는 자유패키지입니다.",
+                "price": obj.unit_price,
+                "thumbnail_url": "",
+                "isCustom": True,
+            }
+
         package = (
             Package.objects.using("travel")
             .filter(
@@ -48,7 +61,23 @@ class CartSerializer(serializers.Serializer):
 
 
 class CartItemCreateSerializer(serializers.Serializer):
-    package_id = serializers.IntegerField()
+    product_type = serializers.ChoiceField(
+        choices=CartItem.ProductType.choices,
+        default=CartItem.ProductType.STORED_PACKAGE,
+    )
+    package_id = serializers.IntegerField(required=False)
+    itinerary_id = serializers.IntegerField(required=False)
+
+    def validate(self, attrs):
+        product_type = attrs["product_type"]
+
+        if product_type == CartItem.ProductType.STORED_PACKAGE:
+            if not attrs.get("package_id"):
+                raise serializers.ValidationError({"package_id": "package_id is required."})
+        elif not attrs.get("itinerary_id"):
+            raise serializers.ValidationError({"itinerary_id": "itinerary_id is required."})
+
+        return attrs
 
     def validate_package_id(self, value):
         exists = (
@@ -99,6 +128,7 @@ class ReservationItemSerializer(serializers.ModelSerializer):
         model = ReservationItem
         fields = (
             "id",
+            "product_type",
             "package_db_id",
             "package_id",
             "name",
