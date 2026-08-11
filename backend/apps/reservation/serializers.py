@@ -143,6 +143,9 @@ class ReservationItemSerializer(serializers.ModelSerializer):
         )
 
     def get_schedule(self, obj):
+        if not self.context.get("include_schedule", True):
+            return []
+        
         if (
             obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
             or str(obj.package_id or "").upper().startswith("CUSTOM-")
