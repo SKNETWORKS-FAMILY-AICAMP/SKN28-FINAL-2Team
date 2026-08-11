@@ -225,6 +225,7 @@ class ItineraryItem(models.Model):
         RESTAURANT = "restaurant", "맛집"
         ACCOMMODATION = "accommodation", "숙소"
         ACTIVITY = "activity", "액티비티"
+        SHOPPING = "shopping", "쇼핑"
         CUSTOM = "custom", "직접 추가"
 
     day = models.ForeignKey(ItineraryDay, on_delete=models.CASCADE, related_name="items")

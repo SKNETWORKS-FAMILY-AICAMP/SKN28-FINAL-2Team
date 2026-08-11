@@ -19,7 +19,7 @@
     "LS01": {"place_subtype": "land_leisure", "itinerary_role": "activity"},
     "LS02": {"place_subtype": "water_leisure", "itinerary_role": "activity"},
     "LS04": {"place_subtype": "complex_leisure", "itinerary_role": "activity"},
-    "SH04": {"place_subtype": "general_retail", "itinerary_role": "shopping", "recommendation_scope": "intent_only"},
+    "SH04": {"place_subtype": "general_retail", "itinerary_role": "shopping", "target_collection": "shopping", "recommendation_scope": "excluded"},
     "SH05": {"place_subtype": "local_specialty", "itinerary_role": "shopping", "recommendation_scope": "intent_only"},
     "SH06": {"entity_type": "market", "place_subtype": "market", "itinerary_role": "market_visit", "recommendation_scope": "default"},
     "SH07": {"place_subtype": "local_specialty", "itinerary_role": "shopping", "recommendation_scope": "intent_only"}
