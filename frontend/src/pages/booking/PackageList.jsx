@@ -49,6 +49,7 @@ export default function PackageList({
               <div className={styles.desc}>{p.description}</div>
             </div>
 
+            {!p.isCustom && (
             <button
               className={cx(
                 styles.pkgBookmark,
@@ -62,6 +63,7 @@ export default function PackageList({
             >
               {liked ? '❤️' : '🤍'}
             </button>
+            )}
 
             <div className={styles.pkgPrice} onClick={() => onToggle?.(p.id)}>
               {won(Number(p.price) * item.quantity)}
