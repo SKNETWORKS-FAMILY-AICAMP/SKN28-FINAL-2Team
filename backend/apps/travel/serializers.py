@@ -7,14 +7,20 @@ from drf_spectacular.utils import extend_schema_field
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
 
+def _csv_values(value):
+    return {
+        item.strip().lower()
+        for item in str(value or "").split(",")
+        if item.strip()
+    }
+
+
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
     description = serializers.CharField(source="summary", read_only=True)
     price = serializers.IntegerField(source="estimated_price", read_only=True)
 
     accommodation_included = serializers.SerializerMethodField()
-    companion_types = serializers.SerializerMethodField()
-    tags = serializers.SerializerMethodField()
     style = serializers.SerializerMethodField()
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
@@ -24,15 +30,9 @@ class PackageSerializer(serializers.ModelSerializer):
         model = Package
         fields = (
             "id", "package_id", "name", "description", "price", "region", "duration_days",
-            "companion_types", "tags",
+            "companion", "tags",
             "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
         )
-
-    def get_companion_types(self, obj):
-        return [value.strip() for value in obj.companion.split(",") if value.strip()]
-
-    def get_tags(self, obj):
-        return [value.strip() for value in obj.tags.split(",") if value.strip()]
 
     def get_accommodation_included(self, obj):
         from django.db import connections
@@ -52,19 +52,19 @@ class PackageSerializer(serializers.ModelSerializer):
             return bool(cursor.fetchone()[0])
 
     def get_style(self, obj):
-        categories = self.get_tags(obj)
-        companion_types = self.get_companion_types(obj)
+        companions = _csv_values(obj.companion)
+        tags = _csv_values(obj.tags)
 
-        if "family" in companion_types:
+        if "family" in companions:
             return "family"
 
-        if "experience" in categories or "activity" in categories:
+        if "experience" in tags or "activity" in tags:
             return "activity"
 
-        if any(item in categories for item in ("food", "cafe", "shopping")):
+        if "food" in tags:
             return "food"
 
-        if "nature" in categories:
+        if "nature" in tags:
             return "healing"
 
         return ""
