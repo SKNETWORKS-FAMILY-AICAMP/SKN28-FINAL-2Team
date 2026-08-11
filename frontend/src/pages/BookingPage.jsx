@@ -127,7 +127,7 @@ export default function BookingPage() {
         </Link>
 
         <div className={styles.pageHead}>
-          <div className={styles.sectionTag}>✓ 예약 및 저장</div>
+          <div className={styles.sectionTag}>✓ 예약 및 결제</div>
           <h1>{confirmed ? '예약이 완료됐어요!' : '마지막이에요, 예약을 확정해주세요'}</h1>
           <p>
             {confirmed
@@ -182,16 +182,6 @@ export default function BookingPage() {
                 isBookmarked={isBookmarked}
                 onToggleBookmark={toggleBookmark}
               />
-
-              <div className={cx(styles.card, styles.saveCard)}>
-                <h4>일정 저장</h4>
-
-                <div className={styles.saveRow}>
-                  <button className={cx(styles.btn, styles.ghost, styles.sm)}>
-                    💾 내 여행으로 저장
-                  </button>
-                </div>
-              </div>
               </div>
 
               <PaymentSummary
