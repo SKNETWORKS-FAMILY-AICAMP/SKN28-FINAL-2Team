@@ -80,7 +80,6 @@ class PackageRecommendationAPITests(SimpleTestCase):
             engine_state=engine_state,
             start_date=date(2026, 1, 15),
         )
-
         mocked_recommend.return_value = {
             "status": "completed",
             "recommendations": [{"package_id": "VIRTUAL-JEJU-D1-01"}],
@@ -94,9 +93,6 @@ class PackageRecommendationAPITests(SimpleTestCase):
         response = view(request, pk=1)
 
         self.assertEqual(response.status_code, 200)
-<<<<<<< HEAD
-        mocked_recommend.assert_called_once_with(engine_state, top_k=3)
-=======
         expected_payload = {
             **engine_state,
             "condition": {

@@ -99,17 +99,33 @@ STYLE_QUERY_GENERATION_SYSTEM_PROMPT = """당신은 제주 여행 콘텐츠 검�
 모두 반영해서, 관광지/맛집/카페/액티비티/쇼핑을 폭넓게 아우르는 벡터 검색용
 한국어 검색어 하나를 생성하세요.
 
+입력에는 condition 외에 reference_keywords가 함께 들어올 수 있습니다.
+reference_keywords는 조건(기간/동행/교통수단)이 비슷한 다른 여행자들이 실제로
+방문한 장소를 role(visit/activity/food/shopping)별로 정리한 참고 자료입니다.
+
 다음 JSON 객체 하나만 출력하세요: {"query": "..."}
 
 규칙:
 - 특정 role(음식/쇼핑 등) 하나에 국한하지 말고, preferred_visit_types 전체를 반영하세요.
 - must_visit_places가 있다면 검색어에 함께 녹여내세요 (예: "흑돼지").
 - 동행자, 교통수단도 자연스럽게 반영할 수 있으면 반영하세요.
+- reference_keywords가 있다면 검색 방향을 구체화하는 참고 자료로만 사용하세요
+  (예: visit에 "성산일출봉"이 있으면 "성산일출봉과 비슷한 자연 관광지"처럼 검색어에
+  녹여내되, 그 장소 이름 자체를 결과로 보장하려는 것이 아닙니다).
+- condition(사용자 조건)과 reference_keywords가 서로 다른 방향을 가리키면 항상
+  condition을 우선하세요. reference_keywords는 어디까지나 보조 신호입니다.
 - 검색어는 5~12 단어 내외의 간결한 구문으로 작성하세요. 문장으로 쓰지 마세요."""
 
 
-def build_style_query_generation_prompt(condition_dict: dict[str, Any]) -> str:
-    return json.dumps({"condition": condition_dict}, ensure_ascii=False)
+def build_style_query_generation_prompt(
+    condition_dict: dict[str, Any],
+    *,
+    reference_keywords: dict[str, list[str]] | None = None,
+) -> str:
+    payload: dict[str, Any] = {"condition": condition_dict}
+    if reference_keywords:
+        payload["reference_keywords"] = reference_keywords
+    return json.dumps(payload, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
