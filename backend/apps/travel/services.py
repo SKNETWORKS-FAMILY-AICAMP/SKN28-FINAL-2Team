@@ -208,7 +208,11 @@ def _save_itinerary_result(
                 day=itinerary_day,
                 order=stop.get("sequence", 1),
                 time=stop.get("start_time", ""),
-                item_type=ItineraryItem.ItemType.SPOT,
+                item_type=(
+                    ItineraryItem.ItemType.RESTAURANT
+                    if stop.get("role") == "food"
+                    else ItineraryItem.ItemType.SPOT
+                ),
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
                 thumbnail=thumbnail,
