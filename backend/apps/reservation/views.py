@@ -207,7 +207,12 @@ class ReservationListCreateAPIView(ListAPIView):
         return Reservation.objects.filter(
             user=self.request.user
         ).prefetch_related("items")
-
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["include_schedule"] = False
+        return context
+    
     @extend_schema(
         tags=["Reservation"],
         summary="예약 생성",
@@ -278,7 +283,10 @@ class ReservationListCreateAPIView(ListAPIView):
             )
 
             return Response(
-                ReservationSerializer(reservation).data,
+                ReservationSerializer(
+                    reservation,
+                    context={"include_schedule": False},
+                ).data,
                 status=status.HTTP_201_CREATED,
             )
 
@@ -489,7 +497,10 @@ class ReservationListCreateAPIView(ListAPIView):
             CartItem.objects.filter(user=request.user).delete()
 
         return Response(
-            ReservationSerializer(reservation).data,
+            ReservationSerializer(
+                reservation,
+                context={"include_schedule": False},
+            ).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -507,6 +518,11 @@ class ReservationDetailAPIView(RetrieveAPIView):
         return Reservation.objects.filter(
             user=self.request.user
         ).prefetch_related("items")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["include_schedule"] = True
+        return context
 
 @extend_schema(
     tags=["Reservation"],
@@ -538,6 +554,9 @@ class ReservationCancelAPIView(APIView):
         reservation.save(update_fields=["status", "updated_at"])
 
         return Response(
-            ReservationSerializer(reservation).data,
+            ReservationSerializer(
+                reservation,
+                context={"include_schedule": False},
+            ).data,
             status=status.HTTP_200_OK,
         )
