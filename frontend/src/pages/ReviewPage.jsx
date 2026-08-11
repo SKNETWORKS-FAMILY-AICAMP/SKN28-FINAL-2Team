@@ -51,9 +51,6 @@ function ComparisonDays({ days, custom = false }) {
                   <strong>{item.title}</strong>
                   <p>
                     {itemTypeLabel(item.item_type)}
-                    {!custom && item.stay_minutes
-                      ? ` · ${item.stay_minutes}분`
-                      : ''}
                   </p>
                 </div>
               </li>
