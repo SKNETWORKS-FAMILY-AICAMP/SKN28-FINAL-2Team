@@ -92,7 +92,7 @@ class AIHubPatternConfig:
 
     top_k: int = 10
     reference_keyword_top_k: int = 10
-    min_usable_visits: int = 5
+    min_stops_per_day: int = 5
         
 
     def __post_init__(self) -> None:
@@ -109,8 +109,8 @@ class AIHubPatternConfig:
                 "reference_keyword_top_k must be greater than or equal to top_k"
             )
 
-        if self.min_usable_visits <= 0:
-            raise ValueError("min_usable_visits must be greater than zero")
+        if self.min_stops_per_day <= 0:
+            raise ValueError("min_stops_per_day must be greater than zero")
 
 class AIHubPatternRepository(Protocol):
     def fetch_trip_profiles(
@@ -119,7 +119,7 @@ class AIHubPatternRepository(Protocol):
         age_groups: Sequence[str],
         duration_days: int,
         companion_rel_codes: Sequence[str],
-        min_usable_visits: int,
+        min_stops_per_day: int,
         limit: int,
     ) -> list[TripProfile]:
         ...
@@ -152,7 +152,7 @@ class AIHubSimilarityRepository:
         age_groups: Sequence[str],
         duration_days: int,
         companion_rel_codes: Sequence[str],
-        min_usable_visits: int,
+        min_stops_per_day: int,
         limit: int,
     ) -> list[TripProfile]:
 
@@ -161,9 +161,9 @@ class AIHubSimilarityRepository:
                 "duration_days must be greater than zero"
             )
 
-        if min_usable_visits <= 0:
+        if min_stops_per_day <= 0:
             raise ValueError(
-                "min_usable_visits must be greater than zero"
+                "min_stops_per_day must be greater than zero"
             )
 
         if limit <= 0:
@@ -231,7 +231,7 @@ class AIHubSimilarityRepository:
         params = [
             *normalized_age_groups,
             duration_days,
-            min_usable_visits,
+            min_stops_per_day,
             *companion_params,
             limit,
         ]
@@ -338,14 +338,14 @@ class AIHubPatternService:
         print("duration_days:", normalized.duration_days)
         print("party_type:", normalized.party_type)
         print("companion_rel_codes:", companion_rel_codes)
-        print("min_visits:", self.config.min_usable_visits)
+        print("min_visits:", self.config.min_stops_per_day)
         print("==================================")
 
         profiles = self.repository.fetch_trip_profiles(
             age_groups=age_groups,
             duration_days=normalized.duration_days,
             companion_rel_codes=companion_rel_codes,
-            min_usable_visits=self.config.min_usable_visits,
+            min_stops_per_day=self.config.min_stops_per_day,
             limit=self.config.top_k,
         )
         print(f"[AIHub FILTER RESULT] {len(profiles)}개")
@@ -396,7 +396,7 @@ class AIHubPatternService:
             age_groups=age_groups,
             duration_days=normalized.duration_days,
             companion_rel_codes=companion_rel_codes,
-            min_usable_visits=self.config.min_usable_visits,
+            min_stops_per_day=self.config.min_stops_per_day,
             limit=self.config.reference_keyword_top_k,
         )
 
@@ -1106,7 +1106,14 @@ _TRIP_PROFILE_SQL = f"""
             t.travel_start_ymd
         ) + 1 = %s
 
-        AND vp.usable_visit_count >= %s
+        AND vp.usable_visit_count >= (
+            (
+                DATEDIFF(
+                    t.travel_end_ymd,
+                    t.travel_start_ymd
+                ) + 1
+            ) * %s
+        )
 
         AND {{companion_condition}}
 

@@ -33,11 +33,18 @@ DEFAULT_SEARCH_TOP_K = 30
 #           RAG 후보의 실제 가용성과 사용자의 pace를 기준으로
 #           하루별 슬롯 수와 role을 동적으로 결정한다.
 #
-# 하루 5개처럼 고정된 슬롯 구조는 사용하지 않는다.
+# 하루 슬롯 수는 AIHub 참고 여행의 평균 방문 수를 우선 사용하고,
+# AIHub 참고 여행이 없으면 pace를 기준으로 하되 최소 5개를 보장한다.
 # AIHub 이동 패턴은 최종 LLM이 일정 순서와 동선을 정할 때
 # 참고자료로만 사용한다.
 
 RAG_CANDIDATE_POOL_TOP_K = 100
+
+# food(맛집)는 사용자의 style 문장에 잘 드러나지 않아 통합(broad) 검색 한 번으로는
+# 후보 풀에 거의 섞여 들어오지 않는 경우가 많다. 그 결과 food 슬롯을 채울 때마다
+# 후보 풀이 아니라 슬롯별 즉석 검색(_search_and_plan_slot)으로 계속 빠지게 된다.
+# 이를 막기 위해 food 전용 검색을 후보 풀 수집 단계에서 한 번 더 돌려 합쳐준다.
+FOOD_CANDIDATE_POOL_TOP_K = 40
 
 
 # ------------------------------------------------------------
@@ -45,8 +52,8 @@ RAG_CANDIDATE_POOL_TOP_K = 100
 # ------------------------------------------------------------
 
 _PACE_TARGET_STOPS_PER_DAY: dict[str, int] = {
-    "relaxed": 3,
-    "balanced": 4,
+    "relaxed": 5,
+    "balanced": 5,
     "packed": 5,
 }
 
@@ -494,7 +501,37 @@ class ItineraryEngine:
             ),
             top_k=top_k,
         )
-        return list(response.places)
+        places = list(response.places)
+
+        # ------------------------------------------------------------
+        # food(맛집) 전용 보강 검색.
+        # 위의 통합 검색은 style/must_visit_places 위주라 restaurants가
+        # 거의 안 섞여 들어온다. food도 처음부터 후보 풀에 확보해 둬야
+        # 슬롯을 채울 때 "즉석 검색 보강"이 아니라 이 풀에서 바로 고를 수 있다.
+        # ------------------------------------------------------------
+        food_query = container.llm_service.generate_search_query(
+            condition,
+            slot_role="food",
+            day=1,
+            extra_request=extra_request,
+        )
+        food_response = container.retrieval_service.search_places(
+            food_query,
+            filters=PlaceSearchFilters(
+                target_collections=("restaurants",),
+                route_eligible=True,
+                schedule_eligible=True,
+            ),
+            top_k=FOOD_CANDIDATE_POOL_TOP_K,
+        )
+
+        existing_ids = {place.content_id for place in places}
+        for place in food_response.places:
+            if place.content_id not in existing_ids:
+                places.append(place)
+                existing_ids.add(place.content_id)
+
+        return places
 
     def _plan_slot_from_pool(
         self,
@@ -789,9 +826,7 @@ def _dynamic_day_structure(
     실제 하루 평균 방문 개수(stops_per_day)를 기준으로 정한다.
 
     - matches가 있으면: 참고 여행자들의 stops_per_day 평균을 사용한다.
-      (한 사람의 일정을 그대로 베끼지 않도록 top-K 전체의 평균을 쓴다.)
-    - matches가 없으면: pace 조견표로 폴백한다.
-      relaxed=3 / balanced=4 / packed=5
+    - matches가 없으면: pace를 사용하되 최소 5개를 보장한다.
 
     두 경우 모두, 실제 RAG 후보 가용성보다 많은 슬롯을 만들지는 않는다.
     """
@@ -816,6 +851,7 @@ def _dynamic_day_structure(
             pace,
             _PACE_TARGET_STOPS_PER_DAY["balanced"],
         )
+    target_per_day = max(5, target_per_day)
 
     if total_candidates > 0:
         available_per_day = max(
@@ -909,7 +945,14 @@ def _choose_dynamic_roles(
     *,
     count: int,
 ) -> list[str]:
-    """사용자 선호와 실제 RAG 후보를 기준으로 하루 role을 구성한다."""
+    """사용자 선호와 실제 RAG 후보를 기준으로 하루 role을 구성한다.
+
+    한 role이 하루 슬롯을 독식하지 않도록, 선호 role 목록을 라운드로빈으로
+    돌면서 한 번에 하나씩만 배정한다. 예전에는 "아직 후보가 안 바닥난
+    role이면 무조건 그 role"이라서, 후보가 많은 role(예: activity) 하나가
+    하루 슬롯을 전부 차지하고 food/visit는 후보가 있어도 한 번도 선택되지
+    못하는 문제가 있었다.
+    """
 
     if count <= 0:
         return []
@@ -921,6 +964,14 @@ def _choose_dynamic_roles(
     }
 
     if not available_counts:
+        # 후보가 전혀 없을 때도 "visit" 하드코딩이 아니라, 사용자가
+        # 원한 role을 그대로 돌려준다. 그마저 없으면 최후 수단으로 visit.
+        for preference in condition.preferred_visit_types:
+            roles_for_preference = _ROLE_PRIORITY_BY_PREFERENCE.get(
+                preference.value, ()
+            )
+            if roles_for_preference:
+                return [roles_for_preference[0]] * count
         return ["visit"] * count
 
     preferred_roles: list[str] = []
@@ -944,30 +995,39 @@ def _choose_dynamic_roles(
         if role in available_counts and role not in preferred_roles:
             preferred_roles.append(role)
 
+    # 후보가 실제로 있는 role만 라운드로빈 대상으로 남긴다
+    preferred_roles = [
+        role for role in preferred_roles if available_counts.get(role, 0) > 0
+    ]
+
+    if not preferred_roles:
+        return ["visit"] * count
+
+    # 하루 food는 기본적으로 1개로 제한한다 (여러 끼를 몰아넣지 않도록)
+    role_caps = dict(available_counts)
+    if "food" in role_caps:
+        role_caps["food"] = min(role_caps["food"], 1)
+
     roles: list[str] = []
     used_by_role: Counter[str] = Counter()
 
     while len(roles) < count:
-        selected_role = None
+        progressed = False
 
         for role in preferred_roles:
-            available = available_counts.get(role, 0)
+            if len(roles) >= count:
+                break
 
-            if used_by_role[role] >= available:
+            if used_by_role[role] >= role_caps.get(role, 0):
                 continue
 
-            # 하루 food는 기본적으로 1개
-            if role == "food" and used_by_role[role] >= 1:
-                continue
+            roles.append(role)
+            used_by_role[role] += 1
+            progressed = True
 
-            selected_role = role
+        if not progressed:
+            # 모든 role의 후보를 소진했으면 더 배정할 게 없다
             break
-
-        if selected_role is None:
-            break
-
-        roles.append(selected_role)
-        used_by_role[selected_role] += 1
 
     # 아직 목표 개수보다 부족하면 남은 후보가 많은 role 사용
     while len(roles) < count:

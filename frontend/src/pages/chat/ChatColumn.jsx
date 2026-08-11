@@ -292,21 +292,21 @@ export default function ChatColumn({
   }
 
     const sendMsg = async () => {
-      const text = input.trim()
+    const text = input.trim()
 
-      if (!text) return
+    if (!text) return
 
-      if (
-        currentStep &&
-        currentStep.type === 'dateRange'
-      ) {
+    const currentStep = STEPS[stepIndex]
+
+    // 아직 질문 단계인 경우
+    if (currentStep) {
+      // 날짜 선택은 달력 버튼으로만 처리
+      if (currentStep.type === 'dateRange') {
         return
       }
 
-      if (
-        currentStep &&
-        currentStep.type === 'toggle'
-      ) {
+      // 선택형 질문은 토글 버튼으로만 처리
+      if (currentStep.type === 'toggle') {
         setHistory((prev) => [
           ...prev,
           {
@@ -320,109 +320,86 @@ export default function ChatColumn({
         return
       }
 
-      if (
-        currentStep &&
-        currentStep.type === 'text'
-      ) {
+      // 자유 입력 질문
+      if (currentStep.type === 'text') {
         answerStep(currentStep.key, text)
         setInput('')
         return
       }
-
-      setInput('')
-
-      const currentStep = STEPS[stepIndex]
-
-      // 날짜 선택 단계에서는 입력창 사용 안 함
-      if (
-        currentStep &&
-        currentStep.type === 'dateRange'
-      ) {
-        return
-      }
-
-      // 선택형 질문은 버튼으로만 답변
-      if (
-        currentStep &&
-        currentStep.type === 'toggle'
-      ) {
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: nextId(),
-            type: 'msg',
-            me: false,
-            lines: ['버튼을 눌러 선택해주세요.'],
-          },
-        ])
-
-        return
-      }
-
-      // text 타입 질문 답변
-      if (currentStep) {
-        answerStep(currentStep.key, text)
-        return
-      }
-
-      // 일정이 아직 생성되지 않았다면 수정할 수 없음
-      if (!itineraryId) {
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: nextId(),
-            type: 'msg',
-            me: false,
-            lines: ['수정할 일정이 아직 없어요.'],
-          },
-        ])
-        return
-      }
-
-      try {
-        setIsRevising(true)
-
-        const updatedItinerary = await reviseItinerary(
-          itineraryId,
-          text
-        )
-
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: nextId(),
-            type: 'msg',
-            me: false,
-            lines: [
-              '요청하신 내용을 일정에 반영했어요. 🍊',
-            ],
-          },
-          {
-            id: nextId(),
-            type: 'itinerary',
-            itinerary: updatedItinerary,
-          },
-        ])
-
-        setOpenPreviewId(null)
-      } catch (error) {
-        console.error('일정 수정 실패:', error)
-
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: nextId(),
-            type: 'msg',
-            me: false,
-            lines: [
-              '일정을 수정하지 못했어요. 잠시 후 다시 시도해주세요.',
-            ],
-          },
-        ])
-      } finally {
-        setIsRevising(false)
-      }
     }
+
+    // 질문이 모두 끝나지 않았다면 여기까지
+    if (!itineraryId) {
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: ['수정할 일정이 아직 없어요.'],
+        },
+      ])
+
+      return
+    }
+
+    // 일정 수정
+    setInput('')
+
+    setHistory((prev) => [
+      ...prev,
+      {
+        id: nextId(),
+        type: 'msg',
+        me: true,
+        lines: [text],
+      },
+    ])
+
+    try {
+      setIsRevising(true)
+
+      const updatedItinerary = await reviseItinerary(
+        itineraryId,
+        text
+      )
+
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: [
+            '요청하신 내용을 일정에 반영했어요. 🍊',
+          ],
+        },
+        {
+          id: nextId(),
+          type: 'itinerary',
+          itinerary: updatedItinerary,
+        },
+      ])
+
+      setOpenPreviewId(null)
+    } catch (error) {
+      console.error('일정 수정 실패:', error)
+
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          type: 'msg',
+          me: false,
+          lines: [
+            '일정을 수정하지 못했어요. 잠시 후 다시 시도해주세요.',
+          ],
+        },
+      ])
+    } finally {
+      setIsRevising(false)
+    }
+  }
 
   const flowDone =
     stepIndex >= STEPS.length
