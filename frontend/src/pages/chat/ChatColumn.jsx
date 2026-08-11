@@ -7,7 +7,6 @@ import ItineraryPreview from "./ItineraryPreview.jsx"
 import { useNavigate } from "react-router-dom"
 
 
-const READY_DELAY_MS = 1800
 const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
 let uid = 100
@@ -221,11 +220,10 @@ export default function ChatColumn({
         `itinerary-chat-${itinerary.id}`,
         JSON.stringify(initialMessages),
       )
-      setTimeout(() => {
-        setIsCreating(false)
-        onReady()
-      }, READY_DELAY_MS)
-    } catch (error) {
+      setIsCreating(false)
+      onReady()
+      
+      } catch (error) {
       console.error('일정 생성 실패:', error)
 
       setIsCreating(false)
@@ -692,7 +690,7 @@ export default function ChatColumn({
           )
         })}
 
-        {flowDone && isCreating && !ready && (
+        {flowDone && isCreating && !ready && !latestItineraryItem && (
           <div className={styles.msg}>
             <div className={styles.who}>🍊</div>
 
