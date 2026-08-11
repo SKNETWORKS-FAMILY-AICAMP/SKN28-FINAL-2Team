@@ -3,6 +3,14 @@ from rest_framework import serializers
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
 
+def _csv_values(value):
+    return {
+        item.strip().lower()
+        for item in str(value or "").split(",")
+        if item.strip()
+    }
+
+
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
     description = serializers.CharField(source="summary", read_only=True)
@@ -17,7 +25,8 @@ class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
         fields = (
-            "id", "package_id", "name", "description", "price", "region", "duration_days", "match_profile", 
+            "id", "package_id", "name", "description", "price", "region", "duration_days",
+            "companion", "tags",
             "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
         )
 
@@ -39,22 +48,20 @@ class PackageSerializer(serializers.ModelSerializer):
             return bool(cursor.fetchone()[0])
 
     def get_style(self, obj):
-        profile = obj.match_profile or {}
-        paces = profile.get("paces", [])
-        themes = profile.get("themes", [])
-        party_types = profile.get("party_types", [])
+        companions = _csv_values(obj.companion)
+        tags = _csv_values(obj.tags)
 
-        if "with_children" in party_types or "family_group" in party_types:
+        if "family" in companions:
             return "family"
 
-        if "relaxed" in paces:
-            return "healing"
-
-        if "experience" in themes:
+        if "experience" in tags or "activity" in tags:
             return "activity"
 
-        if "food" in themes or "market_shopping" in themes:
+        if "food" in tags:
             return "food"
+
+        if "nature" in tags:
+            return "healing"
 
         return ""
 
