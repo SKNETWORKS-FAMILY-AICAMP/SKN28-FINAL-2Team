@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from apps.package_recommendation.services import recommend_packages
+from apps.package_recommendation.services import recommend_package_comparison
 
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
@@ -14,8 +14,6 @@ from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer,
 )
 from .services import generate_itinerary, revise_itinerary
 from .kakao_route_service import get_kakao_route_path
-
-from apps.package_recommendation.services import recommend_package_comparison
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -231,28 +229,16 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get"])
     def route(self, request, pk=None):
-        """
-        여행 경로 지도 표시.
-
-        - OR-Tools로 최적화되어 저장된 방문 순서를 사용
-        - 각 장소의 좌표를 points로 반환
-        - 인접 장소 사이의 실제 Kakao 자동차 도로 경로를 path로 반환
-        """
-
+        """최적 방문 순서와 인접 장소 사이의 실제 자동차 경로를 반환한다."""
         itinerary = self.get_object()
         result = []
-
         for day in itinerary.days.all().order_by("day_number"):
-
             items = list(
-                day.items
-                .filter(
+                day.items.filter(
                     latitude__isnull=False,
                     longitude__isnull=False,
-                )
-                .order_by("order")
+                ).order_by("order")
             )
-
             points = [
                 {
                     "order": item.order,
@@ -264,32 +250,13 @@ class ItineraryViewSet(viewsets.ModelViewSet):
             ]
 
             path = []
-
-            # 1번 장소 → 2번 장소
-            # 2번 장소 → 3번 장소
-            # ...
-            # 실제 자동차 도로 경로 조회
             for index in range(len(points) - 1):
-
                 origin = points[index]
                 destination = points[index + 1]
-
                 try:
-                    segment_path = get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                except RuntimeError as exc:
-                    print(
-                        "[Kakao Route] 실제 경로 조회 실패:",
-                        origin["title"],
-                        "→",
-                        destination["title"],
-                        exc,
-                    )
-
-                    # 도로 경로 조회 실패 시 직선 좌표라도 유지
-                    segment_path = [
+                    segment = get_kakao_route_path(origin, destination)
+                except RuntimeError:
+                    segment = [
                         {
                             "latitude": origin["latitude"],
                             "longitude": origin["longitude"],
@@ -299,22 +266,13 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                             "longitude": destination["longitude"],
                         },
                     ]
-
-                # 이전 segment 마지막 좌표와
-                # 현재 segment 첫 좌표 중복 방지
-                if path and segment_path:
-                    segment_path = segment_path[1:]
-
-                path.extend(segment_path)
+                if path and segment:
+                    segment = segment[1:]
+                path.extend(segment)
 
             result.append(
-                {
-                    "day_number": day.day_number,
-                    "points": points,
-                    "path": path,
-                }
+                {"day_number": day.day_number, "points": points, "path": path}
             )
-
         return Response(result)
 
     @extend_schema(

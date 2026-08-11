@@ -30,98 +30,36 @@ def _build_place_info_map(
 
     return place_info_map
 
-def _attach_coordinates_to_stops(
-    state: ItineraryState,
-):
-    """
-    OR-Tools 실행 전에 각 stop에 latitude / longitude를 붙인다.
-    """
 
+def _optimize_itinerary_routes(state: ItineraryState):
+    """장소 좌표를 보완한 뒤 날짜별 방문 순서를 OR-Tools로 최적화한다."""
     place_info_map = _build_place_info_map(state)
+    days = state.itinerary.get("days", [])
+    content_ids = {
+        stop.get("content_id")
+        for day in days
+        for stop in day.get("stops", [])
+        if stop.get("content_id")
+    }
+    places = {
+        place.content_id: place
+        for place in Place.objects.using("travel").filter(content_id__in=content_ids)
+    }
 
-    for day_data in state.itinerary.get("days", []):
-        for stop in day_data.get("stops", []):
-            content_id = stop.get("content_id")
-
-            if not content_id:
-                continue
-
-            place = (
-                Place.objects.using("travel")
-                .filter(content_id=content_id)
-                .first()
-            )
-
-            place_info = place_info_map.get(
-                content_id,
-                {
-                    "latitude": None,
-                    "longitude": None,
-                },
-            )
-
-            latitude = (
-                place.latitude
-                if place
-                else place_info.get("latitude")
-            )
-
-            longitude = (
-                place.longitude
-                if place
-                else place_info.get("longitude")
-            )
-
-            stop["latitude"] = (
-                float(latitude)
-                if latitude is not None
-                else None
-            )
-
-            stop["longitude"] = (
-                float(longitude)
-                if longitude is not None
-                else None
-            )
-
-
-def _optimize_itinerary_routes(
-    state: ItineraryState,
-):
-    """
-    각 날짜별 일정의 장소 순서를 OR-Tools로 최적화한다.
-    """
-
-    # 먼저 stop에 좌표 추가
-    _attach_coordinates_to_stops(state)
-
-    for day_data in state.itinerary.get("days", []):
-        stops = day_data.get("stops", [])
-
-        if not stops:
-            continue
-
-        print("=" * 80)
-        print(
-            f"[OR-Tools] DAY {day_data.get('day')} 최적화 전"
-        )
-
+    for day in days:
+        stops = day.get("stops", [])
         for stop in stops:
-            print(
-                stop.get("sequence"),
-                stop.get("title"),
-                stop.get("latitude"),
-                stop.get("longitude"),
-            )
+            content_id = stop.get("content_id")
+            place = places.get(content_id)
+            fallback = place_info_map.get(content_id, {})
+            latitude = place.latitude if place else fallback.get("latitude")
+            longitude = place.longitude if place else fallback.get("longitude")
+            stop["latitude"] = float(latitude) if latitude is not None else None
+            stop["longitude"] = float(longitude) if longitude is not None else None
 
-        optimized_stops = optimize_stops(stops)
+        if stops:
+            day["stops"] = optimize_stops(stops)
 
-        day_data["stops"] = optimized_stops
-
-        print(
-            f"[OR-Tools] DAY {day_data.get('day')} 최적화 완료"
-        )
-        print("=" * 80)
 
 def _save_itinerary_result(
     itinerary: Itinerary,
@@ -300,9 +238,7 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         state = itinerary_engine.create_itinerary(user_text)
 
-        # -------------------------------------------------
-        # OR-Tools 경로 최적화
-        # -------------------------------------------------
+        # 카카오 자동차 이동시간을 기준으로 날짜별 방문 순서를 최적화한다.
         _optimize_itinerary_routes(state)
 
         # -------------------------------------------------
@@ -372,10 +308,10 @@ def revise_itinerary(
             user_text,
         )
 
-        # 수정된 일정도 다시 최적 경로 계산
+        # 수정된 일정도 다시 최적화한다.
         _optimize_itinerary_routes(new_state)
 
-        # 수정된 엔진 상태 저장
+        # 수정된 상태 저장
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
