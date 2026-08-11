@@ -1,10 +1,12 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
 import AppHeader from './review/AppHeader.jsx';
 import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
+import { useCart } from '../context/CartContext.jsx';
+import { getPackageDetail } from '../api/packageApi.js';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -66,6 +68,8 @@ function ComparisonDays({ days, custom = false }) {
 
 export default function ReviewPage() {
   const { id, token } = useParams();
+  const navigate = useNavigate();
+  const { addToCart, addCustomToCart, openCart } = useCart();
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +77,8 @@ export default function ReviewPage() {
   const [packageComparison, setPackageComparison] = useState(null);
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageError, setPackageError] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState('stored');
+  const [addingToCart, setAddingToCart] = useState(false);
 
   const pdfRef = useRef(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -115,6 +121,82 @@ export default function ReviewPage() {
 
     fetchData();
   }, [id, token]);
+
+  const handleBooking = async () => {
+    const storedPackage = packageComparison?.stored_package;
+    const customPackage = packageComparison?.custom_package;
+
+    if (selectedProduct === 'stored') {
+      if (!storedPackage?.id) return;
+
+      let packageDetail = null;
+      try {
+        packageDetail = await getPackageDetail(storedPackage.id);
+      } catch (error) {
+        console.error('패키지 상세 이미지 조회 실패:', error);
+      }
+
+      navigate('/booking', {
+        state: {
+          bookingSource: 'package',
+          itineraryId: itinerary.id,
+          packageIds: [storedPackage.id],
+          packages: [
+            {
+              id: storedPackage.id,
+              packageId: storedPackage.package_id,
+              name: storedPackage.title,
+              description: storedPackage.summary || storedPackage.reason || '',
+              price: storedPackage.estimated_price,
+              thumbnailUrl: packageDetail?.thumbnail_url || '',
+              thumbnail: '✈️',
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (!customPackage) return;
+
+    navigate('/booking', {
+      state: {
+        bookingSource: 'custom-itinerary',
+        itineraryId: itinerary.id,
+        packages: [
+          {
+            id: `custom-${itinerary.id}`,
+            name: itinerary.title || '내가 확정한 자유패키지',
+            description: '확정한 일정 그대로 예약하는 자유일정 상품입니다.',
+            price: customPackage.price_per_person,
+            thumbnail: '🧭',
+            isCustom: true,
+          },
+        ],
+      },
+    });
+  };
+
+  const handleAddToCart = async () => {
+    const storedPackage = packageComparison?.stored_package;
+    const customPackage = packageComparison?.custom_package;
+
+    setAddingToCart(true);
+    try {
+      if (selectedProduct === 'stored') {
+        if (!storedPackage?.id) return;
+        await addToCart(storedPackage.id, { itineraryId: itinerary.id });
+      } else {
+        if (!customPackage) return;
+        await addCustomToCart(itinerary.id);
+      }
+      openCart();
+    } catch (error) {
+      alert(error.message || '장바구니에 상품을 담지 못했습니다.');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
 
   const handleShare = async () => {
     try {
@@ -363,9 +445,27 @@ export default function ReviewPage() {
 
               {!packageLoading && !packageError && packageComparison && (
                 <div className={styles.packageComparisonGrid}>
-                  <article className={cx(styles.packageChoiceCard, styles.recommendedChoiceCard)}>
+                  <article
+                    className={cx(
+                      styles.packageChoiceCard,
+                      styles.recommendedChoiceCard,
+                      selectedProduct === 'stored' && styles.selectedChoiceCard
+                    )}
+                    onClick={() => setSelectedProduct('stored')}
+                    role="radio"
+                    aria-checked={selectedProduct === 'stored'}
+                    tabIndex={0}
+                  >
                     <div className={styles.bestMatchRibbon}>
                       BEST MATCH
+                    </div>
+                    <div
+                      className={cx(
+                        styles.selectionStatus,
+                        selectedProduct === 'stored' && styles.selectionStatusActive
+                      )}
+                    >
+                      {selectedProduct === 'stored' ? '✓ 선택됨' : '○ 선택하기'}
                     </div>
                     <div className={styles.packageChoiceHead}>
                       <div>
@@ -401,7 +501,25 @@ export default function ReviewPage() {
                     )}
                   </article>
 
-                  <article className={cx(styles.packageChoiceCard, styles.customChoiceCard)}>
+                  <article
+                    className={cx(
+                      styles.packageChoiceCard,
+                      styles.customChoiceCard,
+                      selectedProduct === 'custom' && styles.selectedChoiceCard
+                    )}
+                    onClick={() => setSelectedProduct('custom')}
+                    role="radio"
+                    aria-checked={selectedProduct === 'custom'}
+                    tabIndex={0}
+                  >
+                    <div
+                      className={cx(
+                        styles.selectionStatus,
+                        selectedProduct === 'custom' && styles.selectionStatusActive
+                      )}
+                    >
+                      {selectedProduct === 'custom' ? '✓ 선택됨' : '○ 선택하기'}
+                    </div>
                     <div className={styles.packageChoiceHead}>
                       <div>
                         <span className={cx(styles.packageBadge, styles.customBadge)}>
@@ -425,6 +543,42 @@ export default function ReviewPage() {
                       </>
                     )}
                   </article>
+                </div>
+              )}
+
+              {!packageLoading && !packageError && packageComparison && (
+                <div className={styles.bookingAction}>
+                  <span>
+                    {selectedProduct === 'stored'
+                      ? '추천 패키지를 선택했습니다.'
+                      : '자유일정을 선택했습니다.'}
+                  </span>
+                  <div className={styles.bookingButtons}>
+                    <button
+                      type="button"
+                      className={cx(styles.btn, styles.ghost)}
+                      onClick={handleAddToCart}
+                      disabled={addingToCart || (
+                        selectedProduct === 'stored'
+                          ? !packageComparison.stored_package?.id
+                          : !packageComparison.custom_package
+                      )}
+                    >
+                      {addingToCart ? '담는 중...' : '선택한 상품 장바구니에 넣기'}
+                    </button>
+                  <button
+                    type="button"
+                    className={cx(styles.btn, styles.primary)}
+                    onClick={handleBooking}
+                    disabled={
+                      selectedProduct === 'stored'
+                        ? !packageComparison.stored_package?.id
+                        : !packageComparison.custom_package
+                    }
+                  >
+                    선택한 상품 예약하기 →
+                  </button>
+                  </div>
                 </div>
               )}
             </section>
