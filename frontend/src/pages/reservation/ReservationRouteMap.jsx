@@ -37,42 +37,80 @@ export default function ReservationRouteMap({ days = [] }) {
       let pointCount = 0
 
       days.forEach((day, dayIndex) => {
-        const color = DAY_COLORS[dayIndex % DAY_COLORS.length]
-        const items = (day.items || []).filter(isPoint)
-        const path = items.map((item) => {
+        const dayNumber = Number(
+          day.day ?? day.day_number ?? dayIndex + 1
+        )
+
+        const color =
+          DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length]
+
+        const items = (day.items || [])
+          .filter(isPoint)
+          .sort(
+            (a, b) =>
+              Number(a.sequence ?? a.order ?? 0) -
+              Number(b.sequence ?? b.order ?? 0)
+          )
+
+        const itemPositions = items.map((item) => {
           const position = new kakao.maps.LatLng(
             Number(item.latitude),
             Number(item.longitude),
           )
+
           bounds.extend(position)
           pointCount += 1
+
           return position
         })
 
-        if (path.length >= 2) {
+        const roadPoints = (day.path || []).filter(isPoint)
+
+        const routePath =
+          roadPoints.length >= 2
+            ? roadPoints.map((point) => {
+                const position = new kakao.maps.LatLng(
+                  Number(point.latitude),
+                  Number(point.longitude),
+                )
+
+                bounds.extend(position)
+
+                return position
+              })
+            : itemPositions
+
+        if (routePath.length >= 2) {
           const line = new kakao.maps.Polyline({
-            path,
+            path: routePath,
             strokeWeight: 6,
             strokeColor: color,
             strokeOpacity: 0.88,
             strokeStyle: 'solid',
           })
+
           line.setMap(map)
           polylinesRef.current.push(line)
         }
 
         items.forEach((item, itemIndex) => {
           const marker = document.createElement('div')
+
           marker.className = styles.mapMarker
           marker.style.backgroundColor = color
-          marker.textContent = `${dayIndex + 1}-${itemIndex + 1}`
-          marker.title = `${dayIndex + 1}일차 ${itemIndex + 1}. ${item.title}`
+          marker.textContent =
+            `${dayNumber}-${itemIndex + 1}`
+
+          marker.title =
+            `${dayNumber}일차 ${itemIndex + 1}. ${item.title}`
 
           const overlay = new kakao.maps.CustomOverlay({
-            position: path[itemIndex],
+            position: itemPositions[itemIndex],
             content: marker,
             yAnchor: 1,
+            zIndex: 10 + itemIndex,
           })
+
           overlay.setMap(map)
           overlaysRef.current.push(overlay)
         })
