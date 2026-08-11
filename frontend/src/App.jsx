@@ -11,6 +11,7 @@ import MyPage from './pages/MyPage.jsx'
 import MyItinerariesPage from './pages/MyItinerariesPage.jsx'
 import MyBookmarksPage from './pages/MyBookmarksPage.jsx'
 import MyReservationsPage from './pages/MyReservationsPage.jsx'
+import ReservationDetailPage from './pages/ReservationDetailPage.jsx'
 import RequireAuth from './context/RequireAuth.jsx'
 import HowToUsePage from './pages/HowToUsePage'
 
@@ -57,6 +58,14 @@ export default function App() {
         element={
           <RequireAuth>
             <MyReservationsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/my/reservations/:id"
+        element={
+          <RequireAuth>
+            <ReservationDetailPage />
           </RequireAuth>
         }
       />
