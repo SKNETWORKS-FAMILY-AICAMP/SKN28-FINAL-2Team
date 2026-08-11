@@ -31,6 +31,7 @@ class PackageItem:
     stay_minutes: int | None = None
     longitude: float | None = None
     latitude: float | None = None
+    place_categories: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -41,9 +42,10 @@ class PackageCandidate:
     region: str
     duration_days: int
     estimated_price: int
-    thumbnail_url: str
-    match_profile: dict[str, Any]
+    companion_types: tuple[str, ...]
+    place_categories: tuple[str, ...]
     items: tuple[PackageItem, ...]
+    database_id: int | None = None
 
     @property
     def tourism_items(self) -> tuple[PackageItem, ...]:

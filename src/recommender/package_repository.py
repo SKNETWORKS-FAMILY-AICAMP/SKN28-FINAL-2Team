@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Protocol, Sequence
 
 from src.config.settings import MySQLConfig
 from src.storage.mysql_repository import MySQLPlaceRepository
 
 from .models import PackageCandidate, PackageItem
+from .profile_mapping import parse_csv_values
 
 
 class PackageRepository(Protocol):
@@ -50,6 +50,7 @@ def _group_packages(rows: list[dict[str, Any]]) -> list[PackageCandidate]:
                     sequence=_optional_int(row.get("sequence")),
                     item_type=str(row["item_type"]),
                     content_id=int(row["content_id"]),
+                    place_categories=parse_csv_values(row.get("item_tags")),
                     title=str(row.get("place_title") or ""),
                     stay_minutes=_optional_int(row.get("stay_minutes")),
                     longitude=_optional_float(row.get("longitude")),
@@ -58,11 +59,8 @@ def _group_packages(rows: list[dict[str, Any]]) -> list[PackageCandidate]:
             )
 
     candidates: list[PackageCandidate] = []
-    for entry in grouped.values():
+    for database_id, entry in grouped.items():
         row = entry["row"]
-        profile = row.get("match_profile") or {}
-        if isinstance(profile, str):
-            profile = json.loads(profile)
         candidates.append(
             PackageCandidate(
                 package_id=str(row["package_id"]),
@@ -71,9 +69,12 @@ def _group_packages(rows: list[dict[str, Any]]) -> list[PackageCandidate]:
                 region=str(row["region"]),
                 duration_days=int(row["duration_days"]),
                 estimated_price=int(row["estimated_price"]),
-                thumbnail_url=str(row.get("thumbnail_url") or ""),
-                match_profile=dict(profile),
+                companion_types=parse_csv_values(row.get("companion")),
+                place_categories=_package_categories(
+                    parse_csv_values(row.get("tags")), entry["items"]
+                ),
                 items=tuple(entry["items"]),
+                database_id=database_id,
             )
         )
     return candidates
@@ -87,6 +88,15 @@ def _optional_float(value: Any) -> float | None:
     return None if value is None else float(value)
 
 
+def _package_categories(
+    package_tags: tuple[str, ...], items: list[PackageItem]
+) -> tuple[str, ...]:
+    values = set(package_tags)
+    for item in items:
+        values.update(item.place_categories)
+    return tuple(sorted(values))
+
+
 _PACKAGE_SELECT = """
 SELECT
     tp.id AS package_db_id,
@@ -96,38 +106,14 @@ SELECT
     tp.region,
     tp.duration_days,
     tp.estimated_price,
-    tp.match_profile,
-    (
-        SELECT COALESCE(
-            NULLIF(img.image_url, ''),
-            img.thumbnail_url
-        )
-        FROM package_items AS thumb_pi
-        JOIN place_images AS img
-            ON img.content_id = thumb_pi.content_id
-        WHERE thumb_pi.package_db_id = tp.id
-        AND thumb_pi.item_type = 'tourism'
-        AND (
-            img.image_url IS NOT NULL
-            OR img.thumbnail_url IS NOT NULL
-        )
-        ORDER BY
-            CASE
-                WHEN thumb_pi.day_no IS NULL THEN 999
-                ELSE thumb_pi.day_no
-            END,
-            CASE
-                WHEN thumb_pi.sequence IS NULL THEN 999
-                ELSE thumb_pi.sequence
-            END,
-            img.display_order
-        LIMIT 1
-    ) AS thumbnail_url,
+    tp.companion,
+    tp.tags,
     pi.id AS item_id,
     pi.day_no,
     pi.sequence,
     pi.item_type,
     pi.content_id,
+    pi.tags AS item_tags,
     pi.stay_minutes,
     p.title AS place_title,
     p.longitude,

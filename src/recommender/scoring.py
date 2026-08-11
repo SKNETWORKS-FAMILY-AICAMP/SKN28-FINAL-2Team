@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 import math
 from typing import Any, Iterable
 
@@ -9,6 +10,12 @@ from .models import (
     PackageItem,
     ScoreBreakdown,
     ScoredPackage,
+)
+from .profile_mapping import (
+    condition_category_groups,
+    normalize_companion_types,
+    normalize_condition_companions,
+    normalize_condition_categories,
 )
 
 
@@ -31,7 +38,10 @@ def score_package(
     exact_overlap = 50.0 * ((coverage * 0.8) + (precision * 0.2))
     route_fit = _route_fit(matched_ids, itinerary_by_id, package_by_id)
     profile_fit, profile_evidence = _profile_fit(
-        itinerary.conditions, package.match_profile
+        itinerary.conditions,
+        package.companion_types,
+        package.place_categories,
+        package.title,
     )
     nearby_fit, nearby_evidence = _regional_proximity_fit(
         itinerary_by_id, package.tourism_items
@@ -108,54 +118,99 @@ def _route_fit(
 
 
 def _profile_fit(
-    conditions: dict[str, Any], profile: dict[str, Any]
+    conditions: dict[str, Any],
+    package_companions: Iterable[str],
+    package_categories: Iterable[str],
+    package_title: str,
 ) -> tuple[float, dict[str, Any]]:
-    party = str(conditions.get("party_type") or "").strip().lower()
-    pace = str(conditions.get("pace") or "").strip().lower()
-    seasons = _as_set(
-        conditions.get("seasons")
-        or conditions.get("season")
-        or conditions.get("preferred_seasons")
-        or conditions.get("travel_season")
+    condition_companions = normalize_condition_companions(
+        conditions.get("companion_types")
+        or conditions.get("companion_type")
+        or conditions.get("party_type")
     )
-    themes = _as_set(
+    raw_categories = (
         conditions.get("preferred_visit_types")
+        or conditions.get("place_categories")
         or conditions.get("themes")
         or conditions.get("preferred_themes")
     )
+    profile_companions = set(normalize_companion_types(package_companions))
+    profile_categories = normalize_condition_categories(package_categories)
 
-    party_values = _profile_set(profile, "party_types", "party_type")
-    pace_values = _profile_set(profile, "paces", "pace")
-    theme_values = _profile_set(profile, "themes", "preferred_visit_types")
-    season_values = _profile_set(
-        profile, "seasons", "season", "preferred_seasons", "travel_season"
-    )
-
-    party_score = 20.0 if party and party in party_values else 0.0
-    theme_score = 0.0
-    if themes and theme_values:
-        theme_score = 15.0 * len(themes & theme_values) / len(themes)
-
-    style_season_ratios: list[float] = []
-    if pace:
-        style_season_ratios.append(1.0 if pace in pace_values else 0.0)
-    if seasons:
-        style_season_ratios.append(
-            len(seasons & season_values) / len(seasons) if season_values else 0.0
-        )
-    style_season_score = (
-        5.0 * sum(style_season_ratios) / len(style_season_ratios)
-        if style_season_ratios
+    matched_companions = condition_companions & profile_companions
+    companion_score = 20.0 if matched_companions else 0.0
+    category_groups = condition_category_groups(raw_categories)
+    matched_groups = [
+        group for group in category_groups if group & profile_categories
+    ]
+    category_score = (
+        15.0 * len(matched_groups) / len(category_groups)
+        if category_groups and profile_categories
         else 0.0
     )
-    total = party_score + theme_score + style_season_score
+    matched_categories = (
+        set().union(*(group & profile_categories for group in matched_groups))
+        if matched_groups
+        else set()
+    )
+    requested_season = _season_from_start_date(conditions.get("start_date"))
+    package_seasons = _seasons_from_title(package_title)
+    # Titles without a season are valid all year. Older callers without a
+    # start_date also keep these five points neutral for compatibility.
+    season_match = (
+        requested_season is None
+        or not package_seasons
+        or requested_season in package_seasons
+    )
+    season_score = 5.0 if season_match else 0.0
+    total = companion_score + category_score + season_score
     return total, {
-        "companion_score": round(party_score, 2),
-        "theme_score": round(theme_score, 2),
-        "style_and_season_score": round(style_season_score, 2),
-        "matched_party_type": bool(party and party in party_values),
-        "matched_themes": sorted(themes & theme_values),
-        "matched_seasons": sorted(seasons & season_values),
+        "companion_score": round(companion_score, 2),
+        "category_score": round(category_score, 2),
+        "season_score": round(season_score, 2),
+        "requested_season": requested_season,
+        "package_seasons": sorted(package_seasons),
+        "season_match": season_match,
+        "matched_companion_types": sorted(matched_companions),
+        "matched_place_categories": sorted(matched_categories),
+    }
+
+
+_SEASON_TITLE_MARKERS = {
+    "spring": ("봄",),
+    "summer": ("여름",),
+    "autumn": ("가을",),
+    "winter": ("겨울",),
+}
+
+
+def _season_from_start_date(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        parsed = value.date()
+    elif isinstance(value, date):
+        parsed = value
+    else:
+        try:
+            parsed = date.fromisoformat(str(value)[:10])
+        except ValueError:
+            return None
+    if 3 <= parsed.month <= 5:
+        return "spring"
+    if 6 <= parsed.month <= 8:
+        return "summer"
+    if 9 <= parsed.month <= 11:
+        return "autumn"
+    return "winter"
+
+
+def _seasons_from_title(title: str) -> set[str]:
+    normalized = str(title or "").strip().lower()
+    return {
+        season
+        for season, markers in _SEASON_TITLE_MARKERS.items()
+        if any(marker in normalized for marker in markers)
     }
 
 
@@ -203,19 +258,6 @@ def _first_by_content_id(rows: Iterable[Any]) -> dict[int, Any]:
     for row in rows:
         result.setdefault(int(row.content_id), row)
     return result
-
-
-def _profile_set(profile: dict[str, Any], *keys: str) -> set[str]:
-    values: set[str] = set()
-    containers = [profile]
-    for nested in ("preferred", "required"):
-        value = profile.get(nested)
-        if isinstance(value, dict):
-            containers.append(value)
-    for container in containers:
-        for key in keys:
-            values.update(_as_set(container.get(key)))
-    return values
 
 
 def _as_set(value: Any) -> set[str]:
