@@ -124,6 +124,8 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 
 
 class ReservationItemSerializer(serializers.ModelSerializer):
+    schedule = serializers.SerializerMethodField()
+
     class Meta:
         model = ReservationItem
         fields = (
@@ -136,7 +138,94 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "quantity",
             "option_date",
             "option_people",
+            "schedule",
         )
+
+    def get_schedule(self, obj):
+        if (
+            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
+            or str(obj.package_id or "").upper().startswith("CUSTOM-")
+        ):
+            return []
+
+        package_db_id = obj.package_db_id
+        if not package_db_id and obj.package_id:
+            package_db_id = (
+                Package.objects.using("travel")
+                .filter(package_id=obj.package_id, is_active=True)
+                .values_list("id", flat=True)
+                .first()
+            )
+
+        if not package_db_id:
+            return []
+
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    pi.day_no,
+                    pi.sequence,
+                    pi.item_type,
+                    pi.content_id,
+                    pi.stay_minutes,
+                    p.title,
+                    p.addr1,
+                    p.addr2,
+                    p.latitude,
+                    p.longitude,
+                    (
+                        SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                        FROM place_images img
+                        WHERE img.content_id = pi.content_id
+                          AND (img.image_url IS NOT NULL OR img.thumbnail_url IS NOT NULL)
+                        ORDER BY img.display_order
+                        LIMIT 1
+                    )
+                FROM package_items pi
+                LEFT JOIN places p ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.day_no IS NOT NULL
+                ORDER BY pi.day_no, pi.sequence
+                """,
+                [package_db_id],
+            )
+            rows = cursor.fetchall()
+
+        days = {}
+        for row in rows:
+            (
+                day_no,
+                sequence,
+                item_type,
+                content_id,
+                stay_minutes,
+                title,
+                addr1,
+                addr2,
+                latitude,
+                longitude,
+                thumbnail,
+            ) = row
+            address = " ".join(part for part in (addr1, addr2) if part)
+            days.setdefault(day_no, []).append({
+                "sequence": sequence,
+                "item_type": item_type,
+                "content_id": content_id,
+                "stay_minutes": stay_minutes,
+                "title": title or f"장소 {content_id}",
+                "description": address,
+                "latitude": latitude,
+                "longitude": longitude,
+                "thumbnail": thumbnail or "",
+            })
+
+        return [
+            {"day": day_no, "items": items}
+            for day_no, items in sorted(days.items())
+        ]
 
 
 class ReservationSerializer(serializers.ModelSerializer):
