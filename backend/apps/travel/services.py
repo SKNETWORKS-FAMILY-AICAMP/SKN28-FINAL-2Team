@@ -192,16 +192,32 @@ def _save_itinerary_result(
                 longitude,
                 thumbnail,
             )
+            role = stop.get("role")
+
+            item_type_map = {
+                "visit": ItineraryItem.ItemType.SPOT,
+                "food": ItineraryItem.ItemType.RESTAURANT,
+                "shopping": ItineraryItem.ItemType.SHOPPING,
+                "activity": ItineraryItem.ItemType.ACTIVITY,
+                "accommodation": ItineraryItem.ItemType.ACCOMMODATION,
+            }
+
+            item_type = item_type_map.get(
+                role,
+                ItineraryItem.ItemType.SPOT,
+            )
+
+            print(
+                "[ITEM TYPE]",
+                "role =", role,
+                "→ item_type =", item_type,
+            )
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
                 order=stop.get("sequence", 1),
                 time=stop.get("start_time", ""),
-                item_type=(
-                    ItineraryItem.ItemType.RESTAURANT
-                    if stop.get("role") == "food"
-                    else ItineraryItem.ItemType.SPOT
-                ),
+                item_type=item_type,
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
                 thumbnail=thumbnail,
@@ -212,6 +228,7 @@ def _save_itinerary_result(
                 accommodation=None,
                 memo="",
             )
+
 @transaction.atomic
 def generate_itinerary(itinerary: Itinerary):
 

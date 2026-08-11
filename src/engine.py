@@ -97,6 +97,7 @@ _TARGET_COLLECTION_TO_ROLE: dict[str, str] = {
     "shopping": "shopping",
     "activities": "activity",
     "attractions": "visit",
+    "lodgings": "stay",
 }
 
 
@@ -184,6 +185,12 @@ class ItineraryEngine:
 
         print("=" * 50)
         print(f"[candidate-pool] RAG 후보 {len(rag_pool)}개")
+        for candidate in rag_pool:
+            print(
+                "[DEBUG CANDIDATE]",
+                candidate.title,
+                candidate.tags,
+            )
         print(
             "[candidate-pool] role별 개수:",
             {role: len(places) for role, places in pool_by_role.items()},
@@ -475,39 +482,78 @@ class ItineraryEngine:
         extra_request: str | None = None,
         reference_keywords: dict[str, list[str]] | None = None,
     ) -> list[RetrievedPlace]:
-        """"사용자가 원하는 장소는?"을 찾는다 (RAG 브랜치).
+        """사용자가 원하는 장소는?을 찾는다 (RAG 브랜치).
 
         여행 스타일(preferred_visit_types)과 자유 요청(must_visit_places 등)을
         하나의 검색어로 합쳐, role에 국한하지 않고 폭넓게 후보를 가져온다.
 
         ``reference_keywords``가 있으면(Top-K AIHub 참고 여행에서 뽑은 role별
         대표 방문 장소명) 검색어 생성 프롬프트에 참고 자료로 함께 전달한다.
-        이 키워드는 검색 방향을 보강할 뿐, 그대로 후보에 들어가지는 않는다 —
+        이 키워드는 검색 방향을 보강할 뿐, 그대로 후보에 들어가지는 않는다.
         실제 후보는 항상 이 검색으로 얻은 RAG 결과에서만 선택된다.
         """
 
         container = self._container
+
         query = container.llm_service.generate_style_query(
-            condition, reference_keywords=reference_keywords
+            condition,
+            reference_keywords=reference_keywords,
         )
+
         if extra_request:
             query = f"{query} {extra_request}".strip()
 
         response = container.retrieval_service.search_places(
             query,
             filters=PlaceSearchFilters(
+                recommendation_scopes=("default",),
                 route_eligible=True,
                 schedule_eligible=True,
             ),
             top_k=top_k,
         )
+
         places = list(response.places)
 
+        # 일반 생활형 매장/브랜드 매장 제거
+        places = [
+            place
+            for place in places
+            if (
+                not any(
+                    tag.startswith("target_collection:shopping")
+                    for tag in place.tags
+                )
+                or _is_valid_shopping_candidate(place)
+            )
+        ]
+
+        print("=" * 80)
+        print("[SHOPPING DEBUG] RAG 후보 분류 확인")
+
+        for place in places:
+            if any(
+                tag.startswith("target_collection:shopping")
+                for tag in place.tags
+            ):
+                print(
+                    "[SHOPPING]",
+                    "content_id=",
+                    place.content_id,
+                    "title=",
+                    place.title,
+                    "tags=",
+                    place.tags,
+                )
+
+        print("=" * 80)
+
         # ------------------------------------------------------------
-        # food(맛집) 전용 보강 검색.
-        # 위의 통합 검색은 style/must_visit_places 위주라 restaurants가
-        # 거의 안 섞여 들어온다. food도 처음부터 후보 풀에 확보해 둬야
-        # 슬롯을 채울 때 "즉석 검색 보강"이 아니라 이 풀에서 바로 고를 수 있다.
+        # food(맛집) 전용 보강 검색
+        #
+        # 통합 검색은 style/must_visit_places 위주라 restaurants가
+        # 후보 풀에 거의 섞이지 않는 경우가 있다.
+        # food도 처음부터 후보 풀에 확보한다.
         # ------------------------------------------------------------
         food_query = container.llm_service.generate_search_query(
             condition,
@@ -515,6 +561,7 @@ class ItineraryEngine:
             day=1,
             extra_request=extra_request,
         )
+
         food_response = container.retrieval_service.search_places(
             food_query,
             filters=PlaceSearchFilters(
@@ -525,7 +572,11 @@ class ItineraryEngine:
             top_k=FOOD_CANDIDATE_POOL_TOP_K,
         )
 
-        existing_ids = {place.content_id for place in places}
+        existing_ids = {
+            place.content_id
+            for place in places
+        }
+
         for place in food_response.places:
             if place.content_id not in existing_ids:
                 places.append(place)
@@ -596,25 +647,43 @@ class ItineraryEngine:
         role = slot_template["role"]
 
         query = container.llm_service.generate_search_query(
-            condition, slot_role=role, day=day_no, extra_request=extra_request
+            condition,
+            slot_role=role,
+            day=day_no,
+            extra_request=extra_request,
         )
+
         filters = PlaceSearchFilters(
             target_collections=tuple(slot_template["target_collections"]),
             itinerary_roles=tuple(slot_template["itinerary_roles"]),
             route_eligible=True,
             schedule_eligible=True,
         )
+
         response = container.retrieval_service.search_places(
-            query, filters=filters, top_k=DEFAULT_SEARCH_TOP_K
+            query,
+            filters=filters,
+            top_k=DEFAULT_SEARCH_TOP_K,
         )
+
+        search_places = list(response.places)
+
+        if role == "shopping":
+            search_places = [
+                place
+                for place in search_places
+                if _is_valid_shopping_candidate(place)
+            ]
+
         candidates = select_candidates(
-            response.places,
+            search_places,
             condition,
             role=role,
             location_hint=slot_template.get("location_hint"),
             exclude_content_ids=exclude_content_ids,
             config=container.planner_config,
         )
+
         return ItinerarySlot(
             day=day_no,
             sequence=slot_template["sequence"],
@@ -626,7 +695,6 @@ class ItineraryEngine:
             query=query,
             candidates=candidates,
         )
-
     def _force_include_must_visit_places(
         self,
         condition: TravelCondition,
@@ -769,6 +837,60 @@ class ItineraryEngine:
                 next_sequence += 1
 
         return new_slots
+
+def _is_valid_shopping_candidate(place: RetrievedPlace) -> bool:
+    """여행 일정용 쇼핑 장소인지 판단한다."""
+
+    tags = set(place.tags or ())
+    title = (place.title or "").lower()
+
+    # 시장은 허용
+    if "place_subtype:market" in tags:
+        return True
+
+    # 특산품/기념품점은 허용
+    if "place_subtype:local_specialty" in tags:
+        return True
+
+    # general_retail이 아니면 허용
+    if "place_subtype:general_retail" not in tags:
+        return True
+
+    # 여행 목적의 쇼핑점은 허용
+    allowed_keywords = (
+        "특산품",
+        "기념품",
+        "선물",
+        "토산품",
+        "소품샵",
+        "소품",
+    )
+
+    if any(keyword in title for keyword in allowed_keywords):
+        return True
+
+    # 일반 생활형 / 브랜드 매장은 제외
+    excluded_keywords = (
+        "마트",
+        "이마트",
+        "하나로",
+        "올리브영",
+        "이니스프리",
+        "다이소",
+        "탑텐",
+        "쌤소나이트",
+        "내셔널지오그래픽",
+        "유니클로",
+        "나이키",
+        "아디다스",
+        "아울렛",
+    )
+
+    if any(keyword in title for keyword in excluded_keywords):
+        return False
+
+    # general_retail인데 관광 목적 쇼핑이라는 근거가 없으면 제외
+    return False
 
 
 def _normalize_title(title: str) -> str:

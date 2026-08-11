@@ -36,6 +36,9 @@ const getItemTypeLabel = (item) => {
   if (item.accommodation) return '숙소'
   if (item.item_type === 'restaurant') return '식당'
   if (item.item_type === 'accommodation') return '숙소'
+  if (item.item_type === 'activity') return '액티비티'
+  if (item.item_type === 'shopping') return '쇼핑'
+
   return '관광지'
 }
 
