@@ -7,14 +7,15 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
-
+from rest_framework.permissions import IsAuthenticated
+from apps.package_recommendation.services import recommend_package_comparison
 
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
         ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
-from apps.package_recommendation.services import recommend_package_comparison
+from .kakao_route_service import get_kakao_route_path
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -230,21 +231,50 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get"])
     def route(self, request, pk=None):
-        """여행 경로 지도 표시 — 일자별 순서대로의 좌표 목록."""
+        """최적 방문 순서와 인접 장소 사이의 실제 자동차 경로를 반환한다."""
         itinerary = self.get_object()
         result = []
-        for day in itinerary.days.all():
+        for day in itinerary.days.all().order_by("day_number"):
+            items = list(
+                day.items.filter(
+                    latitude__isnull=False,
+                    longitude__isnull=False,
+                ).order_by("order")
+            )
             points = [
                 {
                     "order": item.order,
                     "title": item.title,
-                    "latitude": item.latitude,
-                    "longitude": item.longitude,
+                    "latitude": float(item.latitude),
+                    "longitude": float(item.longitude),
                 }
-                for item in day.items.all()
-                if item.latitude is not None and item.longitude is not None
+                for item in items
             ]
-            result.append({"day_number": day.day_number, "points": points})
+
+            path = []
+            for index in range(len(points) - 1):
+                origin = points[index]
+                destination = points[index + 1]
+                try:
+                    segment = get_kakao_route_path(origin, destination)
+                except RuntimeError:
+                    segment = [
+                        {
+                            "latitude": origin["latitude"],
+                            "longitude": origin["longitude"],
+                        },
+                        {
+                            "latitude": destination["latitude"],
+                            "longitude": destination["longitude"],
+                        },
+                    ]
+                if path and segment:
+                    segment = segment[1:]
+                path.extend(segment)
+
+            result.append(
+                {"day_number": day.day_number, "points": points, "path": path}
+            )
         return Response(result)
 
     @extend_schema(

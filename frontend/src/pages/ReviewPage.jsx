@@ -4,13 +4,64 @@ import cx from '../utils/cx.js';
 import AppHeader from './review/AppHeader.jsx';
 import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
+import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
 
 import { useEffect, useRef, useState } from 'react';
 
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
-import { getItinerary, getSharedItinerary, createShareLink, } from '../api/itinerary';
+import {
+  createShareLink,
+  getItinerary,
+  getPackageRecommendations,
+  getSharedItinerary,
+} from '../api/itinerary';
+
+
+const formatPrice = (value) =>
+  `${Number(value || 0).toLocaleString('ko-KR')}원`;
+
+const itemTypeLabel = (itemType) => {
+  if (itemType === 'restaurant') return '음식점';
+  if (itemType === 'hotel' || itemType === 'accommodation') return '숙소';
+  if (itemType === 'activity') return '액티비티';
+  return '관광지';
+};
+
+function ComparisonDays({ days, custom = false }) {
+  return (
+    <div className={styles.comparisonDays}>
+      {(days || []).map((day, dayIndex) => (
+        <section
+          className={styles.comparisonDay}
+          key={day.day ?? day.dayNumber ?? dayIndex}
+        >
+          <div className={styles.comparisonDayHead}>
+            DAY {day.day ?? day.dayNumber ?? dayIndex + 1}
+          </div>
+
+          <ol>
+            {(day.items || []).map((item, itemIndex) => (
+              <li key={`${item.content_id ?? item.id ?? item.title}-${itemIndex}`}>
+                <span>{itemIndex + 1}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>
+                    {itemTypeLabel(item.item_type)}
+                    {!custom && item.stay_minutes
+                      ? ` · ${item.stay_minutes}분`
+                      : ''}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 
 export default function ReviewPage() {
@@ -19,6 +70,9 @@ export default function ReviewPage() {
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showToast, setShowToast] = useState(false);
+  const [packageComparison, setPackageComparison] = useState(null);
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [packageError, setPackageError] = useState('');
 
   const pdfRef = useRef(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -34,9 +88,24 @@ export default function ReviewPage() {
           data = await getItinerary(id);
         }
 
-        console.log('review itinerary data =', data);
-
         setItinerary(data);
+
+        if (!token && data.status === 'confirmed') {
+          setPackageLoading(true);
+          setPackageError('');
+
+          try {
+            const comparison = await getPackageRecommendations(id, 1);
+            setPackageComparison(comparison);
+          } catch (error) {
+            setPackageError(
+              error.response?.data?.detail ??
+                '패키지 정보를 불러오지 못했습니다.'
+            );
+          } finally {
+            setPackageLoading(false);
+          }
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -166,6 +235,7 @@ export default function ReviewPage() {
           </p>
         </div>
 
+        {(token || itinerary.status !== 'confirmed') && (
         <div className={styles.shell}>
           <div
             className={styles.mainCard}
@@ -173,11 +243,9 @@ export default function ReviewPage() {
           >
             <div className={styles.topRow}>
               <div>
-                <h2>{itinerary.title}</h2>
-
-                <div className={styles.sub}>
-                  {itinerary.subtitle}
-                </div>
+                <h2>
+                  {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
+                </h2>
               </div>
                {!token && (
                 <div
@@ -215,12 +283,14 @@ export default function ReviewPage() {
                       : '📄 PDF 다운로드'}
                   </button>
 
-                  <Link
-                    to={`/itinerary/${id}`}
-                    className={cx(styles.btn, styles.ghost, styles.sm)}
+                  {itinerary.status !== 'confirmed' && (
+                    <Link
+                      to={`/itinerary/${id}`}
+                      className={cx(styles.btn, styles.ghost, styles.sm)}
                   >
                     ✏️ 일정 수정하기
-                  </Link>
+                    </Link>
+                  )}
 
                   <Link
                     to="/my/itineraries"
@@ -253,7 +323,112 @@ export default function ReviewPage() {
               <TripSummary itinerary={itinerary} />
             </div>
           </div>
+
         </div>
+        )}
+
+          {!token && itinerary.status === 'confirmed' && (
+            <section className={styles.packageComparison}>
+              <div className={styles.packageComparisonHead}>
+                <span>상품 선택</span>
+                <h2>두 여행 일정을 한눈에 비교해보세요</h2>
+                <p>추천 패키지와 내가 만든 자유일정 중 하나를 선택할 수 있어요.</p>
+              </div>
+
+              <div
+                id="package-comparison-map"
+                className={styles.comparisonMapSlot}
+                data-itinerary-id={itinerary.id}
+              >
+                {packageComparison?.stored_package ? (
+                  <ComparisonRouteMap
+                    itineraryId={itinerary.id}
+                    storedDays={packageComparison.stored_package.days}
+                  />
+                ) : (
+                  <div className={styles.comparisonMapGuide}>
+                    <strong>두 일정 동선 비교 지도</strong>
+                    <p>추천 패키지와 자유일정의 이동 경로가 이 영역에 표시됩니다.</p>
+                  </div>
+                )}
+              </div>
+
+              {packageLoading && (
+                <p className={styles.packageMessage}>상품 가격을 계산하고 있어요.</p>
+              )}
+
+              {!packageLoading && packageError && (
+                <p className={styles.packageMessage}>{packageError}</p>
+              )}
+
+              {!packageLoading && !packageError && packageComparison && (
+                <div className={styles.packageComparisonGrid}>
+                  <article className={cx(styles.packageChoiceCard, styles.recommendedChoiceCard)}>
+                    <div className={styles.bestMatchRibbon}>
+                      BEST MATCH
+                    </div>
+                    <div className={styles.packageChoiceHead}>
+                      <div>
+                        <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
+                          우리 여행사 추천 패키지
+                        </span>
+                        <h3>
+                          {packageComparison.stored_package?.title ??
+                            '조건에 맞는 패키지가 없습니다'}
+                        </h3>
+                      </div>
+                      {packageComparison.stored_package && (
+                        <strong>
+                          {formatPrice(packageComparison.stored_package.estimated_price)}
+                          <small> / 1인</small>
+                        </strong>
+                      )}
+                    </div>
+                    {packageComparison.stored_package && (
+                      <>
+                        <p className={styles.packageMeta}>
+                          {packageComparison.stored_package.region} ·{' '}
+                          {packageComparison.stored_package.duration_days}일
+                        </p>
+                        <ComparisonDays
+                          days={packageComparison.stored_package.days}
+                        />
+                        <div className={styles.packageAdvantages}>
+                          <span>✓ 확정 일정과 가장 유사한 구성</span>
+                          <span>✓ 바로 예약 가능한 패키지 상품</span>
+                        </div>
+                      </>
+                    )}
+                  </article>
+
+                  <article className={cx(styles.packageChoiceCard, styles.customChoiceCard)}>
+                    <div className={styles.packageChoiceHead}>
+                      <div>
+                        <span className={cx(styles.packageBadge, styles.customBadge)}>
+                          자유일정 대안
+                        </span>
+                        <h3>{itinerary.title || '내가 확정한 일정 그대로'}</h3>
+                      </div>
+                      {packageComparison.custom_package && (
+                        <strong>
+                          {formatPrice(packageComparison.custom_package.price_per_person)}
+                          <small> / 1인</small>
+                        </strong>
+                      )}
+                    </div>
+                    {packageComparison.custom_package && (
+                      <>
+                        <p className={styles.packageMeta}>
+                          {itinerary.durationLabel} · 일정 맞춤 구성비 포함
+                        </p>
+                        <ComparisonDays days={itinerary.days} custom />
+                      </>
+                    )}
+                  </article>
+                </div>
+              )}
+            </section>
+          )}
       </div>
     </div>
   );

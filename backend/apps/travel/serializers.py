@@ -378,6 +378,9 @@ class ItineraryRouteSerializer(serializers.Serializer):
     points = serializers.ListField(
         child=serializers.DictField(),
     )
+    path = serializers.ListField(
+        child=serializers.DictField(),
+    )
 
 
 class ItineraryShareSerializer(serializers.Serializer):

@@ -4,43 +4,69 @@ import json
 
 from django.db import transaction
 
+from src.api import itinerary_engine
 from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
+from .route_optimizer import optimize_stops
 
-
-def _build_place_coordinate_map(
+def _build_place_info_map(
     state: ItineraryState,
-) -> dict[int, tuple[float | None, float | None]]:
-    """엔진 상태(state.slots[*].candidates)에서 content_id -> (위도, 경도) 맵을 만든다.
-
-    LLM이 최종 stops에 돌려주는 값은 sequence/title/notes/content_id 뿐이고
-    좌표는 포함하지 않으므로(할루시네이션 방지를 위해 일부러 요청하지 않음),
-    실제 좌표는 RAG 검색 결과가 담긴 슬롯 후보(candidate.place)에서 가져온다.
-    """
-
-    coordinate_map: dict[int, tuple[float | None, float | None]] = {}
+) -> dict[int, dict]:
+    place_info_map = {}
 
     for slot in state.slots:
         for candidate in slot.candidates:
             place = candidate.place or {}
 
-            print(place)   # 추가
-
-            coordinate_map[candidate.content_id] = {
+            place_info_map[candidate.content_id] = {
                 "latitude": place.get("latitude"),
                 "longitude": place.get("longitude"),
-                "thumbnail": place.get("image_url")
+                "thumbnail": (
+                    place.get("image_url")
                     or place.get("thumbnail_url")
-                    or "",
+                    or ""
+                ),
             }
 
-    return coordinate_map
+    return place_info_map
 
 
-def _save_itinerary_result(itinerary: Itinerary, state: ItineraryState):
+def _optimize_itinerary_routes(state: ItineraryState):
+    """장소 좌표를 보완한 뒤 날짜별 방문 순서를 OR-Tools로 최적화한다."""
+    place_info_map = _build_place_info_map(state)
+    days = state.itinerary.get("days", [])
+    content_ids = {
+        stop.get("content_id")
+        for day in days
+        for stop in day.get("stops", [])
+        if stop.get("content_id")
+    }
+    places = {
+        place.content_id: place
+        for place in Place.objects.using("travel").filter(content_id__in=content_ids)
+    }
 
+    for day in days:
+        stops = day.get("stops", [])
+        for stop in stops:
+            content_id = stop.get("content_id")
+            place = places.get(content_id)
+            fallback = place_info_map.get(content_id, {})
+            latitude = place.latitude if place else fallback.get("latitude")
+            longitude = place.longitude if place else fallback.get("longitude")
+            stop["latitude"] = float(latitude) if latitude is not None else None
+            stop["longitude"] = float(longitude) if longitude is not None else None
+
+        if stops:
+            day["stops"] = optimize_stops(stops)
+
+
+def _save_itinerary_result(
+    itinerary: Itinerary,
+    state: ItineraryState,
+):
     result = state.itinerary
-    coordinate_map = _build_place_coordinate_map(state)
+    place_info_map = _build_place_info_map(state)
 
     # 기존 일정 삭제
     itinerary.days.all().delete()
@@ -134,8 +160,10 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         # 전체 파이프라인 실행
         # -------------------------------------------------
-        state = _get_itinerary_engine().create_itinerary(user_text)
+        state = itinerary_engine.create_itinerary(user_text)
 
+        # 카카오 자동차 이동시간을 기준으로 날짜별 방문 순서를 최적화한다.
+        _optimize_itinerary_routes(state)
 
         # -------------------------------------------------
         # 최종 일정
@@ -192,10 +220,13 @@ def revise_itinerary(
         )
 
         # 엔진을 이용하여 일정 수정
-        new_state = _get_itinerary_engine().update_itinerary_from_chat(
+        new_state = itinerary_engine.update_itinerary_from_chat(
             state,
             user_text,
         )
+
+        # 수정된 일정도 다시 최적화한다.
+        _optimize_itinerary_routes(new_state)
 
         # 수정된 상태 저장
         itinerary.engine_state = new_state.to_dict()
