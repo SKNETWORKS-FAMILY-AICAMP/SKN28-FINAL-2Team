@@ -112,11 +112,37 @@ export default function ComparisonRouteMap({ itineraryId, storedDays = [] }) {
 
       if (activeProduct === 'stored') {
         storedDays.forEach((day, dayIndex) => {
-          const dayNumber = Number(day.day ?? dayIndex + 1);
-          const points = (day.items || []).filter(validPoint);
+          const dayNumber = Number(
+            day.day ?? dayIndex + 1
+          );
+
+          const points = (day.items || [])
+            .filter(validPoint)
+            .sort(
+              (a, b) =>
+                Number(a.sequence ?? 0) -
+                Number(b.sequence ?? 0)
+            );
+
+          const roadPath = (day.path || [])
+            .filter(validPoint);
+
           const color = dayColor(dayNumber);
-          drawPath(points, color, 6);
-          drawMarkers(points, dayNumber, '추천 패키지', color);
+
+          drawPath(
+            roadPath.length >= 2
+              ? roadPath
+              : points,
+            color,
+            6
+          );
+
+          drawMarkers(
+            points,
+            dayNumber,
+            '추천 패키지',
+            color
+          );
         });
       } else {
         customRoutes.forEach((route, routeIndex) => {
