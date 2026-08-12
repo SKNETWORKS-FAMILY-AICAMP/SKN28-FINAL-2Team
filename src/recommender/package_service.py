@@ -5,8 +5,8 @@ from typing import Any
 from .models import ScoredPackage
 from .normalization import normalize_itinerary, with_place_coordinates
 from .package_repository import PackageRepository
+from .profile_mapping import normalize_companion_types, normalize_condition_categories
 from .scoring import deterministic_sort_key, score_package
-
 
 class PackageRecommendationService:
     def __init__(
@@ -72,6 +72,84 @@ class PackageRecommendationService:
                 },
             },
         }
+    def find_reference_routes(
+        self,
+        condition: Any,
+        *,
+        top_k: int = 10,
+    ) -> list[dict[str, Any]]:
+        """AIHub fallback용 패키지 참고 경로를 조회한다.
+
+        최종 일정으로 사용할 패키지를 추천하는 것이 아니라,
+        패키지의 DAY/방문 순서를 이동 패턴 참고자료로 반환한다.
+        """
+
+        if top_k <= 0:
+            raise ValueError("top_k must be greater than zero")
+
+        # 여행 기간은 반드시 일치
+        packages = self._repository.find_active_by_duration(
+            condition.duration_days
+        )
+
+        if not packages:
+            return []
+
+        requested_companions = _condition_companions(condition)
+        requested_categories = _condition_categories(condition)
+
+        ranked: list[tuple[tuple[Any, ...], Any]] = []
+
+        for package in packages:
+            package_companions = set(
+                normalize_companion_types(
+                    package.companion_types
+                )
+            )
+
+            package_categories = set(
+                package.place_categories
+            )
+
+            # 동행 조건 일치 여부
+            companion_match = bool(
+                requested_companions & package_companions
+            )
+
+            # 사용자 선호 카테고리와 패키지 카테고리의 겹침 개수
+            category_match_count = sum(
+                1
+                for category in requested_categories
+                if category in package_categories
+            )
+
+            # 우선순위:
+            # 1. 동행 조건
+            # 2. 선호 카테고리
+            # 3. 실제 관광지 수
+            score = (
+                int(companion_match),
+                category_match_count,
+                len(package.tourism_items),
+            )
+
+            ranked.append((score, package))
+
+        ranked.sort(
+            key=lambda row: (
+                -row[0][0],
+                -row[0][1],
+                -row[0][2],
+                row[1].package_id,
+            )
+        )
+
+        selected = [
+            package
+            for _score, package in ranked[:top_k]
+        ]
+
+        return _package_route_rows(selected)
 
 
 def _deterministic_reason(candidate: ScoredPackage) -> str:
@@ -168,3 +246,84 @@ def _serialize_item(item: Any) -> dict[str, Any]:
         "longitude": item.longitude,
         "latitude": item.latitude,
     }
+
+def _condition_companions(condition: Any) -> set[str]:
+    value = getattr(condition, "party_type", None)
+    raw = getattr(value, "value", value)
+
+    return set(
+        normalize_companion_types((raw,))
+    )
+
+
+def _condition_categories(condition: Any) -> set[str]:
+    preferences = getattr(
+        condition,
+        "preferred_visit_types",
+        (),
+    )
+
+    raw = [
+        getattr(item, "value", item)
+        for item in preferences
+    ]
+
+    return normalize_condition_categories(raw)
+
+
+
+def _package_route_rows(
+    packages: list[Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    for package in packages:
+        for item in package.items:
+            if item.day is None:
+                continue
+
+            if item.sequence is None:
+                continue
+
+            if item.item_type == "hotel":
+                continue
+
+            type_code = _item_visit_area_type(item)
+
+            if type_code is None:
+                continue
+
+            rows.append(
+                {
+                    "travel_id": f"package:{package.package_id}",
+                    "day_no": item.day,
+                    "visit_order": item.sequence,
+                    "visit_area_type_cd": type_code,
+                    "place_name": item.title,
+                    "content_id": item.content_id,
+                    "package_id": package.package_id,
+                }
+            )
+
+    return rows
+
+
+def _item_visit_area_type(
+    item: Any,
+) -> str | None:
+    for category in item.place_categories:
+        category = str(category).strip().lower()
+
+        if category == "food":
+            return "11"
+
+        if category == "cafe":
+            return "11"
+
+        if category == "shopping":
+            return "10"
+
+        if category == "activity":
+            return "13"
+
+    return None
