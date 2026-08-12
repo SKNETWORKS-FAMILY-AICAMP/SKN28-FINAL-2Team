@@ -107,7 +107,9 @@
 .recommendedChoiceCard{ position:relative; padding-top:52px; border:3px solid var(--green-deep); background:linear-gradient(180deg,var(--green-soft) 0,#fff 210px); box-shadow:7px 7px 0 var(--green); }
 .customChoiceCard{ border-color:#7d8781; background:#f7f8f7; box-shadow:4px 4px 0 #d8dcda; }
 .bestMatchRibbon{ position:absolute; top:0; right:0; left:0; padding:10px 16px; border-bottom:2px solid var(--green-deep); border-radius:16px 16px 0 0; background:var(--green); color:#fff; font-family:var(--display); font-size:12px; font-weight:800; letter-spacing:.02em; text-align:center; }
-.packageBadge{ display:inline-block; margin-bottom:12px; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
+.packageBadgeRow{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
+.packageBadge{ display:inline-block; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
+.accommodationBadge{ display:inline-flex; align-items:center; padding:5px 10px; border:1px solid rgba(47,111,74,.25); border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
 .recommendedBadge{ background:var(--green-deep); }
 .customBadge{ background:#67716c; }
 .packageChoiceHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; padding-bottom:15px; border-bottom:1px dashed var(--line); }
@@ -146,3 +148,17 @@
   .bookingButtons{ flex-direction:column; align-items:stretch; }
   .bookingAction button{ justify-content:center; }
 }
+.bookedComparison{ width:100%; }
+.bookedComparisonGrid{ grid-template-columns:1fr; width:100%; }
+.bookedChoiceCard{ width:100%; max-width:none; padding:22px; cursor:default; }
+.bookedChoiceCard:hover{ transform:none; }
+.bookedChoiceCard.recommendedChoiceCard{ padding-top:22px; }
+.bookedChoiceCard .comparisonDays{ max-height:none; overflow:visible; padding-right:0; gap:12px; }
+.bookedChoiceCard .comparisonDay{ width:100%; padding:16px 18px 18px; }
+.bookedChoiceCard .comparisonDay ol{ grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; align-items:start; }
+.bookedChoiceCard .comparisonDay li{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; }
+.bookedChoiceCard .comparisonDay li > span{ position:relative; z-index:2; flex:0 0 25px; }
+.bookedChoiceCard .comparisonDay li > div{ width:100%; }
+.bookedChoiceCard .comparisonDay li strong{ text-align:center; }
+.bookedChoiceCard .comparisonDay li p{ text-align:center; }
+.bookedChoiceCard .comparisonDay li:not(:last-child)::after{ content:""; position:absolute; top:12px; left:calc(50% + 14px); width:calc(100% - 18px); height:1px; background:rgba(79,157,106,.32); z-index:1; }

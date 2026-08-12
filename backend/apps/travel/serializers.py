@@ -113,7 +113,9 @@ class PackageSerializer(serializers.ModelSerializer):
                     pi.content_id,
                     p.title,
                     p.addr1,
-                    p.addr2
+                    p.addr2,
+                    p.latitude,
+                    p.longitude
                 FROM package_items pi
                 LEFT JOIN places p
                     ON p.content_id = pi.content_id
@@ -136,6 +138,8 @@ class PackageSerializer(serializers.ModelSerializer):
             title,
             addr1,
             addr2,
+            latitude,
+            longitude,
         ) in rows:
             course_by_day.setdefault(day_no, []).append(
                 {
@@ -146,6 +150,8 @@ class PackageSerializer(serializers.ModelSerializer):
                     "address": " ".join(
                         part for part in [addr1, addr2] if part
                     ),
+                    "latitude": latitude,
+                    "longitude": longitude,
                 }
             )
 
@@ -188,6 +194,9 @@ class ItinerarySerializer(serializers.ModelSerializer):
     style_display = serializers.CharField(source="style", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
+    booked_product_type = serializers.SerializerMethodField()
+    booked_package_db_id = serializers.SerializerMethodField()
+    booked_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Itinerary
@@ -199,9 +208,67 @@ class ItinerarySerializer(serializers.ModelSerializer):
             "share_token", "duration_label", "days",
             "additional_request",
             "created_at", "updated_at",
+            "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price"
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
+    def get_booked_product_type(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.product_type
+
+
+    def get_booked_package_db_id(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.package_db_id
+
+    def get_booked_price(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.price
 
     def create(self, validated_data):
         validated_data.pop("additional_request", None)

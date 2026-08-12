@@ -98,9 +98,39 @@ export default function ReviewPage() {
           setPackageError('');
 
           try {
-            const comparison = await getPackageRecommendations(id, 1);
-            setPackageComparison(comparison);
+            // 추천 패키지를 이미 예약한 경우
+            if (
+              data.bookedProductType === 'stored_package' &&
+              data.bookedPackageDbId
+            ) {
+              const packageDetail = await getPackageDetail(
+                data.bookedPackageDbId
+              );
+
+              setPackageComparison({
+                stored_package: packageDetail,
+                custom_package: null,
+              });
+
+              setSelectedProduct('stored');
+            }
+
+            // 자유일정을 이미 예약한 경우
+            else if (
+              data.bookedProductType === 'custom_itinerary'
+            ) {
+              setPackageComparison(null);
+              setSelectedProduct('custom');
+            }
+
+            // 아직 예약 전
+            else {
+              const comparison = await getPackageRecommendations(id, 1);
+              setPackageComparison(comparison);
+            }
           } catch (error) {
+            console.error(error);
+
             setPackageError(
               error.response?.data?.detail ??
                 '패키지 정보를 불러오지 못했습니다.'
@@ -297,6 +327,17 @@ export default function ReviewPage() {
     return <div>일정을 찾을 수 없습니다.</div>;
   }
 
+  const bookedProductType = itinerary.bookedProductType;
+
+  const isBookedStored =
+    bookedProductType === 'stored_package';
+
+  const isBookedCustom =
+    bookedProductType === 'custom_itinerary';
+
+  const isBooked =
+    isBookedStored || isBookedCustom;
+
   return (
     <div className={styles.page}>
       <AppHeader />
@@ -406,7 +447,7 @@ export default function ReviewPage() {
         </div>
         )}
 
-          {!token && itinerary.status === 'confirmed' && (
+          {!token && itinerary.status === 'confirmed' && !isBooked && (
             <section className={styles.packageComparison}>
               <div className={styles.packageComparisonHead}>
                 <span>상품 선택</span>
@@ -466,9 +507,16 @@ export default function ReviewPage() {
                     </div>
                     <div className={styles.packageChoiceHead}>
                       <div>
-                        <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
-                          우리 여행사 추천 패키지
-                        </span>
+                        <div className={styles.packageBadgeRow}>
+                          <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
+                            우리 여행사 추천 패키지
+                          </span>
+                          {Boolean(packageComparison.stored_package?.hotel) && (
+                            <span className={styles.accommodationBadge}>
+                              🛏 숙소 포함
+                            </span>
+                          )}
+                        </div>
                         <h3>
                           {packageComparison.stored_package?.title ??
                             '조건에 맞는 패키지가 없습니다'}
@@ -580,7 +628,142 @@ export default function ReviewPage() {
               )}
             </section>
           )}
-      </div>
-    </div>
+  
+      {!token &&
+        itinerary.status === 'confirmed' &&
+        isBookedStored &&
+        packageComparison?.stored_package && (
+          <section className={cx(styles.packageComparison, styles.bookedComparison)}>
+            <div className={styles.packageComparisonHead}>
+              <span>예약한 여행</span>
+
+              <h2>
+                {packageComparison.stored_package.title ??
+                  packageComparison.stored_package.name}
+              </h2>
+
+              <p>예약한 추천 패키지의 일정입니다.</p>
+            </div>
+
+            <div className={styles.comparisonMapSlot}>
+              <ComparisonRouteMap
+                itineraryId={itinerary.id}
+                storedDays={
+                  packageComparison.stored_package.days ??
+                  packageComparison.stored_package.course ??
+                  []
+                }
+                mode="stored"
+              />
+            </div>
+
+            <div className={cx(styles.packageComparisonGrid, styles.bookedComparisonGrid)}>
+              <article
+                className={cx(
+                  styles.packageChoiceCard,
+                  styles.recommendedChoiceCard,
+                  styles.bookedChoiceCard
+                )}
+              >
+                <div className={styles.packageChoiceHead}>
+                  <div>
+                    <span
+                      className={cx(
+                        styles.packageBadge,
+                        styles.recommendedBadge
+                      )}
+                    >
+                      예약한 추천 패키지
+                    </span>
+
+                    <h3>
+                      {packageComparison.stored_package.title ??
+                        packageComparison.stored_package.name}
+                    </h3>
+                  </div>
+
+                  <strong>
+                    {formatPrice(
+                      packageComparison.stored_package.estimated_price ??
+                        packageComparison.stored_package.price
+                    )}
+                    <small> / 1인</small>
+                  </strong>
+                </div>
+
+                <ComparisonDays
+                  days={
+                    packageComparison.stored_package.days ??
+                    packageComparison.stored_package.course ??
+                    []
+                  }
+                />
+              </article>
+            </div>
+          </section>
+      )}
+            {!token &&
+              itinerary.status === 'confirmed' &&
+              isBookedCustom && (
+                <section className={cx(styles.packageComparison, styles.bookedComparison)}>
+                  <div className={styles.packageComparisonHead}>
+                    <span>예약한 여행</span>
+
+                    <h2>
+                      {itinerary.title || '내가 만든 자유일정'}
+                    </h2>
+
+                    <p>예약한 자유일정입니다.</p>
+                  </div>
+
+                  <div className={styles.comparisonMapSlot}>
+                    <ComparisonRouteMap
+                      itineraryId={itinerary.id}
+                      storedDays={[]}
+                      mode="custom"
+                    />
+                  </div>
+
+                  <div className={cx(styles.packageComparisonGrid, styles.bookedComparisonGrid)}>
+                    <article
+                      className={cx(
+                        styles.packageChoiceCard,
+                        styles.customChoiceCard,
+                        styles.bookedChoiceCard
+                      )}
+                    >
+                      <div className={styles.packageChoiceHead}>
+                        <div>
+                          <span
+                            className={cx(
+                              styles.packageBadge,
+                              styles.customBadge
+                            )}
+                          >
+                            예약한 자유일정
+                          </span>
+
+                          <h3>
+                            {itinerary.title || '내가 만든 자유일정'}
+                          </h3>
+                        </div>
+
+                        <strong>
+                          {formatPrice(itinerary.bookedPrice)}
+                          <small> / 1인</small>
+                        </strong>
+                      </div>
+
+                      <ComparisonDays
+                        days={itinerary.days}
+                        custom
+                      />
+                    </article>
+                  </div>
+                </section>
+            )}
+
+          </div>
+        </div>  
   );
 }
