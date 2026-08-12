@@ -245,6 +245,9 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 {{
   "mode": "edit" 또는 "recommend",
   "target_day": 정수 또는 null,
+  "insert_after": 문자열 또는 null,
+  "insert_before": 문자열 또는 null,
+  "time_period": "morning"|"lunch"|"afternoon"|"evening" 또는 null,
   "add_must_visit_places": 문자열 배열,
   "remove_must_visit_places": 문자열 배열,
   "add_excluded_places": 문자열 배열,
@@ -286,6 +289,36 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 - 일차를 언급하지 않았다면 반드시 null로 두세요. 임의로 추측해서 채우지 마세요.
 - target_day는 영향 범위를 그 날짜로만 좁히는 데 사용되므로, 잘못 채우면 다른
   날짜의 정당한 수정 요청까지 무시될 수 있습니다. 확실하지 않으면 null.
+
+"insert_after" / "insert_before" 사용 규칙 (매우 중요):
+
+- 사용자가 "A 다음에 B 추가해줘", "A 뒤에 B 넣어줘"처럼 기존 일정 속 특정
+  장소를 기준으로 위치를 지정했다면, 그 기준 장소명(A)을 "insert_after"에
+  넣으세요. add_must_visit_places에는 새로 추가할 장소(B)만 넣으세요.
+- "A 앞에 B 추가해줘", "A 전에 B 넣어줘"처럼 기준 장소 앞에 넣어달라고
+  했다면 "insert_before"에 A를 넣으세요.
+- insert_after와 insert_before는 동시에 채우지 마세요. 둘 다 해당하지
+  않으면 둘 다 null로 두세요.
+- 위치 기준 장소(A)는 add_must_visit_places나 remove_must_visit_places에
+  다시 넣지 마세요. 이미 insert_after/insert_before에 들어갔습니다.
+- 예: "1일차 제주이호랜드 다음으로 하도해변 추가해줘"
+  -> mode="edit", target_day=1, insert_after="제주이호랜드",
+     add_must_visit_places=["하도해변"]
+- 예: "성산일출봉 앞에 우도 넣어줘"
+  -> mode="edit", insert_before="성산일출봉", add_must_visit_places=["우도"]
+
+"time_period" 사용 규칙:
+
+- 사용자가 "아침/오전", "점심", "오후", "저녁/밤"처럼 구체적인 시간대에
+  넣어달라고 했지만 기준이 되는 장소명은 말하지 않았다면 time_period를
+  채우세요. "아침"/"오전" -> "morning", "점심" -> "lunch",
+  "오후" -> "afternoon", "저녁"/"밤" -> "evening".
+- insert_after/insert_before를 채웠다면 time_period는 null로 두세요
+  (장소 기준이 시간대 기준보다 우선합니다).
+- 시간대 언급이 전혀 없으면 null로 두세요.
+- 예: "2일차 아침에 하도해변 추가해줘"
+  -> mode="edit", target_day=2, time_period="morning",
+     add_must_visit_places=["하도해변"]
 
 "add_slots" 사용 규칙:
 

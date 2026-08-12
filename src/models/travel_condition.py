@@ -130,12 +130,24 @@ class ConditionDelta:
     # 특정 일차를 언급하지 않았다면 None이며, 이 경우 영향 범위를 day로
     # 좁히지 않는다.
     target_day: int | None = None
+    # "A 다음에 B 추가해줘" / "A 앞에 B 추가해줘"처럼 위치 기준이 되는
+    # 기존 일정 속 장소명. 둘 다 비어 있으면 위치를 지정하지 않은
+    # 것이므로 기존 방식(해당 day 맨 뒤)으로 추가한다.
+    insert_after: str | None = None
+    insert_before: str | None = None
+    # "아침/점심/오후/저녁"처럼 시간대로 위치를 지정했을 때만 채워지는 값.
+    # insert_after/insert_before가 있으면 그쪽이 우선한다.
+    time_period: str | None = None
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any]) -> "ConditionDelta":
         mode = str(value.get("mode") or "edit").strip().lower()
         if mode not in ("edit", "recommend"):
             mode = "edit"
+
+        time_period = str(value.get("time_period") or "").strip().lower() or None
+        if time_period not in (None, "morning", "lunch", "afternoon", "evening"):
+            time_period = None
 
         return cls(
             add_must_visit_places=_string_tuple(value.get("add_must_visit_places")),
@@ -161,6 +173,9 @@ class ConditionDelta:
             notes=str(value.get("notes") or "").strip(),
             mode=mode,
             target_day=_optional_int(value.get("target_day")),
+            insert_after=(str(value.get("insert_after") or "").strip() or None),
+            insert_before=(str(value.get("insert_before") or "").strip() or None),
+            time_period=time_period,
         )
 
     def is_empty(self) -> bool:

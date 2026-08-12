@@ -31,8 +31,22 @@ def _build_place_info_map(
     return place_info_map
 
 
-def _optimize_itinerary_routes(state: ItineraryState):
-    """장소 좌표를 보완한 뒤 날짜별 방문 순서를 OR-Tools로 최적화한다."""
+def _optimize_itinerary_routes(
+    state: ItineraryState,
+    *,
+    skip_days: set[int] | frozenset[int] = frozenset(),
+):
+    """장소 좌표를 보완한 뒤 날짜별 방문 순서를 OR-Tools로 최적화한다.
+
+    ``skip_days`` 에 포함된 day는 경로 최적화(거리 기준 재정렬)를 건너뛴다.
+    채팅 엔진이 "A 다음에 B"처럼 순서를 코드 레벨에서 이미 확정한 day가
+    여기에 해당한다 - 좌표는 채워주되 순서는 건드리지 않는다.
+
+    카카오 자동차 길찾기는 출발지/도착지가 5m 이내로 붙어있으면 실패하는 등
+    외부 API 오류가 날 수 있다. 이 함수는 그런 경우에도 절대 예외를 밖으로
+    던지지 않는다 - 최적화만 건너뛰고, 수정된 일정 자체는 그대로 저장되도록
+    한다 (경로 최적화 실패가 사용자의 수정 요청 자체를 날려버리면 안 된다).
+    """
     place_info_map = _build_place_info_map(state)
     days = state.itinerary.get("days", [])
     content_ids = {
@@ -57,8 +71,30 @@ def _optimize_itinerary_routes(state: ItineraryState):
             stop["latitude"] = float(latitude) if latitude is not None else None
             stop["longitude"] = float(longitude) if longitude is not None else None
 
-        if stops:
+        if not stops:
+            continue
+
+        day_number = day.get("day")
+        if day_number in skip_days:
+            print(
+                f"[route] {day_number}일차는 위치 지정 삽입으로 순서가 "
+                "이미 확정되어 경로 최적화를 건너뜁니다."
+            )
+            continue
+
+        try:
             day["stops"] = optimize_stops(stops)
+        except Exception as exc:
+            # 카카오 길찾기 실패(예: "출발지와 도착지가 5m 이내") 등으로
+            # 최적화 자체가 실패해도, 이미 수정된 일정(stops)은 그대로
+            # 유지한 채 최적화만 건너뛴다. 여기서 예외를 다시 던지면
+            # /revise/ 요청 전체가 500이 되어 사용자의 수정 내용이
+            # 통째로 사라진다.
+            print(
+                f"[route] {day_number}일차 경로 최적화 실패 -> "
+                f"최적화를 건너뛰고 기존 순서를 유지합니다: {exc}"
+            )
+            traceback.print_exc()
 
 
 def _save_itinerary_result(
@@ -331,7 +367,10 @@ def revise_itinerary(
 
         new_state = chat_result.state
 
-        _optimize_itinerary_routes(new_state)
+        _optimize_itinerary_routes(
+            new_state,
+            skip_days=set(chat_result.locked_days),
+        )
 
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])

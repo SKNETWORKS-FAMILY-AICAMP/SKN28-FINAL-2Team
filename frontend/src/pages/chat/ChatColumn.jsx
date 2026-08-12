@@ -481,6 +481,28 @@ export default function ChatColumn({
           if (item.type === 'itinerary') {
             const isLatest = item.id === latestItineraryHistoryId
             const isPreviewOpen = openPreviewId === item.id
+
+            // 최신 일정이 아닌 과거 itinerary 항목은 더 이상 장소 목록을
+            // 통째로 다시 보여주지 않는다. 예전에는 "더마파크 -> 제주이호랜드"로
+            // 교체한 뒤에도 옛 itinerary 카드가 그대로 history에 남아 있어서
+            // 화면에 더마파크와 제주이호랜드가 동시에 보이는 것처럼 오해를
+            // 샀다. 과거 항목은 짧은 안내 문구만 남기고, 실제 장소 목록은
+            // 항상 최신 itinerary 카드 하나에서만 보여준다.
+            if (!isLatest) {
+              return (
+                <div
+                  className={styles.msg}
+                  key={item.id}
+                >
+                  <div className={styles.who}>🍊</div>
+                  <div className={styles.bubble}>
+                    이 시점의 일정이었어요. 이후 대화에서 수정되었으니
+                    최신 일정은 아래를 확인해주세요.
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <div key={item.id}>
                 {/* 기존 텍스트 일정 */}
