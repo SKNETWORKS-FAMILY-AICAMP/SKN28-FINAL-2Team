@@ -1,9 +1,11 @@
+import harubangSunglasses from '../assets/harubang-sunglasses.png'
+
 const STEPS = [
-  { num: 1, title: '조건 입력', desc: '기간·인원·여행 스타일을\n대화로 알려줘요', active: true },
-  { num: 2, title: '일정 생성·수정', desc: '맞춤 여행 일정을\n자동으로 만들어요' },
-  { num: 3, title: '최종 일정 확인', desc: '일정을 확인하고\n총 비용을 살펴봐요' },
-  { num: 4, title: '예약 및 저장', desc: '추천 패키지를 예약하고\nPDF로 저장해요' },
-  { num: 5, title: '완료', desc: '여행 준비를 마치고\n즐거운 여행을 떠나요' },
+  { num: 1, title: '여행 조건 대화', desc: '동행·날짜와 원하는 여행을\n자연스럽게 이야기해요', active: true },
+  { num: 2, title: 'AI 일정 생성·수정', desc: 'AI가 만든 일정을 보고\n대화로 자유롭게 수정해요' },
+  { num: 3, title: '일정 확정', desc: '마음에 드는 일정을\n최종 일정으로 확정해요' },
+  { num: 4, title: '두 상품 비교', desc: '추천 패키지와 자유일정의\n코스와 가격을 비교해요' },
+  { num: 5, title: '선택 및 예약', desc: '원하는 상품을 선택해\n장바구니에 담거나 예약해요' },
 ]
 
 export default function How() {
@@ -13,12 +15,15 @@ export default function How() {
         <div className="reveal">
           <div className="section-tag">진행 순서</div>
           <h2 className="section-title">
-            🍊 제주 여행
+            <span className="how-title-with-mascot">
+              <img src={harubangSunglasses} alt="선글라스를 쓴 탐나플랜 하르방" />
+              제주 여행
+            </span>
             <br />
            &nbsp; &nbsp; &nbsp;다섯 걸음이면 충분해요
           </h2>
           <p className="section-sub">
-            여행 조건을 알려주면 AI가 일정을 만들고, 확인부터 패키지 예약까지 차근차근 함께해요.
+            AI와 대화하며 일정을 완성한 뒤, 비슷한 여행사 패키지와 자유일정을 비교하고 예약할 수 있어요.
           </p>
         </div>
         <div className="flow">

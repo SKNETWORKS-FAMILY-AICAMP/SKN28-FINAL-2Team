@@ -1,91 +1,167 @@
 import { useState } from 'react'
+import harubangAvatar from '../assets/harubang-avatar.png'
 
-const DAYS = [
-  {
-    dayNumber: 1,
-    date: '7/25 (목)',
-    items: [
-      { time: '09:30', title: '성산일출봉', description: '일출 명소로 유명한 제주 동쪽의 대표 관광지', dur: '체류 1시간 30분' },
-      { time: '12:00', title: '협재해변', description: '에메랄드빛 바다와 하얀 모래 백사장', dur: '체류 1시간 30분' },
-      { time: '13:30', title: '점심 식사', description: '현지 맛집에서 제주 흑돼지 정식', dur: '체류 1시간' },
-      { time: '15:30', title: '오설록 티뮤지엄', description: '녹차밭과 티하우스를 함께 즐길 수 있는 공간', dur: '체류 1시간 30분' },
-      { time: '17:30', title: '숙소 체크인', description: '편안한 휴식을 위한 협재 인근 숙소', dur: '' },
-    ],
-  },
-  {
-    dayNumber: 2,
-    date: '7/26 (금)',
-    items: [
-      { time: '09:00', title: '사려니숲길', description: '편백나무 향 가득한 산책로, 부모님 걸음에 맞춰 여유롭게', dur: '체류 1시간' },
-      { time: '11:00', title: '동문관덕정', description: '제주 전통 시장 골목 구경', dur: '체류 1시간' },
-      { time: '12:30', title: '점심 식사 — 흑돼지 맛집', description: '현지인 추천 흑돼지 맛집', dur: '체류 1시간' },
-      { time: '14:30', title: '카페 스누피가든', description: '사진 찍기 좋은 테마 카페 겸 정원', dur: '체류 1시간 30분' },
-      { time: '19:00', title: '저녁 식사 — 물회국수', description: '제주식 시원한 물회 한 그릇', dur: '' },
-    ],
-  },
-  {
-    dayNumber: 3,
-    date: '7/27 (토)',
-    items: [
-      { time: '09:00', title: '협재 해변 산책', description: '마지막 날 아침 여유로운 바다 산책', dur: '체류 1시간' },
-      { time: '11:00', title: '점심 식사 — 해물뚝배기', description: '떠나기 전 든든한 한 끼', dur: '체류 1시간' },
-      { time: '13:00', title: '아르떼뮤지엄', description: '몰입형 미디어아트 전시로 마무리', dur: '체류 1시간 30분' },
-      { time: '16:00', title: '공항 이동 및 출국', description: '렌터카 반납 후 공항으로 이동', dur: '' },
-    ],
-  },
+const TRIP_DAYS = [
+  { day: 1, places: ['성산일출봉', '섭지코지', '성산 흑돼지 식당', '아쿠아플라넷 제주'] },
+  { day: 2, places: ['비자림', '구좌 해산물 식당', '스누피가든', '함덕해수욕장'] },
+  { day: 3, places: ['도두봉', '제주 향토 음식점', '이호테우해변'] },
 ]
 
+const DEMO_STEPS = [
+  { id: 'chat', num: 1, label: '대화로 일정 만들기' },
+  { id: 'compare', num: 2, label: '두 상품 비교하기' },
+  { id: 'booking', num: 3, label: '선택하고 예약하기' },
+]
+
+function MiniSchedule({ compact = false }) {
+  return (
+    <div className={`usage-schedule${compact ? ' compact' : ''}`}>
+      {TRIP_DAYS.map((day) => (
+        <div className="usage-day" key={day.day}>
+          <strong>DAY {day.day}</strong>
+          <div className="usage-place-list">
+            {day.places.map((place, index) => (
+              <span key={place}>
+                <b>{index + 1}</b>
+                {place}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ChatDemo() {
+  return (
+    <div className="usage-chat-grid">
+      <div className="usage-chat-panel">
+        <div className="usage-panel-head">
+          <span className="usage-avatar"><img src={harubangAvatar} alt="탐나플랜 하르방" /></span>
+          <div><strong>AI 여행 코치</strong><small>대화 중</small></div>
+        </div>
+        <div className="usage-messages">
+          <p className="usage-ai-message">누구와 언제 제주로 떠나시나요?</p>
+          <p className="usage-user-message">부모님과 2박 3일로 갈 거야</p>
+          <p className="usage-ai-message">어떤 여행을 원하시나요?</p>
+          <p className="usage-user-message">많이 걷지 않고 동부 바다와 숲을 보고 싶어</p>
+          <p className="usage-ai-message">부모님과 편하게 즐기는 동부 일정을 만들었어요. 마음에 들지 않는 장소는 대화로 바꿀 수 있어요!</p>
+        </div>
+        <div className="usage-quick-actions">
+          <span>관광지 추가</span><span>맛집 추가</span><span>동선 변경</span>
+        </div>
+      </div>
+
+      <div className="usage-preview-panel">
+        <div className="usage-preview-title">
+          <div><span>일정 미리보기</span><h3>부모님과 제주 동부 2박 3일</h3></div>
+          <em>수정 가능</em>
+        </div>
+        <MiniSchedule compact />
+        <button type="button" className="usage-primary-button">이 일정으로 확정하기 →</button>
+      </div>
+    </div>
+  )
+}
+
+function CompareDemo() {
+  return (
+    <div className="usage-compare-wrap">
+      <div className="usage-map-preview">
+        <div><span>1일차</span><span>2일차</span><span>3일차</span></div>
+        <strong>두 일정의 이동 동선을 지도에서 비교</strong>
+        <p>추천 패키지와 자유일정을 선택해 각각의 경로를 확인해요.</p>
+      </div>
+      <div className="usage-product-grid">
+        <article className="usage-product-card recommended">
+          <div className="usage-ribbon">BEST MATCH</div>
+          <div className="usage-product-head">
+            <div><span>우리 여행사 추천 패키지</span><h3>가족과 함께하는 제주 동부 2박 3일</h3></div>
+            <strong>480,000원<small> / 1인</small></strong>
+          </div>
+          <p>확정 일정과 관광지·동행 조건이 가장 유사한 패키지예요.</p>
+          <div className="usage-route-summary">성산일출봉 · 섭지코지 · 비자림 · 함덕해수욕장 외</div>
+          <div className="usage-benefits"><span>✓ 숙소 포함</span><span>✓ 바로 예약 가능</span></div>
+          <button type="button">추천 패키지 선택</button>
+        </article>
+
+        <article className="usage-product-card custom">
+          <div className="usage-product-head">
+            <div><span>내가 만든 자유일정</span><h3>확정한 일정 그대로 예약</h3></div>
+            <strong>538,000원<small> / 1인</small></strong>
+          </div>
+          <p>대화로 완성한 관광지와 맛집 일정을 그대로 이용하는 상품이에요.</p>
+          <div className="usage-route-summary">내가 확정한 2박 3일 관광지·맛집 일정 포함</div>
+          <div className="usage-benefits"><span>✓ 일정 맞춤 구성</span><span>✓ 숙소 미포함</span></div>
+          <button type="button">자유일정 선택</button>
+        </article>
+      </div>
+    </div>
+  )
+}
+
+function BookingDemo() {
+  return (
+    <div className="usage-booking-grid">
+      <div className="usage-booking-product">
+        <span className="usage-booking-label">선택한 상품</span>
+        <div className="usage-selected-product">
+          <span className="usage-check">✓</span>
+          <div><strong>가족과 함께하는 제주 동부 2박 3일</strong><p>여행사 패키지 · 숙소 포함 · 1인 기준</p></div>
+          <b>480,000원</b>
+        </div>
+        <div className="usage-booking-note">장바구니에 담아 두 상품을 함께 확인하거나, 선택한 상품을 바로 예약할 수 있어요.</div>
+      </div>
+      <aside className="usage-payment-card">
+        <span>결제 정보</span>
+        <p>총 결제 금액</p>
+        <strong>480,000원</strong>
+        <div><span>상품 금액</span><b>480,000원</b></div>
+        <div><span>할인 쿠폰</span><b>-0원</b></div>
+        <hr />
+        <div><span>총 합계</span><b>480,000원</b></div>
+        <button type="button">예약 및 결제하기 →</button>
+      </aside>
+    </div>
+  )
+}
+
 export default function Itinerary() {
-  const [activeDay, setActiveDay] = useState(1)
-  const current = DAYS.find((d) => d.dayNumber === activeDay)
+  const [activeDemo, setActiveDemo] = useState('chat')
 
   return (
     <section className="itinerary" id="itinerary">
       <div className="wrap">
         <div className="itinerary-head reveal">
           <div>
-            <div className="section-tag">일정 예시</div>
+            <div className="section-tag">실제 이용 예시</div>
             <h2 className="section-title">
-              제주 2박 3일 힐링 여행
-              <br />— 부모님과 함께
+              대화로 만든 일정부터
+              <br />상품 비교와 예약까지
             </h2>
+            <p className="section-sub">각 단계를 눌러 탐나플랜의 새로운 이용 흐름을 확인해보세요.</p>
           </div>
         </div>
 
-        <div className="it-shell reveal">
-          <div className="it-side">
-            <div className="summary">
-              <h4>제주 2박 3일 힐링 여행</h4>
-              <p>
-                부모님과 함께
-                <br />
-                2박 3일 · 2명
-              </p>
-            </div>
-            {DAYS.map((d) => (
+        <div className="usage-demo reveal">
+          <div className="usage-demo-tabs">
+            {DEMO_STEPS.map((step) => (
               <button
-                key={d.dayNumber}
-                className={`day-tab${activeDay === d.dayNumber ? ' active' : ''}`}
-                onClick={() => setActiveDay(d.dayNumber)}
+                type="button"
+                key={step.id}
+                className={activeDemo === step.id ? 'active' : ''}
+                onClick={() => setActiveDemo(step.id)}
               >
-                DAY {d.dayNumber} <span>{d.date}</span>
+                <b>{step.num}</b>{step.label}
               </button>
             ))}
           </div>
 
-          <div className="it-main">
-            <div className="timeline active">
-              {current.items.map((item, i) => (
-                <div className="t-item" key={i}>
-                  <div className="t-time">{item.time}</div>
-                  <div className="t-body">
-                    <h5>{item.title}</h5>
-                    <p>{item.description}</p>
-                    <div className="t-dur">{item.dur}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="usage-demo-stage">
+            {activeDemo === 'chat' && <ChatDemo />}
+            {activeDemo === 'compare' && <CompareDemo />}
+            {activeDemo === 'booking' && <BookingDemo />}
           </div>
         </div>
       </div>
