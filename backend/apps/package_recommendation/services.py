@@ -16,8 +16,6 @@ from src.recommender import (
     PackageRecommendationService,
 )
 
-from apps.travel.kakao_route_service import get_kakao_route_path
-
 from .pricing import calculate_custom_package_price
 
 
@@ -75,73 +73,6 @@ def recommend_package_comparison(
 
     if database_id is not None:
         stored_package["id"] = database_id
-
-    # -------------------------------------------------
-    # 추천 패키지 DAY별 실제 카카오 자동차 도로 경로
-    # -------------------------------------------------
-    days = stored_package.get("days") or []
-
-    for day in days:
-        items = [
-            item
-            for item in (day.get("items") or [])
-            if (
-                item.get("latitude") is not None
-                and item.get("longitude") is not None
-            )
-        ]
-
-        items.sort(
-            key=lambda item: int(
-                item.get("sequence") or 0
-            )
-        )
-
-        day_path = []
-
-        for index in range(
-            len(items) - 1
-        ):
-            origin = items[index]
-            destination = items[index + 1]
-
-            try:
-                segment_path = (
-                    get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                )
-
-            except RuntimeError as exc:
-                print(
-                    "[Kakao] 추천 패키지 경로 조회 실패:",
-                    origin.get("title"),
-                    "→",
-                    destination.get("title"),
-                    exc,
-                )
-                continue
-
-            if not segment_path:
-                continue
-
-            if day_path:
-                day_path.extend(
-                    segment_path[1:]
-                )
-            else:
-                day_path.extend(
-                    segment_path
-                )
-
-        day["path"] = day_path
-
-        print(
-            "[Kakao] 추천 패키지 경로 생성:",
-            f"DAY {day.get('day')}",
-            f"{len(day_path)} points",
-        )
 
     quote = calculate_custom_package_price(
         int(
