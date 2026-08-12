@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.travel.views import ItineraryViewSet
 
@@ -27,6 +27,10 @@ class PackageRecommendationAPITests(SimpleTestCase):
         request = APIRequestFactory().get(
             "/api/travel/itineraries/1/package-recommendations/",
             {"top_k": 3},
+        )
+        force_authenticate(
+            request,
+            user=SimpleNamespace(is_authenticated=True),
         )
         view = ItineraryViewSet.as_view({"get": "package_recommendations"})
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.rag import TourAPIRetriever
+from src.rag.tourapi_retriever import TourAPIRetriever
 
 
 def main() -> None:

@@ -1,0 +1,5 @@
+bucket       = "tourmain-terraform-state-511092105773"
+key          = "production/terraform.tfstate"
+region       = "ap-northeast-2"
+encrypt      = true
+use_lockfile = true

@@ -46,3 +46,21 @@ def infer_package_style(companion: str | None, tags: str | None) -> str:
     if "nature" in package_tags:
         return "healing"
     return ""
+
+
+def infer_package_style_from_profile(profile: dict | None) -> str:
+    profile = profile or {}
+    party_types = set(profile.get("party_types") or ())
+    themes = set(profile.get("themes") or ())
+    if party_types & {
+        "family_group",
+        "with_children",
+        "with_parents",
+        "three_generations",
+    } or ("family_two" in party_types and "non_family_two" not in party_types):
+        return "family"
+    if "experience" in themes:
+        return "activity"
+    if "nature" in themes:
+        return "healing"
+    return ""

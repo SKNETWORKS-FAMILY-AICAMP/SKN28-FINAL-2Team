@@ -1,4 +1,5 @@
 from datetime import timedelta
+from copy import deepcopy
 import json
 import traceback
 
@@ -7,6 +8,60 @@ from django.db import transaction
 from src.api import itinerary_engine
 from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
+
+
+def _merge_schedule_into_engine_state(
+    state: dict,
+    schedule: list[dict],
+) -> dict:
+    merged = deepcopy(state)
+    existing_days = {
+        int(day["day"]): day
+        for day in merged.get("itinerary", {}).get("days", [])
+    }
+    existing_stops = {
+        (day_number, int(stop["sequence"])): stop
+        for day_number, day in existing_days.items()
+        for stop in day.get("stops", [])
+    }
+    retained_keys: set[tuple[int, int]] = set()
+    merged_days = []
+
+    for scheduled_day in schedule:
+        day_number = int(scheduled_day["day"])
+        day = deepcopy(existing_days.get(day_number, {"day": day_number}))
+        day.update(
+            {
+                key: deepcopy(value)
+                for key, value in scheduled_day.items()
+                if key != "stops"
+            }
+        )
+        stops = []
+        for scheduled_stop in scheduled_day.get("stops", []):
+            key = (day_number, int(scheduled_stop["sequence"]))
+            stop = deepcopy(existing_stops.get(key, {}))
+            stop.update(deepcopy(scheduled_stop))
+            stops.append(stop)
+            retained_keys.add(key)
+        day["stops"] = stops
+        merged_days.append(day)
+
+    merged.setdefault("itinerary", {})["days"] = merged_days
+    merged["slots"] = [
+        slot
+        for slot in merged.get("slots", [])
+        if (int(slot["day"]), int(slot["sequence"])) in retained_keys
+    ]
+    merged["used_content_ids"] = list(
+        dict.fromkeys(
+            int(stop["content_id"])
+            for day in merged_days
+            for stop in day.get("stops", [])
+            if stop.get("content_id") is not None
+        )
+    )
+    return merged
 
 def _build_place_info_map(
     state: ItineraryState,
@@ -116,14 +171,10 @@ def _save_itinerary_result(
                 memo="",
             )
 @transaction.atomic
-def generate_itinerary(itinerary: Itinerary):
-
-    itinerary.title = (
-        f"{itinerary.duration_label} "
-        f"{itinerary.get_style_display()} "
-        f"{itinerary.get_companion_type_display()} 여행"
-    )
-    itinerary.save(update_fields=["title"])
+def generate_itinerary(
+    itinerary: Itinerary,
+    additional_request: str = "",
+):
 
     """
     사용자 입력을 이용하여
@@ -172,6 +223,8 @@ def generate_itinerary(itinerary: Itinerary):
             f"{itinerary.get_companion_type_display()}, "
             f"{itinerary.get_style_display()}"
         )
+        if additional_request.strip():
+            user_text = f"{user_text}, 추가 요청: {additional_request.strip()}"
 
         print("=" * 80)
         print("User Input :", user_text)

@@ -236,6 +236,7 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   "remove_must_visit_places": 문자열 배열,
   "add_excluded_places": 문자열 배열,
   "remove_excluded_places": 문자열 배열,
+  "remove_places": 현재 일정에서 삭제하고 대체하지 않을 장소명 배열,
   "add_preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 값을 담은 배열,
   "remove_preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 값을 담은 배열,
   "duration_days": 정수 또는 null,
@@ -266,6 +267,12 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 - 예를 들어 "마요네즈 빼줘", "회 말고", "매운 음식은 싫어", "조용한 카페로", "흑돼지 말고 해산물" 같은 요청은 장소 제외가 아닙니다.
 - 이런 요청은 notes에만 간단히 요약하고, affected_slots에 관련 슬롯을 추가하세요.
 
+"remove_places" 사용 규칙:
+
+- 현재 일정의 장소를 단순히 삭제하거나 빼 달라는 요청에만 사용하세요.
+- 삭제한 자리를 다른 장소로 채우지 않으므로 affected_slots는 빈 배열([])로 두세요.
+- "A 대신 B"처럼 교체를 요청하면 remove_places가 아니라 add_excluded_places와 add_must_visit_places를 사용하세요.
+
 "affected_slots" 사용 규칙:
 
 - 기존 관광지, 맛집, 카페, 액티비티 등을 변경하거나 다시 추천해야 하는 요청이라면 해당 슬롯을 추가하세요.
@@ -277,10 +284,10 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   -> add_excluded_places=["우도"], add_must_visit_places=["협재해변"], affected_slots=["visit"]
 
 - "우도는 빼줘"
-  -> add_excluded_places=["우도"], affected_slots=["visit"]
+  -> remove_places=["우도"], affected_slots=[]
 
 - "허디거디 이도점은 빼줘"
-  -> add_excluded_places=["허디거디 이도점"], affected_slots=["food"]
+  -> remove_places=["허디거디 이도점"], affected_slots=[]
 
 - "자녀를 위한 흑돼지 맛집 추천해줘"
   -> add_must_visit_places=["흑돼지 맛집"], affected_slots=["food"]

@@ -1,7 +1,6 @@
 import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
-from src.recommender.package_profile import build_match_profile
 User = get_user_model()
 
 
@@ -112,8 +111,7 @@ class Package(models.Model):
         db_index=True,
     )
 
-    companion = models.CharField(max_length=100, blank=True)
-    tags = models.CharField(max_length=255, blank=True)
+    match_profile = models.JSONField()
 
     schema_version = models.CharField(
         max_length=20,
@@ -132,10 +130,6 @@ class Package(models.Model):
 
     def __str__(self):
         return self.title
-
-    @property
-    def match_profile(self):
-        return build_match_profile(self.companion, self.tags)
 
 
 
@@ -169,8 +163,10 @@ class Itinerary(models.Model):
     companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
     companion_count = models.PositiveSmallIntegerField(default=1)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
-    selected_package = models.ForeignKey(
-        Package, on_delete=models.SET_NULL, null=True, blank=True, related_name="itineraries"
+    selected_package = models.BigIntegerField(
+        null=True,
+        blank=True,
+        db_column="selected_package_id",
     )
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)

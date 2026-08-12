@@ -89,3 +89,14 @@ dist
 # 로컬 DB 백업은 Git 대신 별도 저장소에서 관리합니다.
 backups/
 data/backups/
+
+# Terraform local state, plans, downloaded providers, and local backend config
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+infra/terraform/backend.hcl
+crash.log
+crash.*.log

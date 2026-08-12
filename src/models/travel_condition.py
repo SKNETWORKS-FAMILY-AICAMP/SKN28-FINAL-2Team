@@ -33,6 +33,10 @@ class TravelCondition:
     excluded_places: tuple[str, ...] = ()
     mobility_constraints: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if not self.preferred_visit_types:
+            raise ValueError("at least one preferred_visit_type is required")
+
     @classmethod
     def from_mapping(cls, value: dict[str, Any]) -> "TravelCondition":
         return cls(
@@ -111,6 +115,7 @@ class ConditionDelta:
     remove_must_visit_places: tuple[str, ...] = ()
     add_excluded_places: tuple[str, ...] = ()
     remove_excluded_places: tuple[str, ...] = ()
+    remove_places: tuple[str, ...] = ()
     add_preferred_visit_types: tuple[VisitPreference, ...] = ()
     remove_preferred_visit_types: tuple[VisitPreference, ...] = ()
     duration_days: int | None = None
@@ -128,6 +133,7 @@ class ConditionDelta:
             remove_must_visit_places=_string_tuple(value.get("remove_must_visit_places")),
             add_excluded_places=_string_tuple(value.get("add_excluded_places")),
             remove_excluded_places=_string_tuple(value.get("remove_excluded_places")),
+            remove_places=_string_tuple(value.get("remove_places")),
             add_preferred_visit_types=_visit_type_tuple(
                 value.get("add_preferred_visit_types")
             ),
@@ -156,7 +162,9 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
         condition.must_visit_places, delta.add_must_visit_places, delta.remove_must_visit_places
     )
     excluded = _apply_set_ops(
-        condition.excluded_places, delta.add_excluded_places, delta.remove_excluded_places
+        condition.excluded_places,
+        (*delta.add_excluded_places, *delta.remove_places),
+        delta.remove_excluded_places,
     )
 
     must_visit = tuple(place for place in must_visit if place not in excluded)
@@ -209,6 +217,8 @@ def infer_affected_slots(delta: ConditionDelta) -> tuple[SlotRole, ...]:
         roles.append("activity")
     if delta.add_must_visit_places or delta.remove_must_visit_places:
         roles.extend(["visit", "activity", "food", "shopping"])
+    if delta.remove_places and not roles:
+        return ()
     # NOTE: add_slots (이름 없이 "N개 더 추가해줘" 요청)는 여기 포함시키지 않는다.
     # 이건 기존 슬롯을 다시 검색/교체하라는 신호가 아니라 새 슬롯을 만들라는
     # 신호이므로, engine.update_itinerary_from_chat에서 별도로 처리한다.

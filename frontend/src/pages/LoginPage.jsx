@@ -42,15 +42,21 @@ export default function LoginPage() {
         throw new Error('카카오 로그인 SDK를 불러오지 못했습니다.')
       }
 
+      const javascriptKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY
+      if (!javascriptKey) {
+        throw new Error('카카오 로그인 키가 설정되지 않았습니다.')
+      }
+
       if (!window.Kakao.isInitialized()) {
-        window.Kakao.init(import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY)
+        window.Kakao.init(javascriptKey)
       }
 
       const next = searchParams.get('next') || '/'
       sessionStorage.setItem('kakaoLoginNext', next)
 
       window.Kakao.Auth.authorize({
-        redirectUri: 'http://localhost:5173/oauth/kakao/callback',
+        redirectUri: import.meta.env.VITE_KAKAO_REDIRECT_URI
+          || `${window.location.origin}/oauth/kakao/callback`,
         prompt: 'login',
       })
     } catch (err) {
@@ -87,34 +93,22 @@ export default function LoginPage() {
         </p>
 
         <div className={styles.btns}>
-          <div style={{ position: 'relative' }}>
-            <button
-              className={`${styles.socialBtn} ${styles.google}`}
-              disabled={loading}
-              type="button"
-            >
-              {pendingProvider === 'google' && loading ? (
-                <span className={styles.spinner}></span>
-              ) : (
-                <span className={styles.googleIcon}>G</span>
-              )}
-              Google로 계속하기
-            </button>
-
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                opacity: 0,
-                overflow: 'hidden',
-              }}
-            >
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                width="1000"
-              />
-            </div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              opacity: loading ? 0.6 : 1,
+              pointerEvents: loading ? 'none' : 'auto',
+            }}
+          >
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              shape="pill"
+              size="large"
+              text="continue_with"
+              width="320"
+            />
           </div>
 
           <button

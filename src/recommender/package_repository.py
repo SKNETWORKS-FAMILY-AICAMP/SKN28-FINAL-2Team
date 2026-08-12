@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Protocol, Sequence
 
 from src.config.settings import MySQLConfig
 from src.storage.mysql_repository import MySQLPlaceRepository
 
 from .models import PackageCandidate, PackageItem
-from .package_profile import build_match_profile
 
 
 class PackageRepository(Protocol):
@@ -69,10 +69,7 @@ def _group_packages(rows: list[dict[str, Any]]) -> list[PackageCandidate]:
                 duration_days=int(row["duration_days"]),
                 estimated_price=int(row["estimated_price"]),
                 thumbnail_url=str(row.get("thumbnail_url") or ""),
-                match_profile=build_match_profile(
-                    row.get("companion"),
-                    row.get("package_tags"),
-                ),
+                match_profile=_deserialize_match_profile(row.get("match_profile")),
                 items=tuple(entry["items"]),
             )
         )
@@ -87,6 +84,14 @@ def _optional_float(value: Any) -> float | None:
     return None if value is None else float(value)
 
 
+def _deserialize_match_profile(value: Any) -> dict[str, Any]:
+    if isinstance(value, str):
+        value = json.loads(value)
+    if not isinstance(value, dict):
+        raise ValueError("travel_packages.match_profile must be a JSON object")
+    return value
+
+
 _PACKAGE_SELECT = """
 SELECT
     tp.id AS package_db_id,
@@ -96,8 +101,7 @@ SELECT
     tp.region,
     tp.duration_days,
     tp.estimated_price,
-    tp.companion,
-    tp.tags AS package_tags,
+    tp.match_profile,
     (
         SELECT COALESCE(
             NULLIF(img.image_url, ''),

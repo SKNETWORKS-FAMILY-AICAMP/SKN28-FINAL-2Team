@@ -131,9 +131,13 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        additional_request = serializer.validated_data.get("additional_request", "")
         itinerary = serializer.save(user=request.user)
 
-        generate_itinerary(itinerary)
+        generate_itinerary(
+            itinerary,
+            additional_request=additional_request,
+        )
 
         serializer = self.get_serializer(itinerary)
 

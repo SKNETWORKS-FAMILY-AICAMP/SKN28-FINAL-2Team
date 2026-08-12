@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from src.recommender.package_profile import infer_package_style
+from src.recommender.package_profile import infer_package_style_from_profile
 
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
 
@@ -14,13 +14,13 @@ class PackageSerializer(serializers.ModelSerializer):
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
-    match_profile = serializers.ReadOnlyField()
+    match_profile = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Package
         fields = (
             "id", "package_id", "name", "description", "price", "region", "duration_days",
-            "companion", "tags", "match_profile",
+            "match_profile",
             "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
         )
 
@@ -42,7 +42,7 @@ class PackageSerializer(serializers.ModelSerializer):
             return bool(cursor.fetchone()[0])
 
     def get_style(self, obj):
-        return infer_package_style(obj.companion, obj.tags)
+        return infer_package_style_from_profile(obj.match_profile)
 
     def get_style_display(self, obj):
         labels = {
@@ -164,6 +164,11 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
 
 class ItinerarySerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=False,allow_blank=True)
+    additional_request = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
     days = ItineraryDaySerializer(many=True, required=False)
     duration_label = serializers.ReadOnlyField()
     style_display = serializers.CharField(source="get_style_display", read_only=True)
@@ -178,12 +183,14 @@ class ItinerarySerializer(serializers.ModelSerializer):
             "companion_count", "style", "style_display",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
+            "additional_request",
             "created_at", "updated_at",
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
 
     def create(self, validated_data):
+        validated_data.pop("additional_request", None)
         days_data = validated_data.pop("days", [])
         itinerary = Itinerary.objects.create(**validated_data)
         self._sync_days(itinerary, days_data)
@@ -191,6 +198,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
 
     def update(self, instance, validated_data):
+        validated_data.pop("additional_request", None)
         days_data = validated_data.pop("days", None)
 
         for attr, value in validated_data.items():
@@ -199,6 +207,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
         if days_data is not None:
             self._sync_days(instance, days_data)
+            self._sync_engine_state(instance)
 
         return instance
 
@@ -216,6 +225,35 @@ class ItinerarySerializer(serializers.ModelSerializer):
             for idx, item_data in enumerate(items_data):
                 item_data.setdefault("order", idx)
                 ItineraryItem.objects.create(day=day, **item_data)
+
+    @staticmethod
+    def _sync_engine_state(itinerary):
+        if not itinerary.engine_state:
+            return
+
+        from .services import _merge_schedule_into_engine_state
+
+        schedule = [
+            {
+                "day": day.day_number,
+                "stops": [
+                    {
+                        "sequence": item.order,
+                        "title": item.title,
+                        "start_time": item.time,
+                        "notes": item.description,
+                        "item_type": item.item_type,
+                    }
+                    for item in day.items.all()
+                ],
+            }
+            for day in itinerary.days.prefetch_related("items").all()
+        ]
+        itinerary.engine_state = _merge_schedule_into_engine_state(
+            itinerary.engine_state,
+            schedule,
+        )
+        itinerary.save(update_fields=["engine_state"])
 
 
 class ItineraryRouteSerializer(serializers.Serializer):
