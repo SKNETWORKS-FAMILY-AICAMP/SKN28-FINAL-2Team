@@ -85,14 +85,14 @@ class ReadinessEndpointTests(SimpleTestCase):
 
     @patch("config.urls._readiness_status", return_value={"databases": "ok"})
     def test_ready_returns_dependency_status(self, _status):
-        response = self.client.get("/ready/")
+        response = self.client.get("/ready/", secure=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ready")
 
     @patch("config.urls._readiness_status", side_effect=RuntimeError("offline"))
     def test_ready_returns_503_without_internal_details(self, _status):
-        response = self.client.get("/ready/")
+        response = self.client.get("/ready/", secure=True)
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(
