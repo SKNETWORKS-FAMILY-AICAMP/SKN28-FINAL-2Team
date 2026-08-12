@@ -153,6 +153,7 @@ class LLMService:
                 "itinerary generation response is missing 'days'"
             )
 
+        _repair_generated_itinerary(raw, days_with_candidates)
         _validate_generated_itinerary(raw, days_with_candidates)
 
         return raw
@@ -238,6 +239,65 @@ class LLMService:
         _validate_itinerary_revision(raw, existing_itinerary, changed_slots)
 
         return raw
+
+
+def _repair_generated_itinerary(
+    itinerary: dict[str, Any],
+    days_with_candidates: list[dict[str, Any]],
+) -> None:
+    slots = {
+        (int(day["day"]), int(slot["sequence"])): slot
+        for day in days_with_candidates
+        for slot in day.get("slots", [])
+    }
+    used_content_ids: set[int] = set()
+
+    for day in itinerary.get("days", []):
+        day_number = int(day["day"])
+        repaired_stops = []
+
+        for stop in day.get("stops", []):
+            key = (day_number, int(stop["sequence"]))
+            slot = slots.get(key, {})
+            candidates = slot.get("candidates", [])
+            try:
+                current_content_id = int(stop.get("content_id"))
+            except (TypeError, ValueError):
+                current_content_id = None
+
+            selected = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if int(candidate["content_id"]) == current_content_id
+                    and current_content_id not in used_content_ids
+                ),
+                None,
+            )
+            if selected is None:
+                selected = next(
+                    (
+                        candidate
+                        for candidate in candidates
+                        if int(candidate["content_id"]) not in used_content_ids
+                    ),
+                    None,
+                )
+            if selected is None:
+                continue
+
+            selected_content_id = int(selected["content_id"])
+            if selected_content_id != current_content_id:
+                stop["content_id"] = selected_content_id
+                if selected.get("title"):
+                    stop["title"] = selected["title"]
+                    stop["notes"] = f"{selected['title']} 방문"
+
+            stop["role"] = slot.get("role", stop.get("role"))
+            repaired_stops.append(stop)
+            used_content_ids.add(selected_content_id)
+
+        day["stops"] = repaired_stops
 
 
 def _validate_generated_itinerary(

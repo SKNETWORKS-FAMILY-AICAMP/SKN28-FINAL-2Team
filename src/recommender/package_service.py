@@ -95,11 +95,15 @@ def _deterministic_reason(candidate: ScoredPackage) -> str:
 
 
 def _serialize_recommendation(
-    rank: int, candidate: ScoredPackage, reason: str
+    rank: int,
+    candidate: ScoredPackage,
+    reason: str,
 ) -> dict[str, Any]:
     package = candidate.package
+
     return {
         "rank": rank,
+        "database_id": package.database_id,
         "package_id": package.package_id,
         "title": package.title,
         "summary": package.summary,
@@ -117,7 +121,8 @@ def _serialize_recommendation(
             "tourism_match": candidate.score.exact_overlap,
             "user_conditions": candidate.score.profile_fit,
             "region_and_route": round(
-                candidate.score.route_fit + candidate.score.nearby_fit, 2
+                candidate.score.route_fit + candidate.score.nearby_fit,
+                2,
             ),
             "exact_overlap": candidate.score.exact_overlap,
             "route_fit": candidate.score.route_fit,
@@ -128,7 +133,11 @@ def _serialize_recommendation(
         "evidence": candidate.evidence,
         "days": _serialize_days(package.items),
         "hotel": next(
-            (_serialize_item(row) for row in package.items if row.item_type == "hotel"),
+            (
+                _serialize_item(row)
+                for row in package.items
+                if row.item_type == "hotel"
+            ),
             None,
         ),
     }

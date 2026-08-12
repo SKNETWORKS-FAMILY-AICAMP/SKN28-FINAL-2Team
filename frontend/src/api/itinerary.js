@@ -12,6 +12,9 @@ const mapItinerary = (data) => ({
   companionTypeDisplay: data.companion_type_display,
   companionCount: data.companion_count,
 
+  status: data.status,
+  statusDisplay: data.status_display,
+
   style: data.style_display,
   styleCode: data.style,
   styleDisplay: data.style_display,
@@ -102,6 +105,10 @@ export const updateItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
+export const deleteItinerary = async (id) => {
+  await api.delete(`/travel/itineraries/${id}/`);
+};
+
 // 일정 일부 수정
 export const patchItinerary = async (id, payload) => {
   const { data } = await api.patch(
@@ -112,9 +119,12 @@ export const patchItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
-// 일정 삭제
-export const deleteItinerary = async (id) => {
-  await api.delete(`/travel/itineraries/${id}/`);
+export const confirmItinerary = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/confirm/`
+  );
+
+  return mapItinerary(data);
 };
 
 // 여행 경로 조회

@@ -40,6 +40,21 @@ export async function getReservations() {
   return response.json()
 }
 
+export async function getReservation(id) {
+  const response = await fetch(`${API_BASE_URL}/api/reservations/${id}/`, {
+    method: 'GET',
+    headers: authHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      await parseError(response, '예약 상세 정보를 불러오지 못했습니다.'),
+    )
+  }
+
+  return response.json()
+}
+
 export async function createReservation(paymentMethod, options = {}) {
   const { packageIds, cartItemIds, itineraryId } = options
 

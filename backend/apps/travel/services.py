@@ -8,6 +8,7 @@ from django.db import transaction
 from src.api import itinerary_engine
 from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
+from .route_optimizer import optimize_stops
 
 
 def _merge_schedule_into_engine_state(
@@ -84,6 +85,99 @@ def _build_place_info_map(
 
     return place_info_map
 
+def _attach_coordinates_to_stops(
+    state: ItineraryState,
+):
+    """
+    OR-Tools 실행 전에 각 stop에 latitude / longitude를 붙인다.
+    """
+
+    place_info_map = _build_place_info_map(state)
+
+    for day_data in state.itinerary.get("days", []):
+        for stop in day_data.get("stops", []):
+            content_id = stop.get("content_id")
+
+            if not content_id:
+                continue
+
+            place = (
+                Place.objects.using("travel")
+                .filter(content_id=content_id)
+                .first()
+            )
+
+            place_info = place_info_map.get(
+                content_id,
+                {
+                    "latitude": None,
+                    "longitude": None,
+                },
+            )
+
+            latitude = (
+                place.latitude
+                if place
+                else place_info.get("latitude")
+            )
+
+            longitude = (
+                place.longitude
+                if place
+                else place_info.get("longitude")
+            )
+
+            stop["latitude"] = (
+                float(latitude)
+                if latitude is not None
+                else None
+            )
+
+            stop["longitude"] = (
+                float(longitude)
+                if longitude is not None
+                else None
+            )
+
+
+def _optimize_itinerary_routes(
+    state: ItineraryState,
+):
+    """
+    각 날짜별 일정의 장소 순서를 OR-Tools로 최적화한다.
+    """
+
+    # 먼저 stop에 좌표 추가
+    _attach_coordinates_to_stops(state)
+
+    for day_data in state.itinerary.get("days", []):
+        stops = day_data.get("stops", [])
+
+        if not stops:
+            continue
+
+        print("=" * 80)
+        print(
+            f"[OR-Tools] DAY {day_data.get('day')} 최적화 전"
+        )
+
+        for stop in stops:
+            print(
+                stop.get("sequence"),
+                stop.get("title"),
+                stop.get("latitude"),
+                stop.get("longitude"),
+            )
+
+        optimized_stops = optimize_stops(stops)
+
+        day_data["stops"] = optimized_stops
+
+        print(
+            f"[OR-Tools] DAY {day_data.get('day')} 최적화 완료"
+        )
+        print("=" * 80)
+
 def _save_itinerary_result(
     itinerary: Itinerary,
     state: ItineraryState,
@@ -154,17 +248,37 @@ def _save_itinerary_result(
                 longitude,
                 thumbnail,
             )
+            role = stop.get("role")
+
+            item_type_map = {
+                "visit": ItineraryItem.ItemType.SPOT,
+                "food": ItineraryItem.ItemType.RESTAURANT,
+                "shopping": ItineraryItem.ItemType.SHOPPING,
+                "activity": ItineraryItem.ItemType.ACTIVITY,
+                "accommodation": ItineraryItem.ItemType.ACCOMMODATION,
+            }
+
+            item_type = item_type_map.get(
+                role,
+                ItineraryItem.ItemType.SPOT,
+            )
+
+            print(
+                "[ITEM TYPE]",
+                "role =", role,
+                "→ item_type =", item_type,
+            )
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
                 order=stop.get("sequence", 1),
                 time=stop.get("start_time", ""),
-                item_type=ItineraryItem.ItemType.SPOT,
+                item_type=item_type,
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
                 thumbnail=thumbnail,
-                latitude=latitude,
-                longitude=longitude,
+                latitude=round(latitude, 6) if latitude is not None else None,
+                longitude=round(longitude, 6) if longitude is not None else None,
                 spot=None,
                 restaurant=None,
                 accommodation=None,
@@ -189,10 +303,10 @@ def generate_itinerary(
 
     itinerary.title = (
         f"{itinerary.duration_label} "
-        f"{itinerary.get_style_display()} "
         f"{itinerary.get_companion_type_display()} 여행"
     )
     itinerary.save(update_fields=["title"])
+
 
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")
@@ -212,19 +326,29 @@ def generate_itinerary(
 
         print(
             "display style     :",
-            itinerary.get_style_display(),
+            itinerary.style,
         )
 
         # -------------------------------------------------
         # LLM 입력 생성
+        #
+        # 여행 스타일(itinerary.style)은 미리 정해둔 카테고리로 필터링하지
+        # 않는다. 사용자가 자유 입력한 텍스트를 그대로 user_text에 포함시켜
+        # LLM의 extract_travel_condition이 선호 방문유형/목적/필수 방문지 등을
+        # 직접 추출하게 하고, 그 결과가 RAG 검색 쿼리(generate_style_query)에
+        # 반영되어 관광지 후보를 찾아오도록 한다. AIHub 참고 여행 매칭
+        # (나이대/기간/동행)에는 style 값을 사용하지 않는다.
         # -------------------------------------------------
         user_text = (
             f"{itinerary.duration_label}, "
             f"{itinerary.get_companion_type_display()}, "
-            f"{itinerary.get_style_display()}"
+            f"{itinerary.age_group}대"
         )
         if additional_request.strip():
             user_text = f"{user_text}, 추가 요청: {additional_request.strip()}"
+
+        if itinerary.style:
+            user_text = f"{user_text}, {itinerary.style}"
 
         print("=" * 80)
         print("User Input :", user_text)
@@ -235,6 +359,11 @@ def generate_itinerary(
         # 전체 파이프라인 실행
         # -------------------------------------------------
         state = itinerary_engine.create_itinerary(user_text)
+
+        # -------------------------------------------------
+        # OR-Tools 경로 최적화
+        # -------------------------------------------------
+        _optimize_itinerary_routes(state)
 
         # -------------------------------------------------
         # 최종 일정
@@ -309,6 +438,9 @@ def revise_itinerary(
                 user_text,
             )
         )
+
+        # 수정된 일정도 다시 최적 경로 계산
+        _optimize_itinerary_routes(new_state)
 
         # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()

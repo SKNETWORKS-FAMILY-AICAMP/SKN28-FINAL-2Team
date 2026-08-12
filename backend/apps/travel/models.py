@@ -1,6 +1,8 @@
 import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
+from src.recommender.package_profile import build_match_profile
+
 User = get_user_model()
 
 
@@ -111,7 +113,15 @@ class Package(models.Model):
         db_index=True,
     )
 
-    match_profile = models.JSONField()
+    companion = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    tags = models.TextField(
+        null=True,
+        blank=True,
+    )
 
     schema_version = models.CharField(
         max_length=20,
@@ -131,17 +141,13 @@ class Package(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def match_profile(self):
+        return build_match_profile(self.companion, self.tags)
 
 
 class Itinerary(models.Model):
     """최종 여행 일정표 """
-
-    class Style(models.TextChoices):
-        FAMILY = "family", "가족여행"
-        HEALING = "healing", "힐링여행"
-        ACTIVITY = "activity", "액티비티"
-        FOOD = "food", "맛집여행"
-        TREKKING = "trekking", "트레킹"
 
     class Status(models.TextChoices):
         DRAFT = "draft", "임시저장"
@@ -161,8 +167,13 @@ class Itinerary(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     companion_type = models.CharField(max_length=20, choices=CompanionType.choices, default=CompanionType.SOLO)
+    age_group = models.CharField(
+        max_length=10, blank=True, null=True, help_text="여행 대표자의 나이대 (예: 10, 20, 30, 40, 50, 60)")
     companion_count = models.PositiveSmallIntegerField(default=1)
-    style = models.CharField(max_length=20, choices=Style.choices, blank=True)
+    # 미리 정해둔 카테고리(choices)로 제한하지 않고, 사용자가 자유롭게 입력한
+    # 여행 스타일 텍스트를 그대로 저장한다. 이 값은 필터링에 쓰이지 않고
+    # RAG 검색 조건(user_text)으로 그대로 전달된다.
+    style = models.CharField(max_length=200, blank=True)
     selected_package = models.BigIntegerField(
         null=True,
         blank=True,
@@ -217,6 +228,7 @@ class ItineraryItem(models.Model):
         RESTAURANT = "restaurant", "맛집"
         ACCOMMODATION = "accommodation", "숙소"
         ACTIVITY = "activity", "액티비티"
+        SHOPPING = "shopping", "쇼핑"
         CUSTOM = "custom", "직접 추가"
 
     day = models.ForeignKey(ItineraryDay, on_delete=models.CASCADE, related_name="items")

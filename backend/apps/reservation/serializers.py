@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.travel.models import Package
 from apps.travel.serializers import PackageSerializer
+from apps.travel.kakao_route_service import get_kakao_route_path
 
 from .models import CartItem, Reservation, ReservationItem
 
@@ -13,7 +14,9 @@ class CartItemSerializer(serializers.ModelSerializer):
         model = CartItem
         fields = (
             "id",
+            "product_type",
             "package_db_id",
+            "itinerary_id",
             "package_detail",
             "quantity",
             "option_date",
@@ -27,6 +30,17 @@ class CartItemSerializer(serializers.ModelSerializer):
         )
 
     def get_package_detail(self, obj):
+        if obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY:
+            return {
+                "id": f"custom-{obj.itinerary_id}",
+                "package_id": f"CUSTOM-{obj.itinerary_id}",
+                "name": obj.product_name or "Custom itinerary package",
+                "description": "확정한 일정 그대로 예약하는 자유패키지입니다.",
+                "price": obj.unit_price,
+                "thumbnail_url": "",
+                "isCustom": True,
+            }
+
         package = (
             Package.objects.using("travel")
             .filter(
@@ -48,7 +62,23 @@ class CartSerializer(serializers.Serializer):
 
 
 class CartItemCreateSerializer(serializers.Serializer):
-    package_id = serializers.IntegerField()
+    product_type = serializers.ChoiceField(
+        choices=CartItem.ProductType.choices,
+        default=CartItem.ProductType.STORED_PACKAGE,
+    )
+    package_id = serializers.IntegerField(required=False)
+    itinerary_id = serializers.IntegerField(required=False)
+
+    def validate(self, attrs):
+        product_type = attrs["product_type"]
+
+        if product_type == CartItem.ProductType.STORED_PACKAGE:
+            if not attrs.get("package_id"):
+                raise serializers.ValidationError({"package_id": "package_id is required."})
+        elif not attrs.get("itinerary_id"):
+            raise serializers.ValidationError({"itinerary_id": "itinerary_id is required."})
+
+        return attrs
 
     def validate_package_id(self, value):
         exists = (
@@ -95,10 +125,13 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 
 
 class ReservationItemSerializer(serializers.ModelSerializer):
+    schedule = serializers.SerializerMethodField()
+
     class Meta:
         model = ReservationItem
         fields = (
             "id",
+            "product_type",
             "package_db_id",
             "package_id",
             "name",
@@ -106,7 +139,159 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "quantity",
             "option_date",
             "option_people",
+            "schedule",
         )
+
+    def get_schedule(self, obj):
+        if not self.context.get("include_schedule", True):
+            return []
+        
+        if (
+            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
+            or str(obj.package_id or "").upper().startswith("CUSTOM-")
+        ):
+            return []
+
+        package_db_id = obj.package_db_id
+        if not package_db_id and obj.package_id:
+            package_db_id = (
+                Package.objects.using("travel")
+                .filter(package_id=obj.package_id, is_active=True)
+                .values_list("id", flat=True)
+                .first()
+            )
+
+        if not package_db_id:
+            return []
+
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    pi.day_no,
+                    pi.sequence,
+                    pi.item_type,
+                    pi.content_id,
+                    pi.stay_minutes,
+                    p.title,
+                    p.addr1,
+                    p.addr2,
+                    p.latitude,
+                    p.longitude,
+                    (
+                        SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                        FROM place_images img
+                        WHERE img.content_id = pi.content_id
+                          AND (img.image_url IS NOT NULL OR img.thumbnail_url IS NOT NULL)
+                        ORDER BY img.display_order
+                        LIMIT 1
+                    )
+                FROM package_items pi
+                LEFT JOIN places p ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.day_no IS NOT NULL
+                ORDER BY pi.day_no, pi.sequence
+                """,
+                [package_db_id],
+            )
+            rows = cursor.fetchall()
+
+        days = {}
+        for row in rows:
+            (
+                day_no,
+                sequence,
+                item_type,
+                content_id,
+                stay_minutes,
+                title,
+                addr1,
+                addr2,
+                latitude,
+                longitude,
+                thumbnail,
+            ) = row
+            address = " ".join(part for part in (addr1, addr2) if part)
+            days.setdefault(day_no, []).append({
+                "sequence": sequence,
+                "item_type": item_type,
+                "content_id": content_id,
+                "stay_minutes": stay_minutes,
+                "title": title or f"장소 {content_id}",
+                "description": address,
+                "latitude": latitude,
+                "longitude": longitude,
+                "thumbnail": thumbnail or "",
+            })
+
+        result = []
+
+        for day_no, items in sorted(days.items()):
+            valid_items = [
+                item
+                for item in items
+                if (
+                    item.get("latitude") is not None
+                    and item.get("longitude") is not None
+                )
+            ]
+
+            valid_items.sort(
+                key=lambda item: int(
+                    item.get("sequence") or 0
+                )
+            )
+
+            day_path = []
+
+            for index in range(len(valid_items) - 1):
+                origin = valid_items[index]
+                destination = valid_items[index + 1]
+
+                try:
+                    segment_path = get_kakao_route_path(
+                        origin,
+                        destination,
+                    )
+                except RuntimeError as exc:
+                    print(
+                        "[Kakao] 예약 패키지 경로 조회 실패:",
+                        origin.get("title"),
+                        "→",
+                        destination.get("title"),
+                        exc,
+                    )
+                    continue
+
+                if not segment_path:
+                    continue
+
+                if day_path:
+                    day_path.extend(
+                        segment_path[1:]
+                    )
+                else:
+                    day_path.extend(
+                        segment_path
+                    )
+
+            print(
+                "[Kakao] 예약 패키지 경로 생성:",
+                f"DAY {day_no}",
+                f"{len(day_path)} points",
+            )
+
+            result.append(
+                {
+                    "day": day_no,
+                    "items": items,
+                    "path": day_path,
+                }
+            )
+
+        return result
 
 
 class ReservationSerializer(serializers.ModelSerializer):
