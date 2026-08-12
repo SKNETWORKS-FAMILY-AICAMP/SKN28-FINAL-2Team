@@ -13,7 +13,6 @@ from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer,
         ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer, PackageListSerializer
 )
 from .services import generate_itinerary, revise_itinerary
-from .kakao_route_service import get_kakao_route_path
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -319,7 +318,14 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get"])
     def route(self, request, pk=None):
-        """최적 방문 순서와 인접 장소 사이의 실제 자동차 경로를 반환한다."""
+        """
+        여행 경로 지도 표시.
+
+        - OR-Tools로 최적화되어 저장된 방문 순서를 사용
+        - 각 장소의 좌표를 points로 반환
+        - Kakao Directions API는 호출하지 않는다.
+        """
+
         itinerary = self.get_object()
         result = []
         for day in itinerary.days.all().order_by("day_number"):
@@ -339,29 +345,12 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 for item in items
             ]
 
-            path = []
-            for index in range(len(points) - 1):
-                origin = points[index]
-                destination = points[index + 1]
-                try:
-                    segment = get_kakao_route_path(origin, destination)
-                except RuntimeError:
-                    segment = [
-                        {
-                            "latitude": origin["latitude"],
-                            "longitude": origin["longitude"],
-                        },
-                        {
-                            "latitude": destination["latitude"],
-                            "longitude": destination["longitude"],
-                        },
-                    ]
-                if path and segment:
-                    segment = segment[1:]
-                path.extend(segment)
-
             result.append(
-                {"day_number": day.day_number, "points": points, "path": path}
+                {
+                    "day_number": day.day_number,
+                    "points": points,
+                    "path": [],
+                }
             )
         return Response(result)
 

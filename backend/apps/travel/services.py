@@ -372,6 +372,7 @@ def revise_itinerary(
             skip_days=set(chat_result.locked_days),
         )
 
+        # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
