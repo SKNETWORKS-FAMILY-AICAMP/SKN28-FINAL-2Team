@@ -93,7 +93,7 @@ export default function ReviewPage() {
 
         setItinerary(data);
 
-        if (!token && data.status === 'confirmed') {
+        if (data.status === 'confirmed') {
           setPackageLoading(true);
           setPackageError('');
 
@@ -124,7 +124,7 @@ export default function ReviewPage() {
             }
 
             // 아직 예약 전
-            else {
+            else if (!token) {
               const comparison = await getPackageRecommendations(id, 1);
               setPackageComparison(comparison);
             }
@@ -355,12 +355,11 @@ export default function ReviewPage() {
           </p>
         </div>
 
-        {(token || itinerary.status !== 'confirmed') && (
+
+        <div>
+          {itinerary.status !== 'confirmed' && (
         <div className={styles.shell}>
-          <div
-            className={styles.mainCard}
-            ref={pdfRef}
-          >
+          <div className={styles.mainCard}>
             <div className={styles.topRow}>
               <div>
                 <h2>
@@ -372,36 +371,7 @@ export default function ReviewPage() {
                   className={styles.actionRow}
                   data-html2canvas-ignore="true"
                 >
-                  {showToast && (
-                    <div className={styles.toast}>
-                      링크 복사!
-                    </div>
-                  )}
 
-                  <button
-                    className={cx(
-                      styles.btn,
-                      styles.ghost,
-                      styles.sm
-                    )}
-                    onClick={handleShare}
-                  >
-                    📤 공유하기
-                  </button>
-
-                  <button
-                    className={cx(
-                      styles.btn,
-                      styles.ghost,
-                      styles.sm
-                    )}
-                    onClick={handlePdfDownload}
-                    disabled={isDownloading}
-                  >
-                    {isDownloading
-                      ? 'PDF 생성 중...'
-                      : '📄 PDF 다운로드'}
-                  </button>
 
                   {itinerary.status !== 'confirmed' && (
                     <Link
@@ -629,8 +599,7 @@ export default function ReviewPage() {
             </section>
           )}
   
-      {!token &&
-        itinerary.status === 'confirmed' &&
+        {itinerary.status === 'confirmed' &&
         isBookedStored &&
         packageComparison?.stored_package && (
           <section className={cx(styles.packageComparison, styles.bookedComparison)}>
@@ -645,6 +614,31 @@ export default function ReviewPage() {
               <p>예약한 추천 패키지의 일정입니다.</p>
             </div>
 
+            <div className={styles.reviewActions}>
+              {showToast && (
+                <div className={styles.toast}>
+                  링크 복사!
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={cx(styles.btn, styles.ghost, styles.sm)}
+                onClick={handleShare}
+              >
+                📤 공유하기
+              </button>
+
+              <button
+                type="button"
+                className={cx(styles.btn, styles.ghost, styles.sm)}
+                onClick={handlePdfDownload}
+                disabled={isDownloading}
+              >
+                {isDownloading ? 'PDF 생성 중...' : '📄 PDF 저장'}
+              </button>
+            </div>
+
             <div className={styles.comparisonMapSlot}>
               <ComparisonRouteMap
                 itineraryId={itinerary.id}
@@ -657,7 +651,10 @@ export default function ReviewPage() {
               />
             </div>
 
-            <div className={cx(styles.packageComparisonGrid, styles.bookedComparisonGrid)}>
+            <div
+              ref={pdfRef}
+              className={cx(styles.packageComparisonGrid, styles.bookedComparisonGrid)}
+            >
               <article
                 className={cx(
                   styles.packageChoiceCard,
@@ -702,8 +699,7 @@ export default function ReviewPage() {
             </div>
           </section>
       )}
-            {!token &&
-              itinerary.status === 'confirmed' &&
+              {itinerary.status === 'confirmed' &&
               isBookedCustom && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
                   <div className={styles.packageComparisonHead}>
@@ -716,6 +712,32 @@ export default function ReviewPage() {
                     <p>예약한 자유일정입니다.</p>
                   </div>
 
+                {!token && (
+                  <div className={styles.reviewActions}>
+                    {showToast && (
+                      <div className={styles.toast}>
+                        링크 복사!
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className={cx(styles.btn, styles.ghost, styles.sm)}
+                      onClick={handleShare}
+                    >
+                      📤 공유하기
+                    </button>
+
+                    <button
+                      type="button"
+                      className={cx(styles.btn, styles.ghost, styles.sm)}
+                      onClick={handlePdfDownload}
+                      disabled={isDownloading}
+                    >
+                      {isDownloading ? 'PDF 생성 중...' : '📄 PDF 저장'}
+                    </button>
+                  </div>
+                )}
                   <div className={styles.comparisonMapSlot}>
                     <ComparisonRouteMap
                       itineraryId={itinerary.id}
@@ -724,7 +746,10 @@ export default function ReviewPage() {
                     />
                   </div>
 
-                  <div className={cx(styles.packageComparisonGrid, styles.bookedComparisonGrid)}>
+                  <div
+                    ref={pdfRef}
+                    className={cx(styles.packageComparisonGrid, styles.bookedComparisonGrid)}
+                  >
                     <article
                       className={cx(
                         styles.packageChoiceCard,
@@ -765,5 +790,6 @@ export default function ReviewPage() {
 
           </div>
         </div>  
+      </div>  
   );
 }
