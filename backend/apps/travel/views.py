@@ -80,7 +80,20 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses=ItinerarySerializer(many=True),
     )
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        queryset = (
+            self.get_queryset()
+            .filter(
+                reservations__status="confirmed"
+            )
+            .distinct()
+        )
+
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+        )
+
+        return Response(serializer.data)
 
     @extend_schema(
         tags=["Itinerary"],

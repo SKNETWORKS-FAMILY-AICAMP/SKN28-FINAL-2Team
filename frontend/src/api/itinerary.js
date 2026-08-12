@@ -19,6 +19,10 @@ const mapItinerary = (data) => ({
   styleCode: data.style,
   styleDisplay: data.style_display,
 
+  bookedProductType: data.booked_product_type,
+  bookedPackageDbId: data.booked_package_db_id,
+  bookedPrice: data.booked_price,
+
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
     date: day.date,

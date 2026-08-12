@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
+from .kakao_route_service import get_kakao_route_path
 
 
 def _csv_values(value):
@@ -134,7 +135,9 @@ class PackageSerializer(serializers.ModelSerializer):
                     pi.content_id,
                     p.title,
                     p.addr1,
-                    p.addr2
+                    p.addr2,
+                    p.latitude,
+                    p.longitude
                 FROM package_items pi
                 LEFT JOIN places p
                     ON p.content_id = pi.content_id
@@ -157,6 +160,8 @@ class PackageSerializer(serializers.ModelSerializer):
             title,
             addr1,
             addr2,
+            latitude,
+            longitude,
         ) in rows:
             course_by_day.setdefault(day_no, []).append(
                 {
@@ -167,16 +172,73 @@ class PackageSerializer(serializers.ModelSerializer):
                     "address": " ".join(
                         part for part in [addr1, addr2] if part
                     ),
+                    "latitude": latitude,
+                    "longitude": longitude,
                 }
             )
 
-        return [
-            {
-                "day": day_no,
-                "items": items,
-            }
-            for day_no, items in sorted(course_by_day.items())
-        ]
+        result = []
+
+        for day_no, items in sorted(course_by_day.items()):
+            valid_items = [
+                item
+                for item in items
+                if (
+                    item.get("latitude") is not None
+                    and item.get("longitude") is not None
+                )
+            ]
+
+            valid_items.sort(
+                key=lambda item: int(
+                    item.get("sequence") or 0
+                )
+            )
+
+            day_path = []
+
+            for index in range(len(valid_items) - 1):
+                origin = valid_items[index]
+                destination = valid_items[index + 1]
+
+                try:
+                    segment_path = get_kakao_route_path(
+                        origin,
+                        destination,
+                    )
+                except RuntimeError as exc:
+                    print(
+                        "[Kakao] 추천 패키지 경로 조회 실패:",
+                        origin.get("title"),
+                        "→",
+                        destination.get("title"),
+                        exc,
+                    )
+                    continue
+
+                if not segment_path:
+                    continue
+
+                if day_path:
+                    day_path.extend(segment_path[1:])
+                else:
+                    day_path.extend(segment_path)
+
+            print(
+                "[Kakao] 추천 패키지 경로 생성:",
+                f"DAY {day_no}",
+                f"{len(day_path)} points",
+            )
+
+            result.append(
+                {
+                    "day": day_no,
+                    "items": items,
+                    "path": day_path,
+                }
+            )
+
+        return result
     
 class ItineraryItemSerializer(serializers.ModelSerializer):
 
@@ -204,6 +266,9 @@ class ItinerarySerializer(serializers.ModelSerializer):
     style_display = serializers.CharField(source="style", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
+    booked_product_type = serializers.SerializerMethodField()
+    booked_package_db_id = serializers.SerializerMethodField()
+    booked_price = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -214,10 +279,67 @@ class ItinerarySerializer(serializers.ModelSerializer):
             "companion_count",  "age_group", "style", "style_display",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
-            "created_at", "updated_at",
+            "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price"
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
+    def get_booked_product_type(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.product_type
+
+
+    def get_booked_package_db_id(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.package_db_id
+
+    def get_booked_price(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.price
 
     def create(self, validated_data):
         days_data = validated_data.pop("days", [])
