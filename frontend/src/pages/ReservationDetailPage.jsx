@@ -250,7 +250,12 @@ export default function ReservationDetailPage() {
         <article className={styles.card} ref={pdfRef}>
           <div className={styles.topRow}>
             <div>
-              <span className={styles.productType}>{isCustom ? '자유패키지' : '여행사 패키지'}</span>
+              <div className={styles.productBadges}>
+                <span className={styles.productType}>{isCustom ? '자유패키지' : '여행사 패키지'}</span>
+                {!isCustom && packageDetail?.accommodation_included && (
+                  <span className={styles.accommodationBadge}>🛏 숙소 포함</span>
+                )}
+              </div>
               <h2>{title}</h2>
               <p className={styles.sub}>{description}</p>
             </div>

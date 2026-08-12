@@ -507,9 +507,16 @@ export default function ReviewPage() {
                     </div>
                     <div className={styles.packageChoiceHead}>
                       <div>
-                        <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
-                          우리 여행사 추천 패키지
-                        </span>
+                        <div className={styles.packageBadgeRow}>
+                          <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
+                            우리 여행사 추천 패키지
+                          </span>
+                          {Boolean(packageComparison.stored_package?.hotel) && (
+                            <span className={styles.accommodationBadge}>
+                              🛏 숙소 포함
+                            </span>
+                          )}
+                        </div>
                         <h3>
                           {packageComparison.stored_package?.title ??
                             '조건에 맞는 패키지가 없습니다'}

@@ -107,7 +107,9 @@
 .recommendedChoiceCard{ position:relative; padding-top:52px; border:3px solid var(--green-deep); background:linear-gradient(180deg,var(--green-soft) 0,#fff 210px); box-shadow:7px 7px 0 var(--green); }
 .customChoiceCard{ border-color:#7d8781; background:#f7f8f7; box-shadow:4px 4px 0 #d8dcda; }
 .bestMatchRibbon{ position:absolute; top:0; right:0; left:0; padding:10px 16px; border-bottom:2px solid var(--green-deep); border-radius:16px 16px 0 0; background:var(--green); color:#fff; font-family:var(--display); font-size:12px; font-weight:800; letter-spacing:.02em; text-align:center; }
-.packageBadge{ display:inline-block; margin-bottom:12px; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
+.packageBadgeRow{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
+.packageBadge{ display:inline-block; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
+.accommodationBadge{ display:inline-flex; align-items:center; padding:5px 10px; border:1px solid rgba(47,111,74,.25); border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
 .recommendedBadge{ background:var(--green-deep); }
 .customBadge{ background:#67716c; }
 .packageChoiceHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; padding-bottom:15px; border-bottom:1px dashed var(--line); }
