@@ -5,8 +5,9 @@ RDS를 처음 구성하거나 배포 직전 상태를 확인할 때는
 Chroma/RAG는 [`chroma_production.md`](chroma_production.md)의 단일 private 서비스와
 배포 전 증분 인덱싱 절차를 사용한다.
 
-`.github/workflows/ci-cd.yml`은 pull request에서 CI를 실행하고, `main` 브랜치에
-push되면 GitHub `production` environment를 통해 AWS에 배포한다.
+`.github/workflows/ci-cd.yml`은 pull request와 `main` push에서 CI를 실행한다.
+실제 AWS 배포는 `main` 브랜치에서 `workflow_dispatch`로 수동 실행하고,
+GitHub `production` environment를 사용한다.
 
 ## 배포 전 AWS 리소스
 
@@ -28,22 +29,22 @@ ECS task definition에는 다음이 준비되어 있어야 한다.
 
 ## GitHub production environment variables
 
-Repository의 **Settings → Environments → production**에 다음 variables를 등록한다.
+관리자 권한이 있으면 **Settings → Environments → production**에 등록한다.
+환경 설정 권한이 없으면 **Settings → Secrets and variables → Actions → Variables**의
+repository variables에 같은 이름으로 등록해도 된다.
 
-| 이름 | 예시 |
+단일 운영환경에서는 변경 가능성이 있거나 외부 콘솔에서 발급되는 다음 4개만 등록한다.
+
+| 이름 | 운영 값 |
 | --- | --- |
-| `AWS_REGION` | `ap-northeast-2` |
-| `AWS_ROLE_ARN` | `arn:aws:iam::123456789012:role/github-actions-deploy` |
-| `ECR_REPOSITORY` | `tamrajeju-backend` |
-| `ECS_CLUSTER` | `tamrajeju-production` |
-| `ECS_SERVICE` | `tamrajeju-api` |
-| `ECS_CONTAINER_NAME` | `backend` |
-| `FRONTEND_S3_BUCKET` | `tamrajeju-production-frontend` |
-| `CLOUDFRONT_DISTRIBUTION_ID` | `E1234567890` |
-| `VITE_API_BASE_URL` | `https://api.example.com` |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `VITE_KAKAO_JAVASCRIPT_KEY` | Kakao JavaScript key |
-| `VITE_KAKAO_REDIRECT_URI` | `https://example.com/oauth/kakao/callback` |
+| `AWS_ROLE_ARN` | `arn:aws:iam::511092105773:role/tourmain-github-deploy-role` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | `E19GBBQUW25GVT` |
+| `VITE_GOOGLE_CLIENT_ID` | 현재 운영 Google OAuth client ID |
+| `VITE_KAKAO_JAVASCRIPT_KEY` | 현재 운영 Kakao JavaScript key |
+
+리전, ECR·ECS·S3 이름, CloudFront 도메인과 Kakao redirect URI는 현재 단일
+운영환경의 고정값이므로 workflow에 명시한다. staging이나 별도 AWS 계정이 생길 때
+environment variables로 분리한다.
 
 Vite variables는 브라우저에 포함되므로 비밀값을 넣지 않는다. `OPENAI_API_KEY`,
 DB password, `DJANGO_SECRET_KEY`, Kakao client secret은 ECS task definition에서

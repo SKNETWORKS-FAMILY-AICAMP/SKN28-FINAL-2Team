@@ -110,18 +110,18 @@ jobs:
       contents: read
       id-token: write
     env:
-      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_REGION: ap-northeast-2
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
-      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
-      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
-      ECS_CONTAINER_NAME: ${{ vars.ECS_CONTAINER_NAME }}
-      FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
+      ECR_REPOSITORY: tourmain/backend
+      ECS_CLUSTER: tourmain-production
+      ECS_SERVICE: tourmain-backend
+      ECS_CONTAINER_NAME: backend
+      FRONTEND_S3_BUCKET: tourmain-frontend-511092105773
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
-      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      VITE_API_BASE_URL: https://d9mejd7qkrml.cloudfront.net
       VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
       VITE_KAKAO_JAVASCRIPT_KEY: ${{ vars.VITE_KAKAO_JAVASCRIPT_KEY }}
-      VITE_KAKAO_REDIRECT_URI: ${{ vars.VITE_KAKAO_REDIRECT_URI }}
+      VITE_KAKAO_REDIRECT_URI: https://d9mejd7qkrml.cloudfront.net/oauth/kakao/callback
 
     steps:
       - uses: actions/checkout@v6
@@ -130,17 +130,19 @@ jobs:
         shell: bash
         run: |
           required=(
-            AWS_REGION AWS_ROLE_ARN ECR_REPOSITORY ECS_CLUSTER ECS_SERVICE
-            ECS_CONTAINER_NAME FRONTEND_S3_BUCKET CLOUDFRONT_DISTRIBUTION_ID
-            VITE_API_BASE_URL VITE_GOOGLE_CLIENT_ID
-            VITE_KAKAO_JAVASCRIPT_KEY VITE_KAKAO_REDIRECT_URI
+            AWS_ROLE_ARN CLOUDFRONT_DISTRIBUTION_ID
+            VITE_GOOGLE_CLIENT_ID VITE_KAKAO_JAVASCRIPT_KEY
           )
+          missing=()
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
-              echo "Missing GitHub environment variable: $name" >&2
-              exit 1
+              missing+=("$name")
             fi
           done
+          if (( ${#missing[@]} )); then
+            printf 'Missing GitHub Actions variable: %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -250,13 +252,15 @@ jobs:
             --cluster "$ECS_CLUSTER" \
             --service "$ECS_SERVICE" \
             --task-definition "$NEW_TASK_DEFINITION" > /dev/null
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE"
 
-          if ! curl --fail --silent --show-error \
-            --retry 5 --retry-delay 5 --retry-all-errors \
-            "${VITE_API_BASE_URL%/}/ready/" > /dev/null; then
+          if ! {
+            aws ecs wait services-stable \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE" &&
+            curl --fail --silent --show-error \
+              --retry 5 --retry-delay 5 --retry-all-errors \
+              "${VITE_API_BASE_URL%/}/ready/" > /dev/null;
+          }; then
             aws ecs update-service \
               --cluster "$ECS_CLUSTER" \
               --service "$ECS_SERVICE" \
