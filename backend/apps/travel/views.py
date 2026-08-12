@@ -6,9 +6,8 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from apps.package_recommendation.services import recommend_package_comparison
+from rest_framework.response import Response
 
 from .models import Itinerary, Package
 from .serializers import (
@@ -20,7 +19,8 @@ from .serializers import (
     PackageListSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
-from .kakao_route_service import get_kakao_route_path
+
+from apps.package_recommendation.services import recommend_package_comparison
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -137,7 +137,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["post"])
     def revise(self, request, pk=None):
-
         itinerary = self.get_object()
         if itinerary.status == Itinerary.Status.CONFIRMED:
             return self._confirmed_edit_response()
@@ -154,6 +153,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
             self.get_serializer(itinerary).data,
             status=status.HTTP_200_OK,
         )
+
     @extend_schema(
         tags=["Itinerary"],
         summary="일정 생성",
@@ -161,7 +161,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses={201: ItinerarySerializer},
     )
     def create(self, request, *args, **kwargs):
-
         serializer = self.get_serializer(data=request.data)
 
         if not serializer.is_valid():
@@ -303,16 +302,28 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get"])
     def route(self, request, pk=None):
-        """최적 방문 순서와 인접 장소 사이의 실제 자동차 경로를 반환한다."""
+        """
+        여행 경로 지도 표시.
+
+        - OR-Tools로 최적화되어 저장된 방문 순서를 사용
+        - 각 장소의 좌표를 points로 반환
+        - Kakao Directions API는 호출하지 않는다.
+        """
+
         itinerary = self.get_object()
         result = []
+
         for day in itinerary.days.all().order_by("day_number"):
+
             items = list(
-                day.items.filter(
+                day.items
+                .filter(
                     latitude__isnull=False,
                     longitude__isnull=False,
-                ).order_by("order")
+                )
+                .order_by("order")
             )
+
             points = [
                 {
                     "order": item.order,
@@ -323,30 +334,14 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 for item in items
             ]
 
-            path = []
-            for index in range(len(points) - 1):
-                origin = points[index]
-                destination = points[index + 1]
-                try:
-                    segment = get_kakao_route_path(origin, destination)
-                except RuntimeError:
-                    segment = [
-                        {
-                            "latitude": origin["latitude"],
-                            "longitude": origin["longitude"],
-                        },
-                        {
-                            "latitude": destination["latitude"],
-                            "longitude": destination["longitude"],
-                        },
-                    ]
-                if path and segment:
-                    segment = segment[1:]
-                path.extend(segment)
-
             result.append(
-                {"day_number": day.day_number, "points": points, "path": path}
+                {
+                    "day_number": day.day_number,
+                    "points": points,
+                    "path": [],
+                }
             )
+
         return Response(result)
 
     @extend_schema(
