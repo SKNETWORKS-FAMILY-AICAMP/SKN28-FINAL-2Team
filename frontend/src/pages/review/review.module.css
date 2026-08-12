@@ -146,29 +146,17 @@
   .bookingButtons{ flex-direction:column; align-items:stretch; }
   .bookingAction button{ justify-content:center; }
 }
-
-.dayButtons {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.dayButton,
-.dayButtonActive {
-  padding: 6px 13px;
-  border: 1.5px solid #1b211d;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.dayButton {
-  background: #fff;
-  color: #1b211d;
-}
-
-.dayButtonActive {
-  background: #2e9e62;
-  color: #fff;
-}
+.bookedComparison{ width:100%; }
+.bookedComparisonGrid{ grid-template-columns:1fr; width:100%; }
+.bookedChoiceCard{ width:100%; max-width:none; padding:22px; cursor:default; }
+.bookedChoiceCard:hover{ transform:none; }
+.bookedChoiceCard.recommendedChoiceCard{ padding-top:22px; }
+.bookedChoiceCard .comparisonDays{ max-height:none; overflow:visible; padding-right:0; gap:12px; }
+.bookedChoiceCard .comparisonDay{ width:100%; padding:16px 18px 18px; }
+.bookedChoiceCard .comparisonDay ol{ grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; align-items:start; }
+.bookedChoiceCard .comparisonDay li{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; }
+.bookedChoiceCard .comparisonDay li > span{ position:relative; z-index:2; flex:0 0 25px; }
+.bookedChoiceCard .comparisonDay li > div{ width:100%; }
+.bookedChoiceCard .comparisonDay li strong{ text-align:center; }
+.bookedChoiceCard .comparisonDay li p{ text-align:center; }
+.bookedChoiceCard .comparisonDay li:not(:last-child)::after{ content:""; position:absolute; top:12px; left:calc(50% + 14px); width:calc(100% - 18px); height:1px; background:rgba(79,157,106,.32); z-index:1; }
