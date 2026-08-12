@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 from apps.travel.models import Package
 from apps.travel.serializers import PackageSerializer
-from apps.travel.kakao_route_service import get_kakao_route_path
 
 from .models import CartItem, Reservation, ReservationItem
 
@@ -226,72 +225,13 @@ class ReservationItemSerializer(serializers.ModelSerializer):
                 "thumbnail": thumbnail or "",
             })
 
-        result = []
-
-        for day_no, items in sorted(days.items()):
-            valid_items = [
-                item
-                for item in items
-                if (
-                    item.get("latitude") is not None
-                    and item.get("longitude") is not None
-                )
-            ]
-
-            valid_items.sort(
-                key=lambda item: int(
-                    item.get("sequence") or 0
-                )
-            )
-
-            day_path = []
-
-            for index in range(len(valid_items) - 1):
-                origin = valid_items[index]
-                destination = valid_items[index + 1]
-
-                try:
-                    segment_path = get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                except RuntimeError as exc:
-                    print(
-                        "[Kakao] 예약 패키지 경로 조회 실패:",
-                        origin.get("title"),
-                        "→",
-                        destination.get("title"),
-                        exc,
-                    )
-                    continue
-
-                if not segment_path:
-                    continue
-
-                if day_path:
-                    day_path.extend(
-                        segment_path[1:]
-                    )
-                else:
-                    day_path.extend(
-                        segment_path
-                    )
-
-            print(
-                "[Kakao] 예약 패키지 경로 생성:",
-                f"DAY {day_no}",
-                f"{len(day_path)} points",
-            )
-
-            result.append(
-                {
-                    "day": day_no,
-                    "items": items,
-                    "path": day_path,
-                }
-            )
-
-        return result
+        return [
+            {
+                "day": day_no,
+                "items": items,
+            }
+            for day_no, items in sorted(days.items())
+        ]
 
 
 class ReservationSerializer(serializers.ModelSerializer):

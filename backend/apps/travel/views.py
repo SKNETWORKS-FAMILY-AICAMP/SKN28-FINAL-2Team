@@ -10,7 +10,7 @@ from apps.package_recommendation.services import recommend_package_comparison
 import copy
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
+        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer, PackageListSerializer
 )
 from .services import generate_itinerary, revise_itinerary
 from .kakao_route_service import get_kakao_route_path
@@ -20,10 +20,16 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PackageSerializer
     permission_classes = [permissions.AllowAny]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return PackageListSerializer
+
+        return PackageSerializer
+
     @extend_schema(
         tags=["Package"],
         summary="패키지 목록 조회",
-        responses=PackageSerializer(many=True),
+        responses=PackageListSerializer(many=True),
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
