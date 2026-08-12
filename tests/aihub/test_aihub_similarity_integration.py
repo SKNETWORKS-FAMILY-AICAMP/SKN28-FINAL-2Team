@@ -37,7 +37,11 @@ class AIHubSimilarityIntegrationTests(unittest.TestCase):
         cls.repository = repository
         cls.service = AIHubPatternService(
             repository,
-            AIHubPatternConfig(top_k=1, min_usable_visits=3),
+            AIHubPatternConfig(
+                top_k=1,
+                reference_keyword_top_k=1,
+                min_usable_visits=3,
+            ),
         )
 
     def test_real_db_returns_llm_route_template(self) -> None:
@@ -174,6 +178,7 @@ def _mysql_config_from_env() -> dict[str, object]:
         "MYSQL_HOST",
         "MYSQL_USER",
         "MYSQL_PASSWORD",
+        "MYSQL_DATABASE",
     )
     missing = [name for name in required_names if not os.getenv(name)]
     if missing:
@@ -185,10 +190,7 @@ def _mysql_config_from_env() -> dict[str, object]:
         "port": int(os.getenv("MYSQL_PORT", "3306")),
         "user": os.environ["MYSQL_USER"],
         "password": os.environ["MYSQL_PASSWORD"],
-        "database": os.getenv(
-            "AIHUB_MYSQL_DATABASE",
-            "tour_recommender_aihub",
-        ),
+        "database": os.environ["MYSQL_DATABASE"],
         "connection_timeout": int(
             os.getenv("MYSQL_CONNECT_TIMEOUT", "10")
         ),

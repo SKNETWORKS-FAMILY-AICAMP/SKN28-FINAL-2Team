@@ -2,3 +2,15 @@ chromadb>=1.5.9,<2.0
 mysql-connector-python>=9.6.0,<10.0
 openai>=2.41.0,<3.0
 pandas>=2.3.3,<3.0
+
+Django==6.0.7
+djangorestframework==3.17.1
+djangorestframework-simplejwt==5.5.1
+drf-spectacular==0.30.0
+django-cors-headers==4.9.0
+python-dotenv==1.2.2
+google-auth==2.56.2
+requests==2.34.2
+gunicorn==26.0.0
+
+mysqlclient>=2.2.7,<3.0

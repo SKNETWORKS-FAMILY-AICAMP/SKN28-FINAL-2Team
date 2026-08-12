@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import styles from './booking.module.css'
+import AccountMenu from '../../components/AccountMenu.jsx'
 
 export default function AppHeader() {
   return (
@@ -13,11 +14,11 @@ export default function AppHeader() {
         탐나플랜
       </Link>
       <nav className={styles.appLinks}>
-        <a href="#">내 여행</a>
-        <a href="#">저장한 일정</a>
+        <Link to="/my/itineraries">내 일정</Link>
+        <Link to="/my/bookmarks">찜한 패키지</Link>
       </nav>
       <div className={styles.appRight}>
-        <div className={styles.avatar}>🙂</div>
+        <AccountMenu />
       </div>
     </header>
   )
