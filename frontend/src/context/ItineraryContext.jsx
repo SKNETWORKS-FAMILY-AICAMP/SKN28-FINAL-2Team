@@ -59,9 +59,14 @@ export function ItineraryProvider({ children }) {
     return result
   }
 
+  // 채팅으로 일정 수정 (또는 추천만 조회)
   async function revise(id, message) {
     const result = await reviseItinerary(id, message)
-    await loadItineraries()
+
+    if (result.mode === 'edit') {
+      await loadItineraries()
+    }
+
     return result
   }
 
