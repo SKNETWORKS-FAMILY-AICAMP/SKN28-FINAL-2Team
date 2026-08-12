@@ -76,7 +76,7 @@ export default function ChatPanel({ onRevised }) {
       {
         id: loadingMessageId,
         me: false,
-        text: "일정을 수정하고 있어요...",
+        text: "생각하고 있어요...",
       },
     ]);
 
@@ -84,23 +84,42 @@ export default function ChatPanel({ onRevised }) {
     setIsRevising(true);
 
     try {
-      // 백엔드 일정 수정
-      await revise(id, text);
+      // 백엔드 호출: 실제 일정 수정일 수도, 추천만 보여주는 것일 수도 있다.
+      const result = await revise(id, text);
 
-      // 가운데 일정 패널(ItineraryEditor)에 변경 사실을 알려 다시 불러오게 함
-      onRevised?.();
+      if (result.mode === "recommend") {
+        // 일정은 그대로 두고, 채팅창에만 후보를 보여준다.
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === loadingMessageId
+              ? {
+                  ...message,
+                  text: result.message,
+                  options: result.options,
+                }
+              : message
+          )
+        );
+      } else if (result.mode === "no_change") {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === loadingMessageId
+              ? { ...message, text: result.message }
+              : message
+          )
+        );
+      } else {
+        // mode === "edit": 일정이 실제로 바뀌었으니 가운데 패널을 새로고침
+        onRevised?.();
 
-      // AI 응답
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === loadingMessageId
-            ? {
-                ...message,
-                text: "일정을 수정했어요 ✨",
-              }
-            : message
-        )
-      );
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === loadingMessageId
+              ? { ...message, text: "일정을 수정했어요 ✨" }
+              : message
+          )
+        );
+      }
     } catch (err) {
       console.error(err);
 
@@ -109,7 +128,7 @@ export default function ChatPanel({ onRevised }) {
           message.id === loadingMessageId
             ? {
                 ...message,
-                text: "일정 수정에 실패했습니다.",
+                text: "요청을 처리하지 못했습니다.",
               }
             : message
         )
@@ -118,6 +137,12 @@ export default function ChatPanel({ onRevised }) {
       setIsRevising(false);
     }
   }
+
+  // 추천 카드에서 "이걸로 바꿔줘"를 눌렀을 때: 실제 편집 요청 문장을 만들어 바로 전송
+  const applyOption = (optionTitle) => {
+    if (isRevising) return;
+    setInput(`${optionTitle}로 바꿔줘`);
+  };
 
   return (
     <div className={styles.chatCol}>
@@ -152,6 +177,41 @@ export default function ChatPanel({ onRevised }) {
                     {m.mini}
                   </span>
                 </>
+              )}
+
+              {m.options && m.options.length > 0 && (
+                <div className={styles.suggestList}>
+                  {m.options.slice(0, 3).map((opt) => (
+                    <div
+                      key={opt.content_id ?? opt.title}
+                      className={styles.suggestCard}
+                    >
+                      {opt.thumbnail && (
+                        <img
+                          src={opt.thumbnail}
+                          alt={opt.title}
+                          className={styles.suggestThumb}
+                        />
+                      )}
+                      <div className={styles.suggestBody}>
+                        <h6>{opt.title}</h6>
+                        {opt.summary && <p>{opt.summary}</p>}
+                        {opt.address && (
+                          <span className={styles.suggestAddress}>
+                            {opt.address}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.suggestApplyBtn}
+                        onClick={() => applyOption(opt.title)}
+                      >
+                        이걸로 바꿔줘
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

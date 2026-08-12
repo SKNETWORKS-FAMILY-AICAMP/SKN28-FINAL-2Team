@@ -88,6 +88,7 @@ class ItineraryState:
     slots: list[ItinerarySlot]
     itinerary: dict[str, Any]
     used_content_ids: set[int] = field(default_factory=set)
+    recommendations: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -95,6 +96,7 @@ class ItineraryState:
             "slots": [slot.to_dict() for slot in self.slots],
             "itinerary": self.itinerary,
             "used_content_ids": sorted(self.used_content_ids),
+            "recommendations": self.recommendations,
         }
 
     @classmethod
@@ -114,5 +116,9 @@ class ItineraryState:
             itinerary=data["itinerary"],
             used_content_ids=set(
                 data.get("used_content_ids", [])
+            ),
+            recommendations=data.get(
+                "recommendations",
+                [],
             ),
         )

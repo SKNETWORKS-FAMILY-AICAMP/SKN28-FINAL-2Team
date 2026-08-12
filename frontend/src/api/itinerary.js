@@ -67,7 +67,7 @@ export const regenerateItinerary = async (id) => {
   return mapItinerary(data);
 };
 
-// 일정 수정(채팅)
+// 일정 수정(채팅) — mode: "edit" | "recommend" | "no_change"
 export const reviseItinerary = async (id, message) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/revise/`,
@@ -76,7 +76,25 @@ export const reviseItinerary = async (id, message) => {
     }
   );
 
-  return mapItinerary(data);
+  if (data.mode === "recommend") {
+    return {
+      mode: "recommend",
+      message: data.message,
+      options: data.options ?? [],
+    };
+  }
+
+  if (data.mode === "no_change") {
+    return {
+      mode: "no_change",
+      message: data.message,
+    };
+  }
+
+  return {
+    mode: "edit",
+    itinerary: mapItinerary(data),
+  };
 };
 
 // 공유 일정 조회
@@ -118,12 +136,16 @@ export const patchItinerary = async (id, payload) => {
 
   return mapItinerary(data);
 };
+// 일정 삭제
+export const deleteItinerary = async (id) => {
+  await api.delete(`/travel/itineraries/${id}/`);
+};
 
+// 일정 확정
 export const confirmItinerary = async (id) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/confirm/`
   );
-
   return mapItinerary(data);
 };
 

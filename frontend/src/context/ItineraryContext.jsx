@@ -67,10 +67,16 @@ export function ItineraryProvider({ children }) {
     return result;
   }
 
-// 채팅으로 일정 수정
+// 채팅으로 일정 수정 (또는 추천만 조회)
   async function revise(id, message) {
     const result = await reviseItinerary(id, message);
-    await loadItineraries();
+
+    // 일정이 실제로 바뀌었을 때만 목록을 새로고침한다.
+    // (recommend/no_change는 일정이 그대로이므로 불필요한 새로고침을 피한다)
+    if (result.mode === "edit") {
+      await loadItineraries();
+    }
+
     return result;
   }
 

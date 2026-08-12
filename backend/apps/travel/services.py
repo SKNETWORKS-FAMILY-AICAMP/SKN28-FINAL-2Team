@@ -283,7 +283,13 @@ def revise_itinerary(
     user_text: str,
 ):
     """
-    채팅으로 기존 여행 일정을 수정한다.
+    채팅으로 기존 여행 일정을 수정하거나, 아직 적용하지 않고 후보만 보여준다.
+
+    반환값은 (itinerary, chat_result) 튜플이다. chat_result.mode 가
+    - "recommend" 이면 itinerary는 전혀 수정되지 않았고, chat_result에 담긴
+      추천 후보만 화면(채팅창)에 보여주면 된다.
+    - "edit" 이면 itinerary가 실제로 갱신된 것이다.
+    - "no_change" 이면 사용자의 메시지에서 아무 변경 신호도 찾지 못한 것이다.
     """
 
     print("=" * 80)
@@ -302,20 +308,34 @@ def revise_itinerary(
             itinerary.engine_state
         )
 
-        # 엔진을 이용하여 일정 수정
-        new_state = itinerary_engine.update_itinerary_from_chat(
-            state,
-            user_text,
-        )
+        # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
+        chat_result = itinerary_engine.update_itinerary_from_chat(state, user_text)
 
-        # 수정된 일정도 다시 최적화한다.
+        if chat_result.mode != "edit":
+
+            if chat_result.mode == "recommend":
+                itinerary.engine_state = chat_result.state.to_dict()
+                itinerary.save(
+                    update_fields=["engine_state"]
+                )
+
+            print("=" * 80)
+            print(
+                f"===== revise_itinerary 완료 "
+                f"(mode={chat_result.mode}, 일정 미변경) ====="
+            )
+            print("=" * 80)
+
+            return itinerary, chat_result
+
+
+        new_state = chat_result.state
+
         _optimize_itinerary_routes(new_state)
 
-        # 수정된 상태 저장
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
-        # 수정된 일정 저장
         _save_itinerary_result(
             itinerary,
             new_state,
@@ -325,8 +345,8 @@ def revise_itinerary(
         print("===== revise_itinerary 완료 =====")
         print("=" * 80)
 
-        return itinerary
-
+        return itinerary, chat_result
+        
     except Exception as e:
 
         print("=" * 80)

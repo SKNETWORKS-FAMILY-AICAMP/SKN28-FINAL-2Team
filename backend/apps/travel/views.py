@@ -7,7 +7,7 @@ from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from apps.package_recommendation.services import recommend_package_comparison
-
+import copy
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
         ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
@@ -106,7 +106,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         tags=["Itinerary"],
         summary="채팅으로 일정 수정",
         request=ItineraryRevisionSerializer,
-        responses={200: ItinerarySerializer},
+        responses={200: OpenApiTypes.OBJECT},
     )
     
     @action(detail=True, methods=["post"])
@@ -119,13 +119,36 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         serializer = ItineraryRevisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        revise_itinerary(
+        itinerary, chat_result = revise_itinerary(
             itinerary,
             serializer.validated_data["message"],
         )
 
+        if chat_result.mode == "recommend":
+            # 일정은 그대로다. 채팅창에만 후보를 보여준다.
+            return Response(
+                {
+                    "mode": "recommend",
+                    "message": chat_result.message,
+                    "options": chat_result.recommendations,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        if chat_result.mode == "no_change":
+            return Response(
+                {
+                    "mode": "no_change",
+                    "message": "요청에서 변경할 내용을 찾지 못했어요. 조금 더 구체적으로 말씀해주세요.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # mode == "edit": 일정이 실제로 갱신되었다.
+        data = self.get_serializer(itinerary).data
+        data["mode"] = "edit"
         return Response(
-            self.get_serializer(itinerary).data,
+            data,
             status=status.HTTP_200_OK,
         )
     @extend_schema(
