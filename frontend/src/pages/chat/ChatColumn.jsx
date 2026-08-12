@@ -5,6 +5,8 @@ import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
 import ItineraryPreview from "./ItineraryPreview.jsx"
 import { useNavigate } from "react-router-dom"
+import harubangTraveler from '../../assets/harubang-traveler.png'
+import harubangAvatar from '../../assets/harubang-avatar.png'
 
 
 const READY_DELAY_MS = 1800
@@ -534,7 +536,9 @@ export default function ChatColumn({
 
                 {/* AI 안내 멘트 */}
                 <div className={styles.previewMessageRow}>
-                  <div className={styles.previewAvatar}>🍊</div>
+                  <div className={styles.previewAvatar}>
+                    <img src={harubangAvatar} alt="AI 여행 코치" />
+                  </div>
 
                   <div className={styles.previewMessageBubble}>
                     <p>
@@ -590,14 +594,14 @@ export default function ChatColumn({
               const alreadyAnswered =
                 item.stepIndex < stepIndex
 
-              return (
-                <div
-                  className={styles.msg}
-                  key={item.id}
-                >
-                  <div className={styles.who}>
-                    🍊
-                  </div>
+            return (
+              <div
+                className={styles.msg}
+                key={item.id}
+              >
+                <div className={styles.who}>
+                  <img src={harubangAvatar} alt="AI 여행 코치" />
+                </div>
 
                   <div className={styles.bubble}>
                     {step.question}
@@ -781,7 +785,7 @@ export default function ChatColumn({
                   key={item.id}
                 >
                   <div className={styles.who}>
-                    🍊
+                    <img src={harubangAvatar} alt="AI 여행 코치" />
                   </div>
 
                   <div className={styles.bubble}>
@@ -841,8 +845,23 @@ export default function ChatColumn({
                 )}
                 key={item.id}
               >
-                <div className={styles.who}>
-                  {item.me ? '나' : '🍊'}
+                <div
+                  className={cx(
+                    styles.who,
+                    item.me && styles.userWho
+                  )}
+                >
+                  {item.me ? (
+                    <img
+                      src={harubangTraveler}
+                      alt="내 프로필"
+                    />
+                  ) : (
+                    <img
+                      src={harubangAvatar}
+                      alt="AI 여행 코치"
+                    />
+                  )}
                 </div>
 
                 <div className={styles.bubble}>
@@ -850,21 +869,23 @@ export default function ChatColumn({
                     (line, index) => (
                       <span key={index}>
                         {line}
-
                         {index <
-                          (item.lines ?? []).length -
-                            1 && <br />}
+                          (item.lines ?? []).length - 1 && <br />}
                       </span>
                     )
                   )}
                 </div>
               </div>
             )
-          })}
-
-        {flowDone && isCreating && !ready && (
+            })}
+        {flowDone &&
+          isCreating &&
+          !ready &&
+          !latestItineraryItem && (
           <div className={styles.msg}>
-            <div className={styles.who}>🍊</div>
+            <div className={styles.who}>
+              <img src={harubangAvatar} alt="AI 여행 코치" />
+            </div>
 
             <div className={styles.bubble}>
               입력한 조건으로 일정 생성 중
@@ -879,7 +900,9 @@ export default function ChatColumn({
         )}
         {flowDone && isRevising && (
           <div className={styles.msg}>
-            <div className={styles.who}>🍊</div>
+            <div className={styles.who}>
+              <img src={harubangAvatar} alt="AI 여행 코치" />
+            </div>
 
             <div className={styles.bubble}>
               요청하신 내용으로 일정 수정 중
