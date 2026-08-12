@@ -19,7 +19,6 @@ from .serializers import (
     PackageListSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
-from .kakao_route_service import get_kakao_route_path
 
 from apps.package_recommendation.services import recommend_package_comparison
 
@@ -308,7 +307,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
 
         - OR-Tools로 최적화되어 저장된 방문 순서를 사용
         - 각 장소의 좌표를 points로 반환
-        - 인접 장소 사이의 실제 Kakao 자동차 도로 경로를 path로 반환
+        - Kakao Directions API는 호출하지 않는다.
         """
 
         itinerary = self.get_object()
@@ -335,55 +334,11 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 for item in items
             ]
 
-            path = []
-
-            # 1번 장소 → 2번 장소
-            # 2번 장소 → 3번 장소
-            # ...
-            # 실제 자동차 도로 경로 조회
-            for index in range(len(points) - 1):
-
-                origin = points[index]
-                destination = points[index + 1]
-
-                try:
-                    segment_path = get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                except RuntimeError as exc:
-                    print(
-                        "[Kakao Route] 실제 경로 조회 실패:",
-                        origin["title"],
-                        "→",
-                        destination["title"],
-                        exc,
-                    )
-
-                    # 도로 경로 조회 실패 시 직선 좌표라도 유지
-                    segment_path = [
-                        {
-                            "latitude": origin["latitude"],
-                            "longitude": origin["longitude"],
-                        },
-                        {
-                            "latitude": destination["latitude"],
-                            "longitude": destination["longitude"],
-                        },
-                    ]
-
-                # 이전 segment 마지막 좌표와
-                # 현재 segment 첫 좌표 중복 방지
-                if path and segment_path:
-                    segment_path = segment_path[1:]
-
-                path.extend(segment_path)
-
             result.append(
                 {
                     "day_number": day.day_number,
                     "points": points,
-                    "path": path,
+                    "path": [],
                 }
             )
 

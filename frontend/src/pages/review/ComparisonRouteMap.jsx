@@ -241,13 +241,13 @@ export default function ComparisonRouteMap({
             const color =
               dayColor(dayNumber);
 
-            drawPath(
-              roadPath.length >= 2
-                ? roadPath
-                : points,
-              color,
-              6
-            );
+            if (roadPath.length >= 2) {
+              drawPath(
+                roadPath,
+                color,
+                6
+              );
+            }
 
             drawMarkers(
               points,
@@ -276,13 +276,13 @@ export default function ComparisonRouteMap({
             const color =
               dayColor(dayNumber);
 
-            drawPath(
-              roadPath.length >= 2
-                ? roadPath
-                : points,
-              color,
-              5
-            );
+            if (roadPath.length >= 2) {
+              drawPath(
+                roadPath,
+                color,
+                5
+              );
+            }
 
             drawMarkers(
               points,

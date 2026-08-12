@@ -389,9 +389,6 @@ def revise_itinerary(
             )
         )
 
-        # 수정된 일정도 다시 최적 경로 계산
-        _optimize_itinerary_routes(new_state)
-
         # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()
         itinerary.save(update_fields=["engine_state"])
