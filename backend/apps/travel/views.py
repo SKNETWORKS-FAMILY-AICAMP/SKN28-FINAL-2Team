@@ -19,6 +19,7 @@ from .serializers import (
     PackageListSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
+from .kakao_route_service import get_kakao_day_route_path
 
 from apps.package_recommendation.services import recommend_package_comparison
 
@@ -366,6 +367,183 @@ class ItineraryViewSet(viewsets.ModelViewSet):
             )
 
         return Response(result)
+
+    @extend_schema(
+        tags=["Itinerary"],
+        summary="실제 자동차 도로 경로 조회",
+        responses=ItineraryRouteSerializer(many=True),
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="road-route",
+    )
+    def road_route(self, request, pk=None):
+        """
+        확정된 일정의 실제 자동차 도로 경로 조회.
+
+        - package_id가 없으면 자유일정 경로 조회
+        - package_id가 있으면 추천 패키지 경로 조회
+        - 저장된 방문 순서를 그대로 사용
+        - 하루 일정당 Kakao Directions API 1회 호출
+        """
+
+        itinerary = self.get_object()
+
+        if itinerary.status != Itinerary.Status.CONFIRMED:
+            return Response(
+                {
+                    "detail": (
+                        "확정된 일정에서만 "
+                        "실제 경로를 조회할 수 있습니다."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        package_id = request.query_params.get("package_id")
+
+        result = []
+
+        # =========================================================
+        # 추천 패키지 실제 경로
+        # =========================================================
+        if package_id:
+            try:
+                package = (
+                    Package.objects
+                    .using("travel")
+                    .get(
+                        pk=package_id,
+                        is_active=True,
+                    )
+                )
+            except Package.DoesNotExist:
+                return Response(
+                    {
+                        "detail": (
+                            "추천 패키지를 찾을 수 없습니다."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            package_data = PackageSerializer(package).data
+
+            course = package_data.get("course") or []
+
+            for day_index, day in enumerate(course):
+                day_number = int(
+                    day.get("day") or day_index + 1
+                )
+
+                items = day.get("items") or []
+
+                points = []
+
+                for item in items:
+                    latitude = item.get("latitude")
+                    longitude = item.get("longitude")
+
+                    if (
+                        latitude is None
+                        or longitude is None
+                    ):
+                        continue
+
+                    points.append(
+                        {
+                            "order": item.get("sequence"),
+                            "title": item.get("title"),
+                            "latitude": float(latitude),
+                            "longitude": float(longitude),
+                        }
+                    )
+
+                try:
+                    path = get_kakao_day_route_path(
+                        points
+                    )
+
+                except (ValueError, RuntimeError) as exc:
+                    return Response(
+                        {
+                            "detail": str(exc),
+                            "day_number": day_number,
+                        },
+                        status=(
+                            status.HTTP_503_SERVICE_UNAVAILABLE
+                        ),
+                    )
+
+                result.append(
+                    {
+                        "day_number": day_number,
+                        "points": points,
+                        "path": path,
+                    }
+                )
+
+            return Response(
+                result,
+                status=status.HTTP_200_OK,
+            )
+
+        # =========================================================
+        # 자유일정 실제 경로
+        # =========================================================
+        for day in (
+            itinerary.days
+            .all()
+            .order_by("day_number")
+        ):
+            items = list(
+                day.items
+                .filter(
+                    latitude__isnull=False,
+                    longitude__isnull=False,
+                )
+                .order_by("order")
+            )
+
+            points = [
+                {
+                    "order": item.order,
+                    "title": item.title,
+                    "latitude": float(item.latitude),
+                    "longitude": float(item.longitude),
+                }
+                for item in items
+            ]
+
+            try:
+                path = get_kakao_day_route_path(
+                    points
+                )
+
+            except (ValueError, RuntimeError) as exc:
+                return Response(
+                    {
+                        "detail": str(exc),
+                        "day_number": day.day_number,
+                    },
+                    status=(
+                        status.HTTP_503_SERVICE_UNAVAILABLE
+                    ),
+                )
+
+            result.append(
+                {
+                    "day_number": day.day_number,
+                    "points": points,
+                    "path": path,
+                }
+            )
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["Itinerary"],
