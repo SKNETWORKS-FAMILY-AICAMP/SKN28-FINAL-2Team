@@ -1,13 +1,148 @@
 from datetime import timedelta
-import traceback
 import json
+import math
+import traceback
 
-from django.db import transaction
+from django.db import connections, transaction
 
 from src.api import itinerary_engine
-from src.models import ItineraryState
+from src.models.itinerary import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 from .route_optimizer import optimize_stops
+
+
+LODGING_CONTENT_TYPE_ID = 32
+
+
+def _haversine_km(
+    latitude1: float,
+    longitude1: float,
+    latitude2: float,
+    longitude2: float,
+) -> float:
+    """Return the great-circle distance between two coordinates."""
+
+    earth_radius_km = 6371.0088
+    lat1 = math.radians(latitude1)
+    lat2 = math.radians(latitude2)
+    delta_lat = lat2 - lat1
+    delta_lng = math.radians(longitude2 - longitude1)
+
+    value = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lng / 2) ** 2
+    )
+    return 2 * earth_radius_km * math.asin(math.sqrt(value))
+
+
+def _itinerary_route_points(state: ItineraryState) -> list[tuple[float, float]]:
+    points = []
+
+    for day_data in state.itinerary.get("days", []):
+        for stop in day_data.get("stops", []):
+            if stop.get("role") in {"accommodation", "stay"}:
+                continue
+
+            latitude = stop.get("latitude")
+            longitude = stop.get("longitude")
+            if latitude is None or longitude is None:
+                continue
+
+            points.append((float(latitude), float(longitude)))
+
+    return points
+
+
+def _load_lodging_candidates() -> list[dict]:
+    """Load TourAPI lodging candidates from the shared travel database."""
+
+    with connections["travel"].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                p.content_id,
+                p.title,
+                p.addr1,
+                p.addr2,
+                p.latitude,
+                p.longitude,
+                (
+                    SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                    FROM place_images img
+                    WHERE img.content_id = p.content_id
+                      AND (
+                          NULLIF(img.image_url, '') IS NOT NULL
+                          OR NULLIF(img.thumbnail_url, '') IS NOT NULL
+                      )
+                    ORDER BY img.display_order
+                    LIMIT 1
+                ) AS thumbnail_url
+            FROM places p
+            WHERE p.content_type_id = %s
+              AND p.latitude IS NOT NULL
+              AND p.longitude IS NOT NULL
+              AND p.latitude <> 0
+              AND p.longitude <> 0
+              AND NULLIF(TRIM(p.title), '') IS NOT NULL
+            """,
+            [LODGING_CONTENT_TYPE_ID],
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "content_id": int(content_id),
+            "title": title,
+            "address": " ".join(part for part in (addr1, addr2) if part).strip(),
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+            "thumbnail_url": thumbnail_url or "",
+        }
+        for content_id, title, addr1, addr2, latitude, longitude, thumbnail_url in rows
+    ]
+
+
+def _select_fixed_accommodation(
+    state: ItineraryState,
+    *,
+    nights: int,
+) -> dict | None:
+    """Select one lodging that minimizes travel across the initial itinerary."""
+
+    if nights < 1:
+        return None
+
+    route_points = _itinerary_route_points(state)
+    if not route_points:
+        return None
+
+    candidates = _load_lodging_candidates()
+    if not candidates:
+        return None
+
+    def candidate_score(candidate: dict) -> tuple[float, float, str]:
+        distances = [
+            _haversine_km(
+                candidate["latitude"],
+                candidate["longitude"],
+                latitude,
+                longitude,
+            )
+            for latitude, longitude in route_points
+        ]
+        average_distance = sum(distances) / len(distances)
+        # Equal-distance candidates with an image are more useful in the UI.
+        image_penalty = 0.0 if candidate["thumbnail_url"] else 1.0
+        return average_distance, image_penalty, candidate["title"]
+
+    selected = min(candidates, key=candidate_score)
+    return {
+        **selected,
+        "nights": nights,
+        "source": "tourapi",
+        "is_fixed": True,
+    }
+
 
 def _build_place_info_map(
     state: ItineraryState,
@@ -30,77 +165,110 @@ def _build_place_info_map(
 
     return place_info_map
 
+def _attach_coordinates_to_stops(
+    state: ItineraryState,
+):
+    """
+    OR-Tools 실행 전에 각 stop에 latitude / longitude를 붙인다.
+    """
+
+    place_info_map = _build_place_info_map(state)
+
+    for day_data in state.itinerary.get("days", []):
+        for stop in day_data.get("stops", []):
+            content_id = stop.get("content_id")
+
+            if not content_id:
+                continue
+
+            place = (
+                Place.objects.using("travel")
+                .filter(content_id=content_id)
+                .first()
+            )
+
+            place_info = place_info_map.get(
+                content_id,
+                {
+                    "latitude": None,
+                    "longitude": None,
+                },
+            )
+
+            latitude = (
+                place.latitude
+                if place
+                else place_info.get("latitude")
+            )
+
+            longitude = (
+                place.longitude
+                if place
+                else place_info.get("longitude")
+            )
+
+            stop["latitude"] = (
+                float(latitude)
+                if latitude is not None
+                else None
+            )
+
+            stop["longitude"] = (
+                float(longitude)
+                if longitude is not None
+                else None
+            )
+
 
 def _optimize_itinerary_routes(
     state: ItineraryState,
-    *,
-    skip_days: set[int] | frozenset[int] = frozenset(),
 ):
-    """장소 좌표를 보완한 뒤 날짜별 방문 순서를 OR-Tools로 최적화한다.
-
-    ``skip_days`` 에 포함된 day는 경로 최적화(거리 기준 재정렬)를 건너뛴다.
-    채팅 엔진이 "A 다음에 B"처럼 순서를 코드 레벨에서 이미 확정한 day가
-    여기에 해당한다 - 좌표는 채워주되 순서는 건드리지 않는다.
-
-    카카오 자동차 길찾기는 출발지/도착지가 5m 이내로 붙어있으면 실패하는 등
-    외부 API 오류가 날 수 있다. 이 함수는 그런 경우에도 절대 예외를 밖으로
-    던지지 않는다 - 최적화만 건너뛰고, 수정된 일정 자체는 그대로 저장되도록
-    한다 (경로 최적화 실패가 사용자의 수정 요청 자체를 날려버리면 안 된다).
     """
-    place_info_map = _build_place_info_map(state)
-    days = state.itinerary.get("days", [])
-    content_ids = {
-        stop.get("content_id")
-        for day in days
-        for stop in day.get("stops", [])
-        if stop.get("content_id")
-    }
-    places = {
-        place.content_id: place
-        for place in Place.objects.using("travel").filter(content_id__in=content_ids)
-    }
+    각 날짜별 일정의 장소 순서를 OR-Tools로 최적화한다.
+    """
 
-    for day in days:
-        stops = day.get("stops", [])
-        for stop in stops:
-            content_id = stop.get("content_id")
-            place = places.get(content_id)
-            fallback = place_info_map.get(content_id, {})
-            latitude = place.latitude if place else fallback.get("latitude")
-            longitude = place.longitude if place else fallback.get("longitude")
-            stop["latitude"] = float(latitude) if latitude is not None else None
-            stop["longitude"] = float(longitude) if longitude is not None else None
+    # 먼저 stop에 좌표 추가
+    _attach_coordinates_to_stops(state)
+
+    for day_data in state.itinerary.get("days", []):
+        stops = day_data.get("stops", [])
 
         if not stops:
             continue
 
-        day_number = day.get("day")
-        if day_number in skip_days:
-            print(
-                f"[route] {day_number}일차는 위치 지정 삽입으로 순서가 "
-                "이미 확정되어 경로 최적화를 건너뜁니다."
-            )
-            continue
+        print("=" * 80)
+        print(
+            f"[OR-Tools] DAY {day_data.get('day')} 최적화 전"
+        )
 
-        try:
-            day["stops"] = optimize_stops(stops)
-        except Exception as exc:
-            # 카카오 길찾기 실패(예: "출발지와 도착지가 5m 이내") 등으로
-            # 최적화 자체가 실패해도, 이미 수정된 일정(stops)은 그대로
-            # 유지한 채 최적화만 건너뛴다. 여기서 예외를 다시 던지면
-            # /revise/ 요청 전체가 500이 되어 사용자의 수정 내용이
-            # 통째로 사라진다.
+        for stop in stops:
             print(
-                f"[route] {day_number}일차 경로 최적화 실패 -> "
-                f"최적화를 건너뛰고 기존 순서를 유지합니다: {exc}"
+                stop.get("sequence"),
+                stop.get("title"),
+                stop.get("latitude"),
+                stop.get("longitude"),
             )
-            traceback.print_exc()
 
+        optimized_stops = optimize_stops(stops)
+
+        day_data["stops"] = optimized_stops
+
+        print(
+            f"[OR-Tools] DAY {day_data.get('day')} 최적화 완료"
+        )
+        print("=" * 80)
 
 def _save_itinerary_result(
     itinerary: Itinerary,
     state: ItineraryState,
 ):
+    """
+    엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
+
+    기존 일정을 삭제한 뒤 새 일정으로 교체하며,
+    content_id를 이용해 Place 테이블에서 위도와 경도를 조회한다.
+    """
+
     result = state.itinerary
     place_info_map = _build_place_info_map(state)
 
@@ -108,16 +276,18 @@ def _save_itinerary_result(
     itinerary.days.all().delete()
 
     for day_data in result.get("days", []):
+        day_number = day_data.get("day")
+
+        if day_number is None:
+            continue
 
         itinerary_day = ItineraryDay.objects.create(
             itinerary=itinerary,
-            day_number=day_data["day"],
+            day_number=day_number,
             date=itinerary.start_date
-            + timedelta(days=day_data["day"] - 1),
+            + timedelta(days=day_number - 1),
         )
-
         for stop in day_data.get("stops", []):
-
             content_id = stop.get("content_id")
 
             place = None
@@ -167,25 +337,15 @@ def _save_itinerary_result(
                 thumbnail,
             )
             role = stop.get("role")
-
             item_type_map = {
                 "visit": ItineraryItem.ItemType.SPOT,
                 "food": ItineraryItem.ItemType.RESTAURANT,
                 "shopping": ItineraryItem.ItemType.SHOPPING,
                 "activity": ItineraryItem.ItemType.ACTIVITY,
                 "accommodation": ItineraryItem.ItemType.ACCOMMODATION,
+                "stay": ItineraryItem.ItemType.ACCOMMODATION,
             }
-
-            item_type = item_type_map.get(
-                role,
-                ItineraryItem.ItemType.SPOT,
-            )
-
-            print(
-                "[ITEM TYPE]",
-                "role =", role,
-                "→ item_type =", item_type,
-            )
+            item_type = item_type_map.get(role, ItineraryItem.ItemType.SPOT)
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
@@ -205,14 +365,6 @@ def _save_itinerary_result(
 
 @transaction.atomic
 def generate_itinerary(itinerary: Itinerary):
-
-    itinerary.title = (
-        f"{itinerary.duration_label} "
-        f"{itinerary.get_companion_type_display()} "
-        f"{itinerary.style} "
-    )
-    itinerary.save(update_fields=["title"])
-
     """
     사용자 입력을 이용하여
 
@@ -223,6 +375,14 @@ def generate_itinerary(itinerary: Itinerary):
     5. LLM 일정 생성
     6. Django DB 저장
     """
+
+    itinerary.title = (
+        f"{itinerary.duration_label} "
+        f"{itinerary.get_companion_type_display()} "
+        f"{itinerary.style}"
+    )
+    itinerary.save(update_fields=["title"])
+
 
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")
@@ -274,21 +434,34 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         state = itinerary_engine.create_itinerary(user_text)
 
-        # 카카오 자동차 이동시간을 기준으로 날짜별 방문 순서를 최적화한다.
+        # -------------------------------------------------
+        # OR-Tools 경로 최적화
+        # -------------------------------------------------
         _optimize_itinerary_routes(state)
+
+        nights = (itinerary.end_date - itinerary.start_date).days
+        hotel = _select_fixed_accommodation(state, nights=nights)
+        if hotel:
+            state.itinerary["hotel"] = hotel
 
         # -------------------------------------------------
         # 최종 일정
         # -------------------------------------------------
         result = state.itinerary
 
+        # 이후 채팅 수정에 사용할 엔진 상태 저장
         itinerary.engine_state = state.to_dict()
         itinerary.save(update_fields=["engine_state"])
 
         print("===== LLM 일정 생성 완료 =====")
-
         print("최종 JSON")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                result,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
 
         # -------------------------------------------------
         # DB 저장
@@ -333,7 +506,6 @@ def revise_itinerary(
     print("=" * 80)
 
     try:
-
         if not itinerary.engine_state:
             raise ValueError(
                 "엔진 상태가 없습니다. 기존 일정을 다시 생성해주세요."
@@ -343,10 +515,16 @@ def revise_itinerary(
         state = ItineraryState.from_dict(
             itinerary.engine_state
         )
+        fixed_hotel = state.itinerary.get("hotel")
 
-        # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
-        chat_result = itinerary_engine.update_itinerary_from_chat(state, user_text)
+                # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
+        chat_result = itinerary_engine.update_itinerary_from_chat(
+            state,
+            user_text,
+        )
 
+       
+                # 추천만 조회했거나 변경 사항이 없는 경우
         if chat_result.mode != "edit":
 
             if chat_result.mode == "recommend":
@@ -364,18 +542,21 @@ def revise_itinerary(
 
             return itinerary, chat_result
 
-
+        # 실제 일정 수정 결과
         new_state = chat_result.state
 
-        _optimize_itinerary_routes(
-            new_state,
-            skip_days=set(chat_result.locked_days),
-        )
+        # 기존에 선택된 숙소는 채팅으로 일정을 수정해도 유지
+        if fixed_hotel:
+            new_state.itinerary["hotel"] = fixed_hotel
+
 
         # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()
-        itinerary.save(update_fields=["engine_state"])
+        itinerary.save(
+            update_fields=["engine_state"]
+        )
 
+        # 수정된 일정 DB 저장
         _save_itinerary_result(
             itinerary,
             new_state,
@@ -388,7 +569,6 @@ def revise_itinerary(
         return itinerary, chat_result
         
     except Exception as e:
-
         print("=" * 80)
         print("===== revise_itinerary 실패 =====")
         print("Exception :", e)

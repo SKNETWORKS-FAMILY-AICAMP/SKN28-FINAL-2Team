@@ -6,7 +6,7 @@ import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { getPackageDetail } from '../api/packageApi.js';
+import { getPackageDetail, getPackages } from '../api/packageApi.js';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,6 +23,12 @@ import {
 
 const formatPrice = (value) =>
   `${Number(value || 0).toLocaleString('ko-KR')}원`;
+
+const hasStoredPackageIdentifier = (storedPackage) => Boolean(
+  storedPackage?.id ??
+  storedPackage?.package_db_id ??
+  storedPackage?.package_id
+);
 
 const itemTypeLabel = (itemType) => {
   if (itemType === 'restaurant') return '음식점';
@@ -154,11 +160,32 @@ export default function ReviewPage() {
     const customPackage = packageComparison?.custom_package;
 
     if (selectedProduct === 'stored') {
-      if (!storedPackage?.id) return;
+      if (!hasStoredPackageIdentifier(storedPackage)) return;
+
+      let storedPackageDbId = storedPackage.id ?? storedPackage.package_db_id;
+
+      if (!storedPackageDbId && storedPackage.package_id) {
+        try {
+          const packageResponse = await getPackages();
+          const packages = Array.isArray(packageResponse)
+            ? packageResponse
+            : packageResponse?.results || [];
+          storedPackageDbId = packages.find(
+            (item) => item.package_id === storedPackage.package_id
+          )?.id;
+        } catch (error) {
+          console.error('추천 패키지 DB 번호 조회 실패:', error);
+        }
+      }
+
+      if (!storedPackageDbId) {
+        alert('선택한 패키지 정보를 찾지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
 
       let packageDetail = null;
       try {
-        packageDetail = await getPackageDetail(storedPackage.id);
+        packageDetail = await getPackageDetail(storedPackageDbId);
       } catch (error) {
         console.error('패키지 상세 이미지 조회 실패:', error);
       }
@@ -167,16 +194,24 @@ export default function ReviewPage() {
         state: {
           bookingSource: 'package',
           itineraryId: itinerary.id,
-          packageIds: [storedPackage.id],
+          packageIds: [storedPackageDbId],
           packages: [
             {
-              id: storedPackage.id,
+              id: storedPackageDbId,
               packageId: storedPackage.package_id,
               name: storedPackage.title,
               description: storedPackage.summary || storedPackage.reason || '',
               price: storedPackage.estimated_price,
               thumbnailUrl: packageDetail?.thumbnail_url || '',
               thumbnail: '✈️',
+              durationDays:
+                storedPackage.duration_days ?? packageDetail?.duration_days,
+              region: storedPackage.region ?? packageDetail?.region,
+              accommodationIncluded: Boolean(
+                storedPackage.hotel ?? packageDetail?.accommodation_included,
+              ),
+              accommodationName:
+                storedPackage.hotel?.title ?? packageDetail?.accommodation_name ?? '',
             },
           ],
         },
@@ -198,6 +233,7 @@ export default function ReviewPage() {
             price: customPackage.price_per_person,
             thumbnail: '🧭',
             isCustom: true,
+            durationLabel: itinerary.duration_label,
           },
         ],
       },
@@ -211,8 +247,22 @@ export default function ReviewPage() {
     setAddingToCart(true);
     try {
       if (selectedProduct === 'stored') {
-        if (!storedPackage?.id) return;
-        await addToCart(storedPackage.id, { itineraryId: itinerary.id });
+        if (!hasStoredPackageIdentifier(storedPackage)) return;
+
+        let storedPackageDbId = storedPackage.id ?? storedPackage.package_db_id;
+        if (!storedPackageDbId && storedPackage.package_id) {
+          const packageResponse = await getPackages();
+          const packages = Array.isArray(packageResponse)
+            ? packageResponse
+            : packageResponse?.results || [];
+          storedPackageDbId = packages.find(
+            (item) => item.package_id === storedPackage.package_id
+          )?.id;
+        }
+        if (!storedPackageDbId) {
+          throw new Error('선택한 패키지 정보를 찾지 못했습니다.');
+        }
+        await addToCart(storedPackageDbId, { itineraryId: itinerary.id });
       } else {
         if (!customPackage) return;
         await addCustomToCart(itinerary.id);
@@ -442,6 +492,18 @@ export default function ReviewPage() {
               </div>
             </div>
 
+            {itinerary.hotel && (
+              <div className={styles.itineraryHotelInfo}>
+                <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
+                <span className={styles.accommodationCopy}>
+                  <small>자유일정 포함 숙소 · {itinerary.hotel.nights}박</small>
+                  <strong>{itinerary.hotel.title}</strong>
+                  {itinerary.hotel.address && <em>{itinerary.hotel.address}</em>}
+                </span>
+                <span className={styles.accommodationIncluded}>숙박 포함</span>
+              </div>
+            )}
+
             <div className={styles.grid}>
               <div className={styles.dayArea}>
                 <DayColumns days={itinerary.days} />
@@ -523,11 +585,6 @@ export default function ReviewPage() {
                           <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
                             탐나 플랜 추천 패키지
                           </span>
-                          {Boolean(packageComparison.stored_package?.hotel) && (
-                            <span className={styles.accommodationBadge}>
-                              🛏 숙소 포함
-                            </span>
-                          )}
                         </div>
                         <h3>
                           {packageComparison.stored_package?.title ??
@@ -550,9 +607,32 @@ export default function ReviewPage() {
                     )}
 
                     {packageComparison.stored_package && (
-                      <ComparisonDays
-                        days={packageComparison.stored_package.days}
-                      />
+                      <>
+                        <p className={styles.packageMeta}>
+                          {packageComparison.stored_package.region} ·{' '}
+                          {packageComparison.stored_package.duration_days}일
+                        </p>
+                        {Boolean(packageComparison.stored_package.hotel) && (
+                          <div className={styles.accommodationInfo}>
+                            <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
+                            <span className={styles.accommodationCopy}>
+                              <small>패키지 포함 숙소</small>
+                              <strong>
+                                {packageComparison.stored_package.hotel.title || '숙소 포함'}
+                              </strong>
+                            </span>
+                            <span className={styles.accommodationIncluded}>숙박 포함</span>
+                          </div>
+                        )}
+                        <ComparisonDays
+                          days={packageComparison.stored_package.days}
+                        />
+                        <div className={styles.packageAdvantages}>
+                          <span>✓ 확정 일정과 가장 유사한 구성</span>
+                          <span>✓ 바로 예약 가능한 패키지 상품</span>
+                        </div>
+                      </>
+
                     )}
                   </article>
 
@@ -607,6 +687,20 @@ export default function ReviewPage() {
                             마음에 든 지금 일정 그대로, 나만의 여행을 즐겨보세요.
                           </p>
                         </div>
+                        <p className={styles.packageMeta}>
+                          {itinerary.durationLabel} · 일정 맞춤 구성비 포함
+                        </p>
+                        {itinerary.hotel && (
+                          <div className={styles.accommodationInfo}>
+                            <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
+                            <span className={styles.accommodationCopy}>
+                              <small>포함 숙소 · {itinerary.hotel.nights}박</small>
+                              <strong>{itinerary.hotel.title}</strong>
+                            </span>
+                            <span className={styles.accommodationIncluded}>숙박 포함</span>
+                          </div>
+                        )}
+
                         <ComparisonDays days={itinerary.days} custom />
                       </>
                     )}
@@ -628,7 +722,8 @@ export default function ReviewPage() {
                       onClick={handleAddToCart}
                       disabled={addingToCart || (
                         selectedProduct === 'stored'
-                          ? !packageComparison.stored_package
+                          ? !hasStoredPackageIdentifier(packageComparison.stored_package)
+
                           : !packageComparison.custom_package
                       )}
                     >
@@ -640,7 +735,8 @@ export default function ReviewPage() {
                     onClick={handleBooking}
                     disabled={
                       selectedProduct === 'stored'
-                        ? !packageComparison.stored_package
+                        ? !hasStoredPackageIdentifier(packageComparison.stored_package)
+
                         : !packageComparison.custom_package
                     }
                   >
@@ -777,6 +873,18 @@ export default function ReviewPage() {
                           <small> / 1인</small>
                         </strong>
                       </div>
+
+                      {itinerary.hotel && (
+                        <div className={styles.bookedAccommodationInfo}>
+                          <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
+                          <span className={styles.accommodationCopy}>
+                            <small>자유일정 숙소 · {itinerary.hotel.nights}박</small>
+                            <strong>{itinerary.hotel.title}</strong>
+                            {itinerary.hotel.address && <em>{itinerary.hotel.address}</em>}
+                          </span>
+                          <span className={styles.accommodationIncluded}>숙박 포함</span>
+                        </div>
+                      )}
 
                       <ComparisonDays
                         days={itinerary.days}
