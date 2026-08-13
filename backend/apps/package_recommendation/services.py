@@ -47,6 +47,12 @@ def recommend_package_comparison(
 ) -> dict[str, Any]:
     """Return one stored recommendation and a provisional custom quote."""
 
+    # 자유일정 가격 먼저 계산
+    custom_package = _build_custom_package(
+        payload,
+        itinerary_id=itinerary_id,
+    )
+
     result = recommend_packages(
         payload,
         top_k=1,
@@ -56,13 +62,15 @@ def recommend_package_comparison(
         result.get("recommendations") or []
     )
 
+    # 추천 패키지가 없어도 자유일정 정보는 반환
     if not recommendations:
         return {
             **result,
             "stored_package": None,
-            "custom_package": None,
+            "custom_package": custom_package,
         }
 
+    # 기존 추천 패키지 ID 보정 로직 유지
     stored_package = dict(
         recommendations[0]
     )
@@ -74,12 +82,9 @@ def recommend_package_comparison(
     if database_id is not None:
         stored_package["id"] = database_id
 
-    quote = calculate_custom_package_price(
-        int(
-            stored_package[
-                "estimated_price"
-            ]
-        )
+    # 자유일정이 어떤 추천 패키지를 기준으로 비교됐는지 저장
+    custom_package["reference_package_id"] = (
+        stored_package["package_id"]
     )
 
     return {
@@ -88,16 +93,74 @@ def recommend_package_comparison(
             stored_package
         ],
         "stored_package": stored_package,
-        "custom_package": {
-            "product_type": "custom_itinerary",
-            "itinerary_id": itinerary_id,
-            "title": "내가 확정한 자유패키지",
-            "reference_package_id": (
-                stored_package["package_id"]
+        "custom_package": custom_package,
+    }
+
+
+def _build_custom_package(
+    payload: dict[str, Any],
+    *,
+    itinerary_id: int,
+) -> dict[str, Any]:
+    itinerary = (
+        payload.get("itinerary") or {}
+    )
+
+    condition = (
+        payload.get("condition")
+        or payload.get("conditions")
+        or {}
+    )
+
+    hotel = (
+        itinerary.get("hotel") or {}
+    )
+
+    duration_days = condition.get(
+        "duration_days"
+    )
+
+    if duration_days is None:
+        duration_days = len(
+            itinerary.get("days") or []
+        )
+
+    try:
+        duration_days = max(
+            int(duration_days or 1),
+            1,
+        )
+    except (TypeError, ValueError):
+        duration_days = 1
+
+    try:
+        nights = max(
+            int(
+                hotel.get(
+                    "nights",
+                    duration_days - 1,
+                )
             ),
-            **quote.to_dict(),
-            "is_provisional_quote": True,
-        },
+            0,
+        )
+    except (TypeError, ValueError):
+        nights = max(
+            duration_days - 1,
+            0,
+        )
+
+    quote = calculate_custom_package_price(
+        nights,
+        hotel.get("title"),
+    )
+
+    return {
+        "product_type": "custom_itinerary",
+        "itinerary_id": itinerary_id,
+        "title": "내가 확정한 자유패키지",
+        "reference_package_id": None,
+        **quote.to_dict(),
+        "is_provisional_quote": nights > 0,
     }
 
 
