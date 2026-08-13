@@ -19,15 +19,19 @@ export function ItineraryProvider({ children }) {
       return
     }
 
-    loadItineraries()
+    loadItineraries().catch((err) => {
+      console.error('초기 일정 조회 실패', err)
+    })
   }, [isLoggedIn, authLoading])
 
   async function loadItineraries() {
+    setLoading(true)
     try {
       const data = await getItineraries();
       setItineraries(data);
     } catch (err) {
       console.error('일정 조회 실패', err)
+      throw err
     } finally {
       setLoading(false);
     }

@@ -22,6 +22,8 @@ export default function ComparisonRouteMap({
   itineraryId,
   storedPackageId = null,
   storedDays = [],
+  storedHotel = null,
+  customHotel = null,
   mode = 'compare',
   selectedProduct = 'stored',
 }) {
@@ -40,6 +42,14 @@ export default function ComparisonRouteMap({
 
   // 컴포넌트가 사라진 뒤 state 변경 방지
   const mountedRef = useRef(true);
+  
+  const [activeProduct, setActiveProduct] = useState(
+    mode === 'custom'
+      ? 'custom'
+      : mode === 'stored' || storedDays.length > 0 || validPoint(storedHotel)
+        ? 'stored'
+        : 'custom'
+  );
 
   const currentProduct =
     mode === 'stored'
@@ -288,6 +298,46 @@ export default function ComparisonRouteMap({
         );
       };
 
+      const drawHotelMarker = (hotel, label) => {
+        if (!validPoint(hotel)) return;
+
+        const position = new kakao.maps.LatLng(
+          Number(hotel.latitude),
+          Number(hotel.longitude)
+        );
+
+        bounds.extend(position);
+        pointCount += 1;
+
+        const marker = document.createElement('button');
+        marker.type = 'button';
+        marker.textContent = '🛏';
+        marker.title = `${label} 숙소 · ${hotel.title || '숙소'}`;
+
+        Object.assign(marker.style, {
+          width: '34px',
+          height: '34px',
+          padding: '0',
+          borderRadius: '10px',
+          border: '2px solid #1B211D',
+          background: '#FFF7DD',
+          color: '#1B211D',
+          fontSize: '17px',
+          cursor: 'pointer',
+          boxShadow: '2px 2px 0 #1B211D',
+        });
+
+        const overlay = new kakao.maps.CustomOverlay({
+          position,
+          content: marker,
+          yAnchor: 1,
+          zIndex: 12,
+        });
+
+        overlay.setMap(map);
+        overlaysRef.current.push(overlay);
+      };
+
       if (currentProduct === 'stored') {
         const routeByDay = new Map(
           storedRoutes.map((route, index) => [
@@ -351,6 +401,7 @@ export default function ComparisonRouteMap({
             );
           }
         );
+        drawHotelMarker(storedHotel, '추천 패키지');
       } else {
         customRoutes.forEach(
           (route, routeIndex) => {
@@ -386,6 +437,7 @@ export default function ComparisonRouteMap({
             );
           }
         );
+        drawHotelMarker(customHotel, '자유일정');
       }
 
       if (pointCount > 0) {
@@ -417,7 +469,9 @@ export default function ComparisonRouteMap({
     currentProduct,
     customRoutes,
     storedRoutes,
+    customHotel,
     storedDays,
+    storedHotel,
   ]);
 
   const visibleDayNumbers = (
@@ -458,6 +512,12 @@ export default function ComparisonRouteMap({
             {day}일차
           </span>
         ))}
+        {validPoint(currentProduct === 'stored' ? storedHotel : customHotel) && (
+          <span>
+            <i style={{ backgroundColor: '#FFF7DD', border: '1px solid #1B211D' }} />
+            숙소 🛏
+          </span>
+        )}
       </div>
 
       <div

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import styles from "./account/account.module.css";
 import cx from "../utils/cx.js";
 import AccountHeader from "./account/AccountHeader.jsx";
@@ -8,7 +9,13 @@ import { useItineraries } from "../context/ItineraryContext.jsx";
 const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
-  const { itineraries, loading, removeItinerary } = useItineraries();
+  const { itineraries, loading, refresh, removeItinerary } = useItineraries();
+
+  useEffect(() => {
+    refresh().catch((err) => {
+      console.error("내 일정 최신 목록 조회 실패", err);
+    });
+  }, []);
 
   if (loading) {
     return <div>일정을 불러오는 중...</div>;
@@ -67,7 +74,7 @@ export default function MyItinerariesPage() {
             itineraries.map((it) => (
               <div className={styles.listItem} key={it.id}>
                 <Link
-                  to={`/review/${it.id}`}
+                  to={`/review/${it.id}?view=itinerary`}
                   style={{
                     flex: 1,
                     display: "flex",
@@ -84,7 +91,7 @@ export default function MyItinerariesPage() {
 
                     <p>
                       {it.styleDisplay?.replace("여행", "")} · {it.startDate} ~ {it.endDate} ·{" "}
-                      {it.companionCount}명
+                      {it.durationLabel} · {it.companionCount}명
                     </p>
                   </div>
                 </Link>

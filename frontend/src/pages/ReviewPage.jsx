@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
 import AppHeader from './review/AppHeader.jsx';
@@ -6,6 +6,7 @@ import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { useItineraries } from '../context/ItineraryContext.jsx';
 import { getPackageDetail, getPackages } from '../api/packageApi.js';
 
 import { useEffect, useRef, useState } from 'react';
@@ -23,6 +24,18 @@ import {
 
 const formatPrice = (value) =>
   `${Number(value || 0).toLocaleString('ko-KR')}원`;
+
+const formatCustomPrice = (customPackage) =>
+  customPackage?.pricing_basis === 'free_day_trip'
+    ? '무료'
+    : formatPrice(customPackage?.price_per_person);
+
+const isFreeCustomPackage = (customPackage) => Boolean(
+  customPackage && (
+    customPackage.pricing_basis === 'free_day_trip' ||
+    Number(customPackage.price_per_person) === 0
+  )
+);
 
 const hasStoredPackageIdentifier = (storedPackage) => Boolean(
   storedPackage?.id ??
@@ -72,7 +85,10 @@ function ComparisonDays({ days, custom = false }) {
 export default function ReviewPage() {
   const { id, token } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isItineraryOnlyView = searchParams.get('view') === 'itinerary';
   const { addToCart, addCustomToCart, openCart } = useCart();
+  const { refresh: refreshItineraries } = useItineraries();
 
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +115,7 @@ export default function ReviewPage() {
 
         setItinerary(data);
 
-        if (!token && data.status === 'confirmed') {
+        if (!token && !isItineraryOnlyView && data.status === 'confirmed') {
           setPackageLoading(true);
           setPackageError('');
 
@@ -133,6 +149,9 @@ export default function ReviewPage() {
             else {
               const comparison = await getPackageRecommendations(id, 1);
               setPackageComparison(comparison);
+              if (!comparison?.stored_package && comparison?.custom_package) {
+                setSelectedProduct('custom');
+              }
             }
           } catch (error) {
             console.error(error);
@@ -153,7 +172,7 @@ export default function ReviewPage() {
     };
 
     fetchData();
-  }, [id, token]);
+  }, [id, token, isItineraryOnlyView]);
 
   const handleBooking = async () => {
     const storedPackage = packageComparison?.stored_package;
@@ -220,6 +239,11 @@ export default function ReviewPage() {
     }
 
     if (!customPackage) return;
+    if (isFreeCustomPackage(customPackage)) {
+      await refreshItineraries();
+      navigate(`/review/${itinerary.id}?view=itinerary`);
+      return;
+    }
 
     navigate('/booking', {
       state: {
@@ -265,6 +289,9 @@ export default function ReviewPage() {
         await addToCart(storedPackageDbId, { itineraryId: itinerary.id });
       } else {
         if (!customPackage) return;
+        if (isFreeCustomPackage(customPackage)) {
+          throw new Error('당일치기 자유일정은 무료로 제공되어 장바구니에 담을 수 없습니다.');
+        }
         await addCustomToCart(itinerary.id);
       }
       openCart();
@@ -411,7 +438,7 @@ export default function ReviewPage() {
           </p>
         </div>
 
-        {(token || itinerary.status !== 'confirmed') && (
+        {(token || itinerary.status !== 'confirmed' || isItineraryOnlyView) && (
         <div className={styles.shell}>
           <div
             className={styles.mainCard}
@@ -515,7 +542,7 @@ export default function ReviewPage() {
         </div>
         )}
 
-          {!token && itinerary.status === 'confirmed' && !isBooked && (
+          {!token && !isItineraryOnlyView && itinerary.status === 'confirmed' && !isBooked && (
             <section className={styles.packageComparison}>
               <div className={styles.packageComparisonHead}>
                 <span>여행 방식 선택</span>
@@ -534,12 +561,15 @@ export default function ReviewPage() {
                 className={styles.comparisonMapSlot}
                 data-itinerary-id={itinerary.id}
               >
-                {packageComparison?.stored_package ? (
+                {packageComparison?.stored_package || packageComparison?.custom_package ? (
                   <ComparisonRouteMap
                     itineraryId={itinerary.id}
                     storedPackageId={packageComparison.stored_package.id}
                     storedDays={packageComparison.stored_package.days}
                     selectedProduct={selectedProduct}
+                    storedDays={packageComparison.stored_package?.days ?? []}
+                    storedHotel={packageComparison.stored_package?.hotel ?? null}
+                    customHotel={itinerary.hotel ?? null}
                   />
                 ) : (
                   <div className={styles.comparisonMapGuide}>
@@ -565,7 +595,9 @@ export default function ReviewPage() {
                       styles.recommendedChoiceCard,
                       selectedProduct === 'stored' && styles.selectedChoiceCard
                     )}
-                    onClick={() => setSelectedProduct('stored')}
+                    onClick={() => {
+                      if (packageComparison.stored_package) setSelectedProduct('stored');
+                    }}
                     role="radio"
                     aria-checked={selectedProduct === 'stored'}
                     tabIndex={0}
@@ -674,8 +706,10 @@ export default function ReviewPage() {
                       </div>
                       {packageComparison.custom_package && (
                         <strong>
-                          {formatPrice(packageComparison.custom_package.price_per_person)}
-                          <small> / 1인</small>
+                          {formatCustomPrice(packageComparison.custom_package)}
+                          {packageComparison.custom_package.price_per_person > 0 && (
+                            <small> / 1인</small>
+                          )}
                         </strong>
                       )}
                     </div>
@@ -688,7 +722,9 @@ export default function ReviewPage() {
                           </p>
                         </div>
                         <p className={styles.packageMeta}>
-                          {itinerary.durationLabel} · 일정 맞춤 구성비 포함
+                          {packageComparison.custom_package.pricing_basis === 'free_day_trip'
+                            ? `${itinerary.durationLabel} · 일정 무료 제공`
+                            : `${itinerary.durationLabel} · 숙소 비용만 포함`}
                         </p>
                         {itinerary.hotel && (
                           <div className={styles.accommodationInfo}>
@@ -712,9 +748,12 @@ export default function ReviewPage() {
                 <div className={styles.bookingAction}>
                   <span>
                     {selectedProduct === 'stored'
-                      ? '추천 패키지를 선택했어요.'
-                      : '내가 만든 일정을 선택했어요.'}
+                      ? '추천 패키지를 선택했습니다.'
+                      : isFreeCustomPackage(packageComparison.custom_package)
+                        ? '무료 당일치기 일정은 확정과 동시에 내 일정에 저장되었습니다.'
+                        : '자유일정을 선택했습니다.'}
                   </span>
+                  
                   <div className={styles.bookingButtons}>
                     <button
                       type="button"
@@ -723,11 +762,15 @@ export default function ReviewPage() {
                       disabled={addingToCart || (
                         selectedProduct === 'stored'
                           ? !hasStoredPackageIdentifier(packageComparison.stored_package)
-
-                          : !packageComparison.custom_package
+                          : !packageComparison.custom_package ||
+                            isFreeCustomPackage(packageComparison.custom_package)
                       )}
                     >
-                      {addingToCart ? '담는 중...' : '선택한 상품 장바구니에 넣기'}
+                      {isFreeCustomPackage(packageComparison.custom_package) && selectedProduct === 'custom'
+                        ? '무료 일정은 장바구니 불필요'
+                        : addingToCart
+                          ? '담는 중...'
+                          : '선택한 상품 장바구니에 넣기'}
                     </button>
                   <button
                     type="button"
@@ -740,7 +783,9 @@ export default function ReviewPage() {
                         : !packageComparison.custom_package
                     }
                   >
-                    선택한 상품 예약하기 →
+                    {isFreeCustomPackage(packageComparison.custom_package) && selectedProduct === 'custom'
+                      ? '일정 확인하기 →'
+                      : '선택한 상품 예약하기 →'}
                   </button>
                   </div>
                 </div>
@@ -749,6 +794,7 @@ export default function ReviewPage() {
           )}
   
       {!token &&
+        !isItineraryOnlyView &&
         itinerary.status === 'confirmed' &&
         isBookedStored &&
         packageComparison?.stored_package && (
@@ -773,6 +819,7 @@ export default function ReviewPage() {
                   packageComparison.stored_package.course ??
                   []
                 }
+                storedHotel={packageComparison.stored_package.hotel ?? null}
                 mode="stored"
               />
             </div>
@@ -823,6 +870,7 @@ export default function ReviewPage() {
           </section>
       )}
             {!token &&
+              !isItineraryOnlyView &&
               itinerary.status === 'confirmed' &&
               isBookedCustom && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
@@ -840,6 +888,7 @@ export default function ReviewPage() {
                     <ComparisonRouteMap
                       itineraryId={itinerary.id}
                       storedDays={[]}
+                      customHotel={itinerary.hotel ?? null}
                       mode="custom"
                     />
                   </div>
