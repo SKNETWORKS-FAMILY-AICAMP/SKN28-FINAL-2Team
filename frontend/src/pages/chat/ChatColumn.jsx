@@ -515,13 +515,13 @@ export default function ChatColumn({
                     <p>
                       제안해 드린 일정은 어떠셨나요?
                       <br />
-                      일정은 취향에 맞게 자유롭게 변경할 수 있습니다.
+                      일정은 취향에 맞게 자유롭게 변경할 수 있어요.
                     </p>
 
                     <p>
-                      복잡한 여행 일정을 한눈에 보기 쉽게 정리했어요!
+                      일정을 확인한 뒤 여행 준비를 이어가 보세요.
                       <br />
-                      [일정 미리보기] 버튼을 눌러 확인해 보세요.
+                      다음 단계에서 내 일정과 추천 패키지를 비교해 선택할 수 있어요.
                     </p>
                   </div>
                 </div>
@@ -552,7 +552,7 @@ export default function ChatColumn({
                     onClick={() => handleConfirmItinerary(item.itinerary.id)}
                     disabled={isConfirming}
                   >
-                    {isConfirming ? '확정 중...' : '이 일정으로 확정하기 →'}
+                    {isConfirming ? '준비 중...' : '이 일정으로 여행 준비하기 →'}
                   </button>
                 )}
               </div>
