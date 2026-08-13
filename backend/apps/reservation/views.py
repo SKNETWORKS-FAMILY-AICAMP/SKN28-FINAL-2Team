@@ -93,6 +93,12 @@ class CartAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if int(custom_package["price_per_person"]) <= 0:
+                return Response(
+                    {"detail": "무료 당일치기 자유일정은 장바구니에 담을 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             item, created = CartItem.objects.get_or_create(
                 user=request.user,
                 product_type=CartItem.ProductType.CUSTOM_ITINERARY,
@@ -260,6 +266,11 @@ class ReservationListCreateAPIView(ListAPIView):
                 )
 
             price = int(custom_package["price_per_person"])
+            if price <= 0:
+                return Response(
+                    {"detail": "무료 당일치기 자유일정은 예약 대상이 아닙니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             reservation = Reservation.objects.create(
                 user=request.user,
                 itinerary=itinerary,

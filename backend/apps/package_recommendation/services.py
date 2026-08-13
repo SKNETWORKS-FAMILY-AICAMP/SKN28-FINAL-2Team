@@ -48,29 +48,29 @@ def recommend_package_comparison(
 ) -> dict[str, Any]:
     """Return one stored recommendation and a provisional custom quote."""
 
+    # 자유일정 상품은 추천 패키지 조회와 별도로 먼저 생성
+    custom_package = _build_custom_package(
+        payload,
+        itinerary_id=itinerary_id,
+    )
+
     result = recommend_packages(
         payload,
         top_k=1,
     )
 
-    recommendations = (
-        result.get("recommendations") or []
-    )
+    recommendations = result.get("recommendations") or []
 
     if not recommendations:
         return {
             **result,
             "stored_package": None,
-            "custom_package": None,
+            "custom_package": custom_package,
         }
 
-    stored_package = dict(
-        recommendations[0]
-    )
+    stored_package = dict(recommendations[0])
 
-    database_id = stored_package.get(
-        "database_id"
-    )
+    database_id = stored_package.get("database_id")
 
     if database_id is not None:
         stored_package["id"] = database_id
@@ -100,7 +100,9 @@ def recommend_package_comparison(
 
         if len(items) >= 2:
             try:
-                day_path = get_kakao_day_route_path(items)
+                day_path = get_kakao_day_route_path(
+                    items
+                )
 
             except (ValueError, RuntimeError) as exc:
                 print(
@@ -118,12 +120,9 @@ def recommend_package_comparison(
             f"{len(day_path)} points",
         )
 
-    quote = calculate_custom_package_price(
-        int(
-            stored_package[
-                "estimated_price"
-            ]
-        )
+    # 추천 패키지와 자유일정 연결
+    custom_package["reference_package_id"] = (
+        stored_package["package_id"]
     )
 
     return {
@@ -132,16 +131,66 @@ def recommend_package_comparison(
             stored_package
         ],
         "stored_package": stored_package,
-        "custom_package": {
-            "product_type": "custom_itinerary",
-            "itinerary_id": itinerary_id,
-            "title": "내가 확정한 자유패키지",
-            "reference_package_id": (
-                stored_package["package_id"]
+        "custom_package": custom_package,
+    }
+
+
+def _build_custom_package(
+    payload: dict[str, Any],
+    *,
+    itinerary_id: int,
+) -> dict[str, Any]:
+    itinerary = payload.get("itinerary") or {}
+    condition = (
+        payload.get("condition")
+        or payload.get("conditions")
+        or {}
+    )
+    hotel = itinerary.get("hotel") or {}
+
+    duration_days = condition.get("duration_days")
+
+    if duration_days is None:
+        duration_days = len(
+            itinerary.get("days") or []
+        )
+
+    try:
+        duration_days = max(
+            int(duration_days or 1),
+            1,
+        )
+    except (TypeError, ValueError):
+        duration_days = 1
+
+    try:
+        nights = max(
+            int(
+                hotel.get(
+                    "nights",
+                    duration_days - 1,
+                )
             ),
-            **quote.to_dict(),
-            "is_provisional_quote": True,
-        },
+            0,
+        )
+    except (TypeError, ValueError):
+        nights = max(
+            duration_days - 1,
+            0,
+        )
+
+    quote = calculate_custom_package_price(
+        nights,
+        hotel.get("title"),
+    )
+
+    return {
+        "product_type": "custom_itinerary",
+        "itinerary_id": itinerary_id,
+        "title": "내가 확정한 자유패키지",
+        "reference_package_id": None,
+        **quote.to_dict(),
+        "is_provisional_quote": nights > 0,
     }
 
 
