@@ -104,8 +104,8 @@
 .selectedChoiceCard{ border-color:var(--green-deep); outline:5px solid rgba(79,157,106,.32); outline-offset:4px; background:#f3fbf5; box-shadow:9px 9px 0 var(--green); }
 .selectionStatus{ display:table; margin:0 0 14px auto; padding:7px 12px; border:1.5px solid #9aa39e; border-radius:999px; background:#fff; color:#68716c; font-size:12px; font-weight:900; line-height:1; }
 .selectionStatusActive{ border-color:var(--green-deep); background:var(--green-deep); color:#fff; box-shadow:2px 2px 0 var(--ink); }
-.recommendedChoiceCard{ position:relative; padding-top:52px; border:3px solid var(--green-deep); background:linear-gradient(180deg,var(--green-soft) 0,#fff 210px); box-shadow:7px 7px 0 var(--green); }
-.customChoiceCard{ border-color:#7d8781; background:#f7f8f7; box-shadow:4px 4px 0 #d8dcda; }
+.recommendedChoiceCard{ position:relative; border:2.5px solid #7d8781; background:#fff; box-shadow:4px 4px 0 #d8dcda; }
+.customChoiceCard{ border-color:#7d8781; background:#fff; box-shadow:4px 4px 0 #d8dcda; }
 .bestMatchRibbon{ position:absolute; top:0; right:0; left:0; padding:10px 16px; border-bottom:2px solid var(--green-deep); border-radius:16px 16px 0 0; background:var(--green); color:#fff; font-family:var(--display); font-size:12px; font-weight:800; letter-spacing:.02em; text-align:center; }
 .packageBadgeRow{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
 .packageBadge{ display:inline-block; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
@@ -162,3 +162,13 @@
 .bookedChoiceCard .comparisonDay li strong{ text-align:center; }
 .bookedChoiceCard .comparisonDay li p{ text-align:center; }
 .bookedChoiceCard .comparisonDay li:not(:last-child)::after{ content:""; position:absolute; top:12px; left:calc(50% + 14px); width:calc(100% - 18px); height:1px; background:rgba(79,157,106,.32); z-index:1; }
+.reviewActions { position: relative; display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 18px; }
+.recommendReason{ margin:14px 0 18px; padding:12px 14px; border-radius:12px; background:#f3fbf5; border:1px solid rgba(47,111,74,.18); }
+.recommendReason strong{ display:block; margin-bottom:5px; color:var(--green-deep); font-size:12px; font-weight:800; }
+.recommendReason p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
+.packageChoiceCard{ padding-top:22px; }
+.selectionStatus{ position:absolute; top:22px; right:22px; margin:0; z-index:2; }
+.packageChoiceHead{ min-height:82px; align-items:flex-start; padding-top:0; }
+.packageChoiceHead > div{ padding-top:0; }
+.packageBadgeRow{ margin-top:0; margin-bottom:10px; }
+.packageChoiceHead > strong{ margin-top:5px; margin-right:120px; }

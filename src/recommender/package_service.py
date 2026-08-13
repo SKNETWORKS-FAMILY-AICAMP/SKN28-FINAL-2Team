@@ -152,23 +152,11 @@ class PackageRecommendationService:
         return _package_route_rows(selected)
 
 
+
 def _deterministic_reason(candidate: ScoredPackage) -> str:
-    matched = candidate.exact_match_count
-    total = candidate.itinerary_place_count
-    if matched:
-        names = [
-            item.title
-            for item in candidate.package.tourism_items
-            if item.content_id in candidate.matched_content_ids
-        ][:3]
-        place_text = ", ".join(names) if names else "일정 관광지"
-        return (
-            f"일정 관광지 {total}곳 중 {matched}곳({place_text})이 정확히 겹치고, "
-            f"동선·사용자 조건을 포함한 점수는 {candidate.score.total:.2f}점입니다."
-        )
     return (
-        "정확히 겹치는 관광지는 없지만 사용자 조건과 인접 관광지 근거를 "
-        f"반영한 점수가 {candidate.score.total:.2f}점입니다."
+        "내가 만든 일정의 여행 조건과 전반적인 구성이 비슷해 "
+        "함께 비교해보기 좋은 패키지예요."
     )
 
 
@@ -177,6 +165,7 @@ def _serialize_recommendation(
     candidate: ScoredPackage,
     reason: str,
 ) -> dict[str, Any]:
+    ...
     package = candidate.package
 
     return {

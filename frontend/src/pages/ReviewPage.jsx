@@ -74,7 +74,7 @@ export default function ReviewPage() {
   const [packageComparison, setPackageComparison] = useState(null);
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageError, setPackageError] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('stored');
+  const [selectedProduct, setSelectedProduct] = useState('custom');
   const [addingToCart, setAddingToCart] = useState(false);
 
   const pdfRef = useRef(null);
@@ -193,8 +193,8 @@ export default function ReviewPage() {
         packages: [
           {
             id: `custom-${itinerary.id}`,
-            name: itinerary.title || '내가 확정한 자유패키지',
-            description: '확정한 일정 그대로 예약하는 자유일정 상품입니다.',
+            name: itinerary.title || '내가 만든 일정',
+            description: '대화로 완성한 일정 그대로 여행하는 자유일정이에요.',
             price: customPackage.price_per_person,
             thumbnail: '🧭',
             isCustom: true,
@@ -450,9 +450,16 @@ export default function ReviewPage() {
           {!token && itinerary.status === 'confirmed' && !isBooked && (
             <section className={styles.packageComparison}>
               <div className={styles.packageComparisonHead}>
-                <span>상품 선택</span>
-                <h2>두 여행 일정을 한눈에 비교해보세요</h2>
-                <p>추천 패키지와 내가 만든 자유일정 중 하나를 선택할 수 있어요.</p>
+                <span>여행 방식 선택</span>
+
+                <h2>
+                  내가 만든 일정, 어떻게 여행할까요?
+                </h2>
+
+                <p>
+                  방금 완성한 일정을 그대로 이용하거나,
+                  일정과 잘 맞는 추천 패키지를 선택할 수 있어요.
+                </p>
               </div>
 
               <div
@@ -496,9 +503,7 @@ export default function ReviewPage() {
                     aria-checked={selectedProduct === 'stored'}
                     tabIndex={0}
                   >
-                    <div className={styles.bestMatchRibbon}>
-                      BEST MATCH
-                    </div>
+
                     <div
                       className={cx(
                         styles.selectionStatus,
@@ -511,7 +516,7 @@ export default function ReviewPage() {
                       <div>
                         <div className={styles.packageBadgeRow}>
                           <span className={cx(styles.packageBadge, styles.recommendedBadge)}>
-                            우리 여행사 추천 패키지
+                            탐나 플랜 추천 패키지
                           </span>
                           {Boolean(packageComparison.stored_package?.hotel) && (
                             <span className={styles.accommodationBadge}>
@@ -531,20 +536,18 @@ export default function ReviewPage() {
                         </strong>
                       )}
                     </div>
+
+                    {packageComparison.stored_package?.reason && (
+                      <div className={styles.recommendReason}>
+                        <strong>✨이 패키지를 추천해요</strong>
+                        <p>{packageComparison.stored_package.reason}</p>
+                      </div>
+                    )}
+
                     {packageComparison.stored_package && (
-                      <>
-                        <p className={styles.packageMeta}>
-                          {packageComparison.stored_package.region} ·{' '}
-                          {packageComparison.stored_package.duration_days}일
-                        </p>
-                        <ComparisonDays
-                          days={packageComparison.stored_package.days}
-                        />
-                        <div className={styles.packageAdvantages}>
-                          <span>✓ 확정 일정과 가장 유사한 구성</span>
-                          <span>✓ 바로 예약 가능한 패키지 상품</span>
-                        </div>
-                      </>
+                      <ComparisonDays
+                        days={packageComparison.stored_package.days}
+                      />
                     )}
                   </article>
 
@@ -569,10 +572,20 @@ export default function ReviewPage() {
                     </div>
                     <div className={styles.packageChoiceHead}>
                       <div>
-                        <span className={cx(styles.packageBadge, styles.customBadge)}>
-                          자유일정 대안
-                        </span>
-                        <h3>{itinerary.title || '내가 확정한 일정 그대로'}</h3>
+                        <div className={styles.packageBadgeRow}>
+                          <span
+                            className={cx(
+                              styles.packageBadge,
+                              styles.customBadge
+                            )}
+                          >
+                            내가 만든 일정
+                          </span>
+                        </div>
+
+                        <h3>
+                          {itinerary.title || '내가 확정한 일정 그대로'}
+                        </h3>
                       </div>
                       {packageComparison.custom_package && (
                         <strong>
@@ -583,9 +596,12 @@ export default function ReviewPage() {
                     </div>
                     {packageComparison.custom_package && (
                       <>
-                        <p className={styles.packageMeta}>
-                          {itinerary.durationLabel} · 일정 맞춤 구성비 포함
-                        </p>
+                        <div className={styles.recommendReason}>
+                          <strong>✏️ 내 일정 그대로 여행하기</strong>
+                          <p>
+                            마음에 든 지금 일정 그대로, 나만의 여행을 즐겨보세요.
+                          </p>
+                        </div>
                         <ComparisonDays days={itinerary.days} custom />
                       </>
                     )}
@@ -597,8 +613,8 @@ export default function ReviewPage() {
                 <div className={styles.bookingAction}>
                   <span>
                     {selectedProduct === 'stored'
-                      ? '추천 패키지를 선택했습니다.'
-                      : '자유일정을 선택했습니다.'}
+                      ? '추천 패키지를 선택했어요.'
+                      : '내가 만든 일정을 선택했어요.'}
                   </span>
                   <div className={styles.bookingButtons}>
                     <button

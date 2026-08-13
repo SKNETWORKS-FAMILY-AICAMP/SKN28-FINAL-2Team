@@ -18,18 +18,16 @@ export default function PaymentSummary({
       {items.map((item) => (
         <div className={styles.payRow} key={item.cartId ?? item.package.id}>
           <span className={styles.k}>
-            {item.package.name.split(' ')[0]}
+            {item.package.name
+              .replace(/\d{1,3}(,\d{3})*원/g, '')
+              .trim()}
           </span>
+
           <span className={styles.v}>
             {won(Number(item.package.price) * item.quantity)}
           </span>
         </div>
       ))}
-
-      <div className={styles.payRow}>
-        <span className={styles.k}>할인 쿠폰</span>
-        <span className={cx(styles.v, styles.discount)}>-0원</span>
-      </div>
 
       <div className={styles.payDivider}></div>
 

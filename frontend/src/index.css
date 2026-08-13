@@ -104,7 +104,7 @@ header.nav{ position: sticky; top:0; z-index:50; background: rgba(255,255,255,0.
 .service-chat-input span{flex:1;white-space:nowrap;overflow:hidden;}
 .service-chat-input button{width:23px;height:23px;min-width:23px;border:0;border-radius:50%;background:var(--green);color:#fff;font-size:9.5px;cursor:pointer;}
 
-/* 일정 (헤더는 페이지 하단 itinerary 섹션과 클래스명이 겹쳐 service-preview-head로 분리) */
+/* 일정 */
 .service-itinerary{background:#fff;padding:14px;display:flex;flex-direction:column;}
 .service-preview-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding-bottom:9px;border-bottom:1px dashed var(--line);}
 .service-preview-head>div>span{font-family:var(--display);font-size:10.5px;}
@@ -119,7 +119,7 @@ header.nav{ position: sticky; top:0; z-index:50; background: rgba(255,255,255,0.
 .itinerary-confirm{width:100%;height:34px;min-height:34px;border:2px solid var(--ink);border-radius:100px;background:var(--green);color:#fff;font-family:var(--display);font-size:12.5px;font-weight:700;box-shadow:3px 3px 0 var(--ink);cursor:pointer;flex:0 0 34px;}
 
 
-/* ---------- 2. 상품 비교 (grid-column:1/-1 로 콘텐츠 영역 전체 폭을 채우도록 수정) ---------- */
+/* ---------- 2. 상품 비교  ---------- */
 .package-compare{grid-column:1/-1;width:100%;height:394px;min-height:394px;max-height:394px;box-sizing:border-box;padding:0 4px;display:flex;flex-direction:column;overflow:hidden;}
 .compare-heading{width:100%;padding:15px 9px 11px;text-align:center;box-sizing:border-box;flex:0 0 auto;}
 .compare-heading>span{display:block;margin-bottom:4px;text-align:center;color:var(--green-deep);font-family:var(--display);font-size:10.5px;font-weight:700;}
@@ -151,7 +151,7 @@ header.nav{ position: sticky; top:0; z-index:50; background: rgba(255,255,255,0.
 .booking-option-label small{font-size:9.5px;}
 .booking-option-label span{padding:4px 8px;border-radius:999px;background:#fbe4cf;color:#c2703f;font-family:var(--display);font-size:9.5px;font-weight:700;white-space:nowrap;}
 
-/* ---------- 3. 선택 + 예약 (기존 grid 오버라이드/미사용 booking-product 스타일 정리, grid-column:1/-1 로 전체 폭 사용) ---------- */
+/* ---------- 3. 선택 + 예약  ---------- */
 .booking-preview{grid-column:1/-1;width:100%;height:420px;min-height:420px;max-height:420px;padding:15px 4px 0;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;}
 .booking-heading{text-align:center;padding:5px 9px 16px;flex:0 0 auto;}
 .booking-heading>span{display:block;color:#e6783f;font-family:var(--display);font-size:13px;font-weight:800;}
