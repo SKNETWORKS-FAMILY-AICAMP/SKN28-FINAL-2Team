@@ -480,6 +480,26 @@ export default function ChatColumn({
               <div key={item.id}>
                 {/* 기존 텍스트 일정 */}
                 <div className={styles.itineraryResult}>
+                  {item.itinerary?.hotel && (
+                    <div className={styles.itineraryHotel}>
+                      <span className={styles.itineraryHotelIcon}>🛏</span>
+
+                      <span>
+                        <small>
+                          포함 숙소 · {item.itinerary.hotel.nights}박
+                        </small>
+
+                        <strong>
+                          {item.itinerary.hotel.title}
+                        </strong>
+
+                        {item.itinerary.hotel.address && (
+                          <p>{item.itinerary.hotel.address}</p>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
                   {(item.itinerary?.days ?? []).map((day) => (
                     <div
                       key={day.dayNumber}

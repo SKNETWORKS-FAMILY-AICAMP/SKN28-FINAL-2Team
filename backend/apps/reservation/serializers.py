@@ -125,6 +125,7 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 
 class ReservationItemSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
+    accommodation = serializers.SerializerMethodField()
 
     class Meta:
         model = ReservationItem
@@ -138,8 +139,71 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "quantity",
             "option_date",
             "option_people",
+            "accommodation",
             "schedule",
         )
+
+    def get_accommodation(self, obj):
+        is_custom = (
+            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
+            or str(obj.package_id or "").upper().startswith("CUSTOM-")
+        )
+
+        if is_custom:
+            itinerary = obj.reservation.itinerary
+            if itinerary is None:
+                return None
+
+            itinerary_state = (itinerary.engine_state or {}).get("itinerary") or {}
+            return itinerary_state.get("hotel")
+
+        package_db_id = obj.package_db_id
+        if not package_db_id and obj.package_id:
+            package_db_id = (
+                Package.objects.using("travel")
+                .filter(package_id=obj.package_id, is_active=True)
+                .values_list("id", flat=True)
+                .first()
+            )
+
+        if not package_db_id:
+            return None
+
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.title,
+                    p.addr1,
+                    p.addr2,
+                    p.latitude,
+                    p.longitude,
+                    pi.content_id
+                FROM package_items pi
+                LEFT JOIN places p ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.item_type = 'hotel'
+                ORDER BY pi.day_no, pi.sequence
+                LIMIT 1
+                """,
+                [package_db_id],
+            )
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        title, addr1, addr2, latitude, longitude, content_id = row
+        address = " ".join(part for part in (addr1, addr2) if part)
+        return {
+            "content_id": content_id,
+            "title": title or "숙소",
+            "address": address,
+            "latitude": latitude,
+            "longitude": longitude,
+        }
 
     def get_schedule(self, obj):
         if not self.context.get("include_schedule", True):

@@ -127,7 +127,6 @@
 .bestMatchRibbon{ position:absolute; top:0; right:0; left:0; padding:10px 16px; border-bottom:2px solid var(--green-deep); border-radius:16px 16px 0 0; background:var(--green); color:#fff; font-family:var(--display); font-size:12px; font-weight:800; letter-spacing:.02em; text-align:center; }
 .packageBadgeRow{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
 .packageBadge{ display:inline-block; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
-.accommodationBadge{ display:inline-flex; align-items:center; padding:5px 10px; border:1px solid rgba(47,111,74,.25); border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
 .recommendedBadge{ background:var(--green-deep); }
 .customBadge{ background:#67716c; }
 .packageChoiceHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; padding-bottom:15px; border-bottom:1px dashed var(--line); }
@@ -135,7 +134,17 @@
 .packageChoiceCard h3{ font-family:var(--display); font-size:18px; }
 .packageChoiceHead > strong{ flex:0 0 auto; color:var(--green-deep); font-family:var(--display); font-size:22px; white-space:nowrap; }
 .packageChoiceCard small{ font-family:inherit; font-size:12px; }
-.packageMeta{ margin:12px 0 18px; color:var(--muted); font-size:13px; }
+.packageMeta{ margin:12px 0; color:var(--muted); font-size:13px; }
+.accommodationInfo{ display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:12px 14px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:#fff; }
+.itineraryHotelInfo{ display:flex; align-items:center; gap:12px; margin:18px 0 0; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
+.bookedAccommodationInfo{ display:flex; align-items:center; gap:12px; margin:15px 0 16px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:var(--green-soft); }
+.accommodationIcon{ display:grid; width:38px; height:38px; flex:0 0 38px; place-items:center; border-radius:11px; background:var(--green-soft); font-size:19px; }
+.itineraryHotelInfo .accommodationIcon{ background:#fff; }
+.accommodationCopy{ display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
+.accommodationCopy small{ color:var(--muted); font-size:11px; font-weight:700; }
+.accommodationCopy strong{ overflow:hidden; color:var(--ink); font-size:15px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.accommodationCopy em{ overflow:hidden; color:var(--muted); font-size:11px; font-style:normal; text-overflow:ellipsis; white-space:nowrap; }
+.accommodationIncluded{ flex:0 0 auto; padding:5px 9px; border-radius:999px; background:var(--green-deep); color:#fff; font-size:10px; font-weight:800; white-space:nowrap; }
 .comparisonDays{ display:grid; max-height:560px; gap:16px; overflow-y:auto; padding-right:7px; scrollbar-width:thin; scrollbar-color:var(--green) transparent; }
 .comparisonDays::-webkit-scrollbar{ width:7px; }
 .comparisonDays::-webkit-scrollbar-thumb{ border-radius:100px; background:var(--green); }
