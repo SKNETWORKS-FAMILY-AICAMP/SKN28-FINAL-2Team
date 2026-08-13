@@ -463,7 +463,9 @@ export default function ReviewPage() {
                 {packageComparison?.stored_package ? (
                   <ComparisonRouteMap
                     itineraryId={itinerary.id}
+                    storedPackageId={packageComparison.stored_package.id}
                     storedDays={packageComparison.stored_package.days}
+                    selectedProduct={selectedProduct}
                   />
                 ) : (
                   <div className={styles.comparisonMapGuide}>
@@ -648,6 +650,7 @@ export default function ReviewPage() {
             <div className={styles.comparisonMapSlot}>
               <ComparisonRouteMap
                 itineraryId={itinerary.id}
+                storedPackageId={packageComparison.stored_package.id}
                 storedDays={
                   packageComparison.stored_package.days ??
                   packageComparison.stored_package.course ??

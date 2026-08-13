@@ -161,7 +161,40 @@ export const getRoute = async (id) => {
   return data;
 };
 
+// 실제 자동차 도로 경로 조회
+// 동일 일정에 대한 동시 중복 요청 방지
+// 실제 자동차 도로 경로 조회
+// 동일 경로에 대한 동시 중복 요청 방지
+const roadRouteRequests = new Map();
+
+export const getRoadRoute = async (id, packageId = null) => {
+  const key = packageId
+    ? `${id}:package:${packageId}`
+    : `${id}:custom`;
+
+  if (roadRouteRequests.has(key)) {
+    return roadRouteRequests.get(key);
+  }
+
+  const request = api
+    .get(`/travel/itineraries/${id}/road-route/`, {
+      params: packageId
+        ? { package_id: packageId }
+        : {},
+    })
+    .then(({ data }) => data)
+    .finally(() => {
+      roadRouteRequests.delete(key);
+    });
+
+  roadRouteRequests.set(key, request);
+
+  return request;
+};
+
 // 생성된 일정 기반 패키지 추천 조회
+const packageRecommendationRequests = new Map();
+
 export const getPackageRecommendations = async (id, topK = 3) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/package-recommendations/`,
