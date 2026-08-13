@@ -149,7 +149,6 @@ export default function ReviewPage() {
             else {
               const comparison = await getPackageRecommendations(id, 1);
               setPackageComparison(comparison);
-
               if (!comparison?.stored_package && comparison?.custom_package) {
                 setSelectedProduct('custom');
               }
@@ -240,7 +239,6 @@ export default function ReviewPage() {
     }
 
     if (!customPackage) return;
-
     if (isFreeCustomPackage(customPackage)) {
       await refreshItineraries();
       navigate(`/review/${itinerary.id}?view=itinerary`);
@@ -564,11 +562,11 @@ export default function ReviewPage() {
                 className={styles.comparisonMapSlot}
                 data-itinerary-id={itinerary.id}
               >
-                {packageComparison?.stored_package ? (
+                {packageComparison?.stored_package || packageComparison?.custom_package ? (
                   <ComparisonRouteMap
                     itineraryId={itinerary.id}
-                    storedPackageId={packageComparison.stored_package.id}
-                    storedDays={packageComparison.stored_package.days}
+                    storedPackageId={packageComparison.stored_package?.id}
+                    storedDays={packageComparison.stored_package?.days ?? []}
                     storedHotel={packageComparison.stored_package?.hotel ?? null}
                     customHotel={itinerary.hotel ?? null}
                     selectedProduct={selectedProduct}
@@ -597,7 +595,9 @@ export default function ReviewPage() {
                       styles.recommendedChoiceCard,
                       selectedProduct === 'stored' && styles.selectedChoiceCard
                     )}
-                    onClick={() => setSelectedProduct('stored')}
+                    onClick={() => {
+                      if (packageComparison.stored_package) setSelectedProduct('stored');
+                    }}
                     role="radio"
                     aria-checked={selectedProduct === 'stored'}
                     tabIndex={0}
@@ -776,7 +776,8 @@ export default function ReviewPage() {
             </section>
           )}
   
-        {!isItineraryOnlyView &&
+      {!token &&
+        !isItineraryOnlyView &&
         itinerary.status === 'confirmed' &&
         isBookedStored &&
         packageComparison?.stored_package && (
@@ -879,7 +880,8 @@ export default function ReviewPage() {
             </div>
           </section>
       )}
-              {!isItineraryOnlyView &&
+            {!token &&
+              !isItineraryOnlyView &&
               itinerary.status === 'confirmed' &&
               isBookedCustom && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>

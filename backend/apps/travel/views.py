@@ -31,7 +31,6 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     def get_serializer_class(self):
         if self.action == "list":
             return PackageListSerializer
-
         return PackageSerializer
 
     @extend_schema(
@@ -89,10 +88,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = (
             self.get_queryset()
-            .filter(
-                reservations__status="confirmed"
-            )
-            .distinct()
+            .filter(status=Itinerary.Status.CONFIRMED)
         )
 
         serializer = self.get_serializer(
