@@ -86,7 +86,11 @@ export default function PackageDetailModal({ pkg, onClose }) {
             </div>
             <div className={styles.infoItem}>
               <span className={styles.infoLabel}>🏨 숙박 포함</span>
-              <span className={styles.infoValue}>{pkg.accommodationIncluded ? '포함' : '미포함'}</span>
+              <span className={styles.infoValue}>
+                {pkg.accommodationIncluded
+                  ? (pkg.accommodationName || '포함')
+                  : '미포함'}
+              </span>
             </div>
             <div className={styles.infoItem}>
               <span className={styles.infoLabel}>✨ 여행 스타일</span>

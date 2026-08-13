@@ -180,6 +180,12 @@
   .appLinks{ display:none; }
 }
 .itineraryResult { width:100%; padding:20px 40px; box-sizing:border-box; }
+.itineraryHotel{ display:flex; align-items:center; gap:12px; margin:0 0 26px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
+.itineraryHotelIcon{ display:grid; width:40px; height:40px; flex:0 0 40px; place-items:center; border-radius:12px; background:#fff; font-size:20px; }
+.itineraryHotel > span:last-child{ display:flex; min-width:0; flex-direction:column; gap:3px; }
+.itineraryHotel small{ color:var(--muted); font-size:11px; font-weight:700; }
+.itineraryHotel strong{ color:var(--ink); font-size:15px; line-height:1.35; }
+.itineraryHotel p{ margin:0; color:var(--muted); font-size:12px; }
 .itineraryDay { margin-bottom:32px; }
 .itineraryDay h2 { margin:0 0 18px; font-size:14px; font-weight:700; }
 .itineraryItem { margin-bottom:18px; line-height:1.7; }

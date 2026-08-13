@@ -22,6 +22,7 @@ const mapItinerary = (data) => ({
   bookedProductType: data.booked_product_type,
   bookedPackageDbId: data.booked_package_db_id,
   bookedPrice: data.booked_price,
+  hotel: data.hotel || null,
 
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
@@ -45,6 +46,7 @@ export const getItineraries = async () => {
     styleDisplay: item.style_display,
     status: item.status,
     statusDisplay: item.status_display,
+    hotel: item.hotel || null,
   }));
 };
 

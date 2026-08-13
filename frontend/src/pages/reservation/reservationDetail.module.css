@@ -12,11 +12,17 @@
 .topRow{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; }
 .productBadges{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:8px; }
 .productType{ display:inline-flex; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--green-soft); color:var(--green-deep); font-size:11px; font-weight:800; }
-.accommodationBadge{ display:inline-flex; align-items:center; padding:5px 10px; border:1px solid rgba(47,111,74,.25); border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
 .topRow h2{ font-family:var(--display); font-size:22px; }
 .sub{ margin-top:5px; color:var(--muted); font-size:13px; }
 .price{ color:var(--green-deep); font-family:var(--display); font-size:23px; white-space:nowrap; }
 .price small{ font-size:12px; }
+.accommodationInfo{ display:flex; width:100%; align-items:center; gap:13px; margin:0 0 16px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
+.accommodationIcon{ display:grid; width:40px; height:40px; flex:0 0 40px; place-items:center; border-radius:12px; background:#fff; font-size:20px; }
+.accommodationCopy{ display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
+.accommodationCopy small{ color:var(--muted); font-size:11px; font-weight:700; }
+.accommodationCopy strong{ overflow:hidden; color:var(--ink); font-size:16px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.accommodationCopy em{ overflow:hidden; color:var(--muted); font-size:11px; font-style:normal; text-overflow:ellipsis; white-space:nowrap; }
+.accommodationIncluded{ flex:0 0 auto; padding:5px 10px; border-radius:999px; background:var(--green-deep); color:#fff; font-size:10px; font-weight:800; white-space:nowrap; }
 .metaRow{ display:flex; gap:18px; margin-top:18px; padding-top:16px; border-top:1px dashed var(--line); flex-wrap:wrap; }
 .metaItem{ color:var(--muted); font-size:12.5px; font-weight:700; }
 .dayHead{ display:inline-flex; margin-bottom:13px; padding:6px 11px; border:1.5px solid var(--ink); border-radius:100px; background:#fff; font-family:var(--mono); font-size:11px; font-weight:800; }

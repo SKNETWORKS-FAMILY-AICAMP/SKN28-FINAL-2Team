@@ -31,6 +31,7 @@ const normalizePackage = (pkg) => ({
   durationDays: pkg.duration_days,
   region: pkg.region,
   accommodationIncluded: pkg.accommodation_included,
+  accommodationName: pkg.accommodation_name || '',
   includedItems: Array.isArray(pkg.included_items)
     ? pkg.included_items
     : [],
@@ -192,6 +193,9 @@ export default function PackagesPage() {
                   <p className={styles.desc}>{p.description}</p>
 
                   <div className={styles.tags}>
+                    {p.accommodationName && (
+                      <span className={styles.tag}>🏨 {p.accommodationName}</span>
+                    )}
                     {p.includedItems.map((item) => (
                       <span className={styles.tag} key={item}>
                         #{item}

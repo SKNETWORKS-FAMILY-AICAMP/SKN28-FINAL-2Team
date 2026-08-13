@@ -1,13 +1,147 @@
 from datetime import timedelta
 import json
+import math
 import traceback
 
-from django.db import transaction
+from django.db import connections, transaction
 
 from src.api import itinerary_engine
 from src.models.itinerary import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 from .route_optimizer import optimize_stops
+
+
+LODGING_CONTENT_TYPE_ID = 32
+
+
+def _haversine_km(
+    latitude1: float,
+    longitude1: float,
+    latitude2: float,
+    longitude2: float,
+) -> float:
+    """Return the great-circle distance between two coordinates."""
+
+    earth_radius_km = 6371.0088
+    lat1 = math.radians(latitude1)
+    lat2 = math.radians(latitude2)
+    delta_lat = lat2 - lat1
+    delta_lng = math.radians(longitude2 - longitude1)
+
+    value = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lng / 2) ** 2
+    )
+    return 2 * earth_radius_km * math.asin(math.sqrt(value))
+
+
+def _itinerary_route_points(state: ItineraryState) -> list[tuple[float, float]]:
+    points = []
+
+    for day_data in state.itinerary.get("days", []):
+        for stop in day_data.get("stops", []):
+            if stop.get("role") in {"accommodation", "stay"}:
+                continue
+
+            latitude = stop.get("latitude")
+            longitude = stop.get("longitude")
+            if latitude is None or longitude is None:
+                continue
+
+            points.append((float(latitude), float(longitude)))
+
+    return points
+
+
+def _load_lodging_candidates() -> list[dict]:
+    """Load TourAPI lodging candidates from the shared travel database."""
+
+    with connections["travel"].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                p.content_id,
+                p.title,
+                p.addr1,
+                p.addr2,
+                p.latitude,
+                p.longitude,
+                (
+                    SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                    FROM place_images img
+                    WHERE img.content_id = p.content_id
+                      AND (
+                          NULLIF(img.image_url, '') IS NOT NULL
+                          OR NULLIF(img.thumbnail_url, '') IS NOT NULL
+                      )
+                    ORDER BY img.display_order
+                    LIMIT 1
+                ) AS thumbnail_url
+            FROM places p
+            WHERE p.content_type_id = %s
+              AND p.latitude IS NOT NULL
+              AND p.longitude IS NOT NULL
+              AND p.latitude <> 0
+              AND p.longitude <> 0
+              AND NULLIF(TRIM(p.title), '') IS NOT NULL
+            """,
+            [LODGING_CONTENT_TYPE_ID],
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "content_id": int(content_id),
+            "title": title,
+            "address": " ".join(part for part in (addr1, addr2) if part).strip(),
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+            "thumbnail_url": thumbnail_url or "",
+        }
+        for content_id, title, addr1, addr2, latitude, longitude, thumbnail_url in rows
+    ]
+
+
+def _select_fixed_accommodation(
+    state: ItineraryState,
+    *,
+    nights: int,
+) -> dict | None:
+    """Select one lodging that minimizes travel across the initial itinerary."""
+
+    if nights < 1:
+        return None
+
+    route_points = _itinerary_route_points(state)
+    if not route_points:
+        return None
+
+    candidates = _load_lodging_candidates()
+    if not candidates:
+        return None
+
+    def candidate_score(candidate: dict) -> tuple[float, float, str]:
+        distances = [
+            _haversine_km(
+                candidate["latitude"],
+                candidate["longitude"],
+                latitude,
+                longitude,
+            )
+            for latitude, longitude in route_points
+        ]
+        average_distance = sum(distances) / len(distances)
+        # Equal-distance candidates with an image are more useful in the UI.
+        image_penalty = 0.0 if candidate["thumbnail_url"] else 1.0
+        return average_distance, image_penalty, candidate["title"]
+
+    selected = min(candidates, key=candidate_score)
+    return {
+        **selected,
+        "nights": nights,
+        "source": "tourapi",
+        "is_fixed": True,
+    }
 
 
 def _build_place_info_map(
@@ -153,7 +287,6 @@ def _save_itinerary_result(
             date=itinerary.start_date
             + timedelta(days=day_number - 1),
         )
-
         for stop in day_data.get("stops", []):
             content_id = stop.get("content_id")
 
@@ -204,25 +337,15 @@ def _save_itinerary_result(
                 thumbnail,
             )
             role = stop.get("role")
-
             item_type_map = {
                 "visit": ItineraryItem.ItemType.SPOT,
                 "food": ItineraryItem.ItemType.RESTAURANT,
                 "shopping": ItineraryItem.ItemType.SHOPPING,
                 "activity": ItineraryItem.ItemType.ACTIVITY,
                 "accommodation": ItineraryItem.ItemType.ACCOMMODATION,
+                "stay": ItineraryItem.ItemType.ACCOMMODATION,
             }
-
-            item_type = item_type_map.get(
-                role,
-                ItineraryItem.ItemType.SPOT,
-            )
-
-            print(
-                "[ITEM TYPE]",
-                "role =", role,
-                "→ item_type =", item_type,
-            )
+            item_type = item_type_map.get(role, ItineraryItem.ItemType.SPOT)
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
@@ -255,7 +378,8 @@ def generate_itinerary(itinerary: Itinerary):
 
     itinerary.title = (
         f"{itinerary.duration_label} "
-        f"{itinerary.get_companion_type_display()} 여행"
+        f"{itinerary.get_companion_type_display()} "
+        f"{itinerary.style}"
     )
     itinerary.save(update_fields=["title"])
 
@@ -314,6 +438,11 @@ def generate_itinerary(itinerary: Itinerary):
         # OR-Tools 경로 최적화
         # -------------------------------------------------
         _optimize_itinerary_routes(state)
+
+        nights = (itinerary.end_date - itinerary.start_date).days
+        hotel = _select_fixed_accommodation(state, nights=nights)
+        if hotel:
+            state.itinerary["hotel"] = hotel
 
         # -------------------------------------------------
         # 최종 일정
@@ -380,6 +509,7 @@ def revise_itinerary(
         state = ItineraryState.from_dict(
             itinerary.engine_state
         )
+        fixed_hotel = state.itinerary.get("hotel")
 
         # 엔진을 이용하여 일정 수정
         new_state = (
@@ -388,6 +518,9 @@ def revise_itinerary(
                 user_text,
             )
         )
+
+        if fixed_hotel:
+            new_state.itinerary["hotel"] = fixed_hotel
 
         # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()

@@ -115,6 +115,11 @@ export default function ReservationDetailPage() {
   const description = isCustom
     ? '사용자가 확정한 일정으로 구성된 자유패키지입니다.'
     : packageDetail?.description || '여행사에서 구성한 제주 여행 패키지입니다.'
+  const hotelInfo = isCustom
+    ? itinerary?.hotel || activeItem?.accommodation
+    : activeItem?.accommodation || (packageDetail?.accommodation_included
+      ? { title: packageDetail.accommodation_name || '숙소 포함' }
+      : null)
 
 
   const handleCancel = async () => {
@@ -165,9 +170,6 @@ export default function ReservationDetailPage() {
             <div>
               <div className={styles.productBadges}>
                 <span className={styles.productType}>{isCustom ? '자유패키지' : '여행사 패키지'}</span>
-                {!isCustom && packageDetail?.accommodation_included && (
-                  <span className={styles.accommodationBadge}>🛏 숙소 포함</span>
-                )}
               </div>
               <h2>{title}</h2>
               <p className={styles.sub}>{description}</p>
@@ -215,6 +217,21 @@ export default function ReservationDetailPage() {
                 </Link>
               )}
             </div>
+
+            {hotelInfo && (
+              <div className={styles.accommodationInfo}>
+                <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
+                <span className={styles.accommodationCopy}>
+                  <small>
+                    {isCustom ? '자유일정 숙소' : '패키지 포함 숙소'}
+                    {hotelInfo.nights ? ` · ${hotelInfo.nights}박` : ''}
+                  </small>
+                  <strong>{hotelInfo.title}</strong>
+                  {hotelInfo.address && <em>{hotelInfo.address}</em>}
+                </span>
+                <span className={styles.accommodationIncluded}>숙박 포함</span>
+              </div>
+            )}
 
             <div className={styles.scheduleDays}>
               {days.length > 0 ? (
