@@ -30,38 +30,56 @@ def recommend_package_comparison(
     *,
     itinerary_id: int,
 ) -> dict[str, Any]:
-    """Return one stored recommendation and a provisional custom quote.
+    """Return one stored recommendation and a provisional custom quote."""
 
-    ``custom_package`` is intentionally a response-only quote.  It does not
-    depend on, or persist, a final custom-package database schema.
-    """
-
+    custom_package = _build_custom_package(payload, itinerary_id=itinerary_id)
     result = recommend_packages(payload, top_k=1)
     recommendations = result.get("recommendations") or []
     if not recommendations:
         return {
             **result,
             "stored_package": None,
-            "custom_package": None,
+            "custom_package": custom_package,
         }
 
     stored_package = recommendations[0]
-    quote = calculate_custom_package_price(
-        int(stored_package["estimated_price"])
-    )
+
+    custom_package["reference_package_id"] = stored_package["package_id"]
     return {
         **result,
         # Keep the existing list during the frontend transition.
         "recommendations": [stored_package],
         "stored_package": stored_package,
-        "custom_package": {
-            "product_type": "custom_itinerary",
-            "itinerary_id": itinerary_id,
-            "title": "내가 확정한 자유패키지",
-            "reference_package_id": stored_package["package_id"],
-            **quote.to_dict(),
-            "is_provisional_quote": True,
-        },
+        "custom_package": custom_package,
+    }
+
+
+def _build_custom_package(payload: dict[str, Any], *, itinerary_id: int) -> dict[str, Any]:
+    itinerary = payload.get("itinerary") or {}
+    condition = payload.get("condition") or payload.get("conditions") or {}
+    hotel = itinerary.get("hotel") or {}
+
+    duration_days = condition.get("duration_days")
+    if duration_days is None:
+        duration_days = len(itinerary.get("days") or [])
+    try:
+        duration_days = max(int(duration_days or 1), 1)
+    except (TypeError, ValueError):
+        duration_days = 1
+
+    try:
+        nights = max(int(hotel.get("nights", duration_days - 1)), 0)
+    except (TypeError, ValueError):
+        nights = max(duration_days - 1, 0)
+
+    quote = calculate_custom_package_price(nights, hotel.get("title"))
+    return {
+        "product_type": "custom_itinerary",
+        "itinerary_id": itinerary_id,
+        "title": "내가 확정한 자유패키지",
+        "reference_package_id": None,
+        **quote.to_dict(),
+        "is_provisional_quote": nights > 0,
     }
 
 

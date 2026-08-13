@@ -1,59 +1,48 @@
 from django.test import SimpleTestCase
 
-from .pricing import (
-    calculate_custom_package_price,
-    choose_reference_package_price,
-)
+from .pricing import calculate_custom_package_price
 
 
 class CustomPackagePricingTests(SimpleTestCase):
-    def test_adds_twelve_percent_to_recommended_package_price(self):
-        result = calculate_custom_package_price(666_000)
+    def test_day_trip_is_free(self):
+        result = calculate_custom_package_price(0)
 
-        self.assertEqual(result.reference_package_price, 666_000)
-        self.assertEqual(result.customization_fee, 80_000)
-        self.assertEqual(result.price_per_person, 746_000)
-        self.assertEqual(result.pricing_version, "2.0")
+        self.assertEqual(result.price_per_person, 0)
+        self.assertEqual(result.pricing_basis, "free_day_trip")
+        self.assertEqual(result.room_price_per_night, 0)
 
-    def test_rounds_final_price_to_nearest_thousand_won(self):
-        result = calculate_custom_package_price(333_000)
+    def test_standard_lodging_price_is_split_between_two_people(self):
+        result = calculate_custom_package_price(2, "라벤더리조트")
 
-        self.assertEqual(result.price_per_person, 373_000)
-        self.assertEqual(result.customization_fee, 40_000)
+        self.assertEqual(result.lodging_tier, "standard")
+        self.assertEqual(result.room_price_per_night, 140_000)
+        self.assertEqual(result.price_per_person, 140_000)
+
+    def test_upper_and_luxury_lodging_names_use_existing_tiers(self):
+        upper = calculate_custom_package_price(1, "엠버리조트")
+        luxury = calculate_custom_package_price(1, "제주신라호텔")
+
+        self.assertEqual(upper.price_per_person, 110_000)
+        self.assertEqual(luxury.price_per_person, 175_000)
 
     def test_returns_serializable_breakdown(self):
-        result = calculate_custom_package_price(500_000).to_dict()
+        result = calculate_custom_package_price(1, "일반 숙소").to_dict()
 
         self.assertEqual(
             result,
             {
-                "reference_package_price": 500_000,
-                "customization_fee": 60_000,
-                "price_per_person": 560_000,
-                "pricing_version": "2.0",
+                "nights": 1,
+                "lodging_name": "일반 숙소",
+                "lodging_tier": "standard",
+                "room_price_per_night": 140_000,
+                "price_per_person": 70_000,
+                "pricing_basis": "estimated_accommodation_only",
+                "pricing_version": "3.0",
             },
         )
 
-    def test_prefers_recommended_package_price(self):
-        reference_price = choose_reference_package_price(
-            666_000,
-            [400_000, 500_000],
-        )
-
-        self.assertEqual(reference_price, 666_000)
-
-    def test_uses_same_duration_average_when_recommendation_is_missing(self):
-        reference_price = choose_reference_package_price(
-            None,
-            [400_000, 500_000, 600_000],
-        )
-
-        self.assertEqual(reference_price, 500_000)
-
-    def test_rejects_missing_or_invalid_reference_prices(self):
+    def test_rejects_invalid_nights(self):
         with self.assertRaises(ValueError):
-            choose_reference_package_price(None, [])
-        with self.assertRaises(ValueError):
-            calculate_custom_package_price(0)
+            calculate_custom_package_price(-1)
         with self.assertRaises(TypeError):
-            calculate_custom_package_price(100_000.0)
+            calculate_custom_package_price(1.0)
