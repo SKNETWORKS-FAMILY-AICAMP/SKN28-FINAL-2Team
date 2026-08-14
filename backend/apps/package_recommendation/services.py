@@ -16,8 +16,7 @@ from src.recommender import (
     PackageRecommendationService,
 )
 
-from apps.travel.kakao_route_service import get_kakao_route_path
-
+from apps.travel.kakao_route_service import get_kakao_day_route_path
 from .pricing import calculate_custom_package_price
 
 
@@ -99,41 +98,17 @@ def recommend_package_comparison(
 
         day_path = []
 
-        for index in range(
-            len(items) - 1
-        ):
-            origin = items[index]
-            destination = items[index + 1]
-
+        if len(items) >= 2:
             try:
-                segment_path = (
-                    get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                )
+                day_path = get_kakao_day_route_path(items)
 
-            except RuntimeError as exc:
+            except (ValueError, RuntimeError) as exc:
                 print(
                     "[Kakao] 추천 패키지 경로 조회 실패:",
-                    origin.get("title"),
-                    "→",
-                    destination.get("title"),
+                    f"DAY {day.get('day')}",
                     exc,
                 )
-                continue
-
-            if not segment_path:
-                continue
-
-            if day_path:
-                day_path.extend(
-                    segment_path[1:]
-                )
-            else:
-                day_path.extend(
-                    segment_path
-                )
+                day_path = []
 
         day["path"] = day_path
 
