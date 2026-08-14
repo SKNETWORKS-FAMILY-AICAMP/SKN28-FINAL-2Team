@@ -422,14 +422,18 @@ export default function ReviewPage() {
       <div className={styles.wrap}>
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>
-            {isBooked ? '✓ 예약 일정 확인' : '✓ 최종 일정 확인'}
+            {isBooked
+              ? '✓ 예약 일정 확인'
+              : isItineraryOnlyView
+                ? '✓ 일정 확인'
+                : '✓ 최종 일정 확인'}
           </div>
 
           <h1>
             {isBooked
               ? '예약한 여행을 확인해보세요'
               : isItineraryOnlyView
-                ? '완성된 일정을 확인해보세요'
+                ? '완성한 여행 일정을 확인해보세요'
                 : '나에게 맞는 여행을 선택해보세요'}
           </h1>
 
@@ -437,14 +441,14 @@ export default function ReviewPage() {
             {isBooked
               ? '예약한 일정과 이동 경로를 한눈에 확인할 수 있어요.'
               : isItineraryOnlyView
-                ? '완성한 일정과 추천 숙소를 확인하고, 저장하거나 공유할 수 있어요.'
+                ? '완성한 일정과 이동 경로를 한눈에 확인할 수 있어요.'
                 : '방금 완성한 일정을 그대로 이용하거나, 일정과 잘 맞는 추천 패키지를 선택할 수 있어요.'}
           </p>
         </div>
 
 
         <div>
-          {(token || itinerary.status !== 'confirmed' || isItineraryOnlyView) && (
+          {(token || itinerary.status !== 'confirmed') && (
         <div className={styles.shell}>
           <div className={styles.mainCard} ref={pdfRef}>
             <div className={styles.topRow}>
@@ -881,18 +885,23 @@ export default function ReviewPage() {
           </section>
       )}
             {!token &&
-              !isItineraryOnlyView &&
               itinerary.status === 'confirmed' &&
-              isBookedCustom && (
+              (isBookedCustom || isItineraryOnlyView) && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
                   <div className={styles.packageComparisonHead}>
-                    <span>예약한 여행</span>
+                    <span>
+                      {isItineraryOnlyView ? '완성한 여행' : '예약한 여행'}
+                    </span>
 
                     <h2>
                       {itinerary.title || '내가 만든 자유일정'}
                     </h2>
 
-                    <p>예약한 자유일정입니다.</p>
+                    <p>
+                      {isItineraryOnlyView
+                        ? '완성한 자유일정입니다.'
+                        : '예약한 자유일정입니다.'}
+                    </p>
                   </div>
 
                 {!token && (
@@ -949,7 +958,9 @@ export default function ReviewPage() {
                               styles.customBadge
                             )}
                           >
-                            예약한 자유일정
+                            {isItineraryOnlyView
+                              ? '완성한 자유일정'
+                              : '예약한 자유일정'}
                           </span>
 
                           <h3>
@@ -958,8 +969,14 @@ export default function ReviewPage() {
                         </div>
 
                         <strong>
-                          {formatPrice(itinerary.bookedPrice)}
-                          <small> / 1인</small>
+                          {isItineraryOnlyView
+                            ? '무료'
+                            : formatPrice(itinerary.bookedPrice)
+                          }
+
+                          {!isItineraryOnlyView && (
+                            <small> / 1인</small>
+                          )}
                         </strong>
                       </div>
 

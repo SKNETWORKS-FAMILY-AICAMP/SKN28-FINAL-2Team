@@ -103,7 +103,7 @@ export default function ComparisonRouteMap({
           '추천 패키지 실제 도로 경로 조회 실패:',
           error
         );
-      }
+      } 
     };
 
     const loadCustomRoute = async () => {
@@ -114,6 +114,7 @@ export default function ComparisonRouteMap({
       }
 
       loadedCustomKeyRef.current = key;
+    
 
       try {
         const routes = await getRoadRoute(
@@ -132,7 +133,7 @@ export default function ComparisonRouteMap({
           '자유일정 실제 도로 경로 조회 실패:',
           error
         );
-      }
+      } 
     };
 
     if (currentProduct === 'stored') {
@@ -169,6 +170,23 @@ export default function ComparisonRouteMap({
       }
 
       const map = mapInstanceRef.current;
+      // 자유일정 경로가 아직 도착하지 않았을 때는
+      // 숙소 하나만 기준으로 지도를 확대하지 않는다.
+      if (
+        currentProduct === 'custom' &&
+        customRoutes.length === 0
+      ) {
+        map.setCenter(
+          new kakao.maps.LatLng(
+            33.3617,
+            126.5292
+          )
+        );
+
+        map.setLevel(10);
+
+        return;
+      }
 
       overlaysRef.current.forEach(
         (overlay) => overlay.setMap(null)
@@ -304,7 +322,7 @@ export default function ComparisonRouteMap({
 
         const marker = document.createElement('button');
         marker.type = 'button';
-        marker.textContent = '🛏';
+        marker.textContent = '🏨';
         marker.title = `${label} 숙소 · ${hotel.title || '숙소'}`;
 
         Object.assign(marker.style, {
@@ -515,9 +533,7 @@ export default function ComparisonRouteMap({
 
       <div
         ref={mapRef}
-        className={
-          styles.comparisonMapCanvas
-        }
+        className={styles.comparisonMapCanvas}
       />
     </>
   );
