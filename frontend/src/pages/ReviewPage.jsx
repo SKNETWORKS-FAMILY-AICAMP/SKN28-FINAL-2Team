@@ -345,13 +345,19 @@ export default function ReviewPage() {
       <div className={styles.wrap}>
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>
-            ✓ 최종 일정 확인
+            {isBooked ? '✓ 예약 일정 확인' : '✓ 최종 일정 확인'}
           </div>
 
-          <h1>완성된 일정을 확인해보세요</h1>
+          <h1>
+            {isBooked
+              ? '예약한 여행을 확인해보세요'
+              : '나에게 맞는 여행을 선택해보세요'}
+          </h1>
 
           <p>
-            여행 일정을 확인하고, 저장하거나 공유할 수 있어요.
+            {isBooked
+              ? '예약한 일정과 이동 경로를 한눈에 확인할 수 있어요.'
+              : '방금 완성한 일정을 그대로 이용하거나, 일정과 잘 맞는 추천 패키지를 선택할 수 있어요.'}
           </p>
         </div>
 
@@ -453,12 +459,11 @@ export default function ReviewPage() {
                 <span>여행 방식 선택</span>
 
                 <h2>
-                  내가 만든 일정, 어떻게 여행할까요?
+                  내가 만든 일정과 추천 패키지를 비교해보세요
                 </h2>
 
                 <p>
-                  방금 완성한 일정을 그대로 이용하거나,
-                  일정과 잘 맞는 추천 패키지를 선택할 수 있어요.
+                  지도에서 여행 동선을 확인하고, 아래에서 원하는 여행 방식을 선택할 수 있어요.
                 </p>
               </div>
 
