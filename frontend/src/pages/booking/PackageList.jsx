@@ -125,6 +125,13 @@ export default function PackageList({
                   {liked ? '❤️' : '🤍'}
                 </button>
               )}
+
+              <div
+                className={styles.pkgPrice}
+                onClick={() => onToggle?.(p.id)}
+              >
+                 {(Number(p.price || 0) * item.quantity).toLocaleString('ko-KR')}원
+              </div>
             </div>
           </div>
         )

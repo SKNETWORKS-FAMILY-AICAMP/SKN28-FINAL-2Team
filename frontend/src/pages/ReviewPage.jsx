@@ -611,7 +611,8 @@ export default function ReviewPage() {
                 {packageComparison?.stored_package || packageComparison?.custom_package ? (
                   <ComparisonRouteMap
                     itineraryId={itinerary.id}
-                    storedPackageId={packageComparison.stored_package?.id}
+
+                    storedPackageId={packageComparison.stored_package?.id ?? null}
                     storedDays={packageComparison.stored_package?.days ?? []}
                     storedHotel={packageComparison.stored_package?.hotel ?? null}
                     customHotel={itinerary.hotel ?? null}
