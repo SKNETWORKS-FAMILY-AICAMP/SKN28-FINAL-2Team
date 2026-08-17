@@ -7,8 +7,7 @@ import { getPackageDetail, getPackages } from '../api/packageApi'
 import { cancelReservation, getReservation } from '../api/reservationApi'
 import AppHeader from './review/AppHeader.jsx'
 import styles from './reservation/reservationDetail.module.css'
-
-const won = (value) => `${Number(value || 0).toLocaleString('ko-KR')}원`
+import { won } from '../data/packages.js'
 
 const itemTypeLabel = (type) => {
   if (type === 'restaurant') return '음식점'

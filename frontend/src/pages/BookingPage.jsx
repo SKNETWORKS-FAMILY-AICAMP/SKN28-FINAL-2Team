@@ -8,6 +8,7 @@ import PaymentSummary from './booking/PaymentSummary.jsx'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useReservations } from '../context/ReservationContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
+import { won } from '../data/packages.js'
 
 export default function BookingPage() {
   const { addReservation } = useReservations()
@@ -168,7 +169,7 @@ export default function BookingPage() {
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>결제 금액</span>
-                <span className={styles.v}>{confirmedTotal.toLocaleString('ko-KR')}원</span>
+                <span className={styles.v}>{won(confirmedTotal)}</span>
               </div>
             </div>
             <div style={{ marginTop: 26, display: 'flex', gap: 10, justifyContent: 'center' }}>

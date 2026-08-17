@@ -8,6 +8,7 @@ import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useItineraries } from '../context/ItineraryContext.jsx';
 import { getPackageDetail, getPackages } from '../api/packageApi.js';
+import { won } from '../data/packages.js';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -22,8 +23,7 @@ import {
 } from '../api/itinerary';
 
 
-const formatPrice = (value) =>
-  `${Number(value || 0).toLocaleString('ko-KR')}원`;
+const formatPrice = won;
 
 const formatCustomPrice = (customPackage) =>
   customPackage?.pricing_basis === 'free_day_trip'
