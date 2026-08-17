@@ -144,10 +144,18 @@ class RecordingPatternRepository:
     def fetch_trip_profiles(
         self,
         *,
-        min_usable_visits: int,
+        age_groups: Sequence[str],
+        duration_days: int,
+        companion_rel_codes: Sequence[str],
+        min_stops_per_day: int,
+        limit: int,
     ) -> list[TripProfile]:
         return self.delegate.fetch_trip_profiles(
-            min_usable_visits=min_usable_visits
+            age_groups=age_groups,
+            duration_days=duration_days,
+            companion_rel_codes=companion_rel_codes,
+            min_stops_per_day=min_stops_per_day,
+            limit=limit,
         )
 
     def fetch_trip_routes(

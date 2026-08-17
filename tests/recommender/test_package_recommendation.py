@@ -59,14 +59,14 @@ def package(package_id: str, place_ids: list[int], *, profile: dict | None = Non
         place_categories=tuple(profile.get("place_categories", [])),
         items=tuple(
             PackageItem(
-                1,
-                index,
-                "tourism",
-                content_id,
-                f"관광지 {content_id}",
-                60,
-                126.5,
-                33.4,
+                day=1,
+                sequence=index,
+                item_type="tourism",
+                content_id=content_id,
+                title=f"관광지 {content_id}",
+                stay_minutes=60,
+                longitude=126.5,
+                latitude=33.4,
             )
             for index, content_id in enumerate(place_ids, start=1)
         ),
@@ -226,8 +226,8 @@ class PackageRecommendationTests(unittest.TestCase):
                 "user_conditions": {
                         "total": 40,
                         "companion": 20,
-                        "place_category": 15,
-                        "season": 5,
+                        "theme": 15,
+                        "travel_style_and_season": 5,
                 },
                 "region_and_route": 10,
             },

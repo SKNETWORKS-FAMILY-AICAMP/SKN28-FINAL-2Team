@@ -73,6 +73,7 @@ jobs:
       - run: python backend/manage.py migrate --database=default --noinput
       - run: python backend/manage.py migrate --database=default --check
       - run: python backend/manage.py test apps --noinput
+      - run: python -m unittest discover -s tests
 
   frontend:
     runs-on: ubuntu-latest

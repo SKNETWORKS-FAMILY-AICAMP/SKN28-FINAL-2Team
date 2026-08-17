@@ -44,7 +44,8 @@ TRAVEL_COLUMN_CONTRACTS = {
         "region",
         "duration_days",
         "estimated_price",
-        "match_profile",
+        "companion",
+        "tags",
         "is_active",
     },
     "package_items": {
@@ -54,6 +55,7 @@ TRAVEL_COLUMN_CONTRACTS = {
         "sequence",
         "item_type",
         "content_id",
+        "tags",
         "stay_minutes",
     },
     "place_images": {

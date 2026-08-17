@@ -656,6 +656,7 @@ def _fallback_age_groups(
 ) -> tuple[str, ...]:
     """
     요청 나이대를 기준으로 ±1단계의 AIHub age_grp 코드를 반환한다.
+    나이대가 없거나 해석할 수 없으면 전체 연령대를 조회한다.
 
     AIHub DB:
         20 = 20대
@@ -664,8 +665,16 @@ def _fallback_age_groups(
         50 = 50대
         60 = 60대
     """
+    available_age_groups = {
+        20: "20",
+        30: "30",
+        40: "40",
+        50: "50",
+        60: "60",
+    }
+
     if not age_group:
-        return ()
+        return tuple(available_age_groups.values())
 
     normalized = str(age_group).strip().lower()
 
@@ -675,15 +684,7 @@ def _fallback_age_groups(
     try:
         age = int(normalized)
     except ValueError:
-        return ()
-
-    available_age_groups = {
-        20: "20",
-        30: "30",
-        40: "40",
-        50: "50",
-        60: "60",
-    }
+        return tuple(available_age_groups.values())
 
     fallback = []
 

@@ -26,6 +26,7 @@ services:
       - ./src/aihub/sql/aihub_place_mapping.sql:/docker-entrypoint-initdb.d/03-mapping.sql:ro
       - ./src/storage/sql/30-package-seed.sh:/docker-entrypoint-initdb.d/30-package-seed.sh:ro
       - ./src/storage/seed:/seed:ro
+      - ./generated_packages.100.json:/package-migrations:ro
 
     healthcheck:
       test:
