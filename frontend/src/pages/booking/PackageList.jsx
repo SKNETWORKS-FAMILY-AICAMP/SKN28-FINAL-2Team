@@ -1,5 +1,6 @@
 import styles from './booking.module.css'
 import cx from '../../utils/cx.js'
+import { won } from '../../data/packages.js'
 
 const durationLabel = (pkg) => {
   if (pkg.durationLabel || pkg.duration_label) {
@@ -130,7 +131,7 @@ export default function PackageList({
                 className={styles.pkgPrice}
                 onClick={() => onToggle?.(p.id)}
               >
-                 {(Number(p.price || 0) * item.quantity).toLocaleString('ko-KR')}원
+                 {won(Number(p.price || 0) * item.quantity)}
               </div>
             </div>
           </div>
