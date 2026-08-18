@@ -16,16 +16,6 @@ export default function ItineraryPreview({ itinerary }) {
 
   return (
     <div>
-      {itinerary.hotel && (
-        <div className={styles.itineraryHotel}>
-          <span className={styles.itineraryHotelIcon}>🛏</span>
-          <span>
-            <small>포함 숙소 · {itinerary.hotel.nights}박</small>
-            <strong>{itinerary.hotel.title}</strong>
-            {itinerary.hotel.address && <p>{itinerary.hotel.address}</p>}
-          </span>
-        </div>
-      )}
       <div className={styles.dayTabs}>
         {itinerary.days.map((day) => (
           <button
@@ -43,13 +33,25 @@ export default function ItineraryPreview({ itinerary }) {
         ))}
       </div>
 
+      {itinerary.hotel && (
+        <div className={styles.itineraryHotel}>
+          <span className={styles.itineraryHotelIcon}>🛏</span>
+          <span>
+            <small>포함 숙소 · {itinerary.hotel.nights}박</small>
+            <strong>{itinerary.hotel.title}</strong>
+            {itinerary.hotel.address && (
+              <p>{itinerary.hotel.address}</p>
+            )}
+          </span>
+        </div>
+      )}
+
       <div className={styles.timeline}>
         {current.items.map((item, index) => (
           <div
             className={styles.tItem}
             key={item.id ?? index}
           >
-
             <div className={styles.tThumb}>
               {item.thumbnail ? (
                 <img
