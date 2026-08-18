@@ -5,8 +5,7 @@ import cx from '../utils/cx.js'
 import AccountHeader from './account/AccountHeader.jsx'
 import AccountTabs from './account/AccountTabs.jsx'
 import { useReservations } from '../context/ReservationContext.jsx'
-
-const won = (value) => `${Number(value || 0).toLocaleString('ko-KR')}원`
+import { won } from '../data/packages.js'
 
 const badgeStyle = (status) => {
   if (status === 'cancelled') return styles.badgeCancelled

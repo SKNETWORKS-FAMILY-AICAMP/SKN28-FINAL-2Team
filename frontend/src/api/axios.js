@@ -8,7 +8,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
 
-  if (token) {
+  if (token && token !== "null" && token !== "undefined") {
     config.headers.Authorization = `Bearer ${token}`;
   } else {
     delete config.headers.Authorization;
@@ -16,5 +16,17 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+export function extractErrorMessage(error, fallbackMessage) {
+  const data = error?.response?.data;
+
+  if (data?.detail) return data.detail;
+  if (data?.message) return data.message;
+  if (data?.package_id) {
+    return Array.isArray(data.package_id) ? data.package_id[0] : data.package_id;
+  }
+
+  return fallbackMessage;
+}
 
 export default api;
