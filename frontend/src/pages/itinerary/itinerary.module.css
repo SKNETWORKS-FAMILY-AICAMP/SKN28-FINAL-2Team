@@ -23,16 +23,6 @@
 .sm{ padding:7px 14px; font-size:12.5px; }
 .xs{ padding:6px 12px; font-size:11.5px; }
 
-/* ---------- app header ---------- */
-.appnav{ height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; border-bottom: 1px solid var(--line); background:#fff; flex-shrink:0; }
-.logo{ display:flex; align-items:center; gap:9px; font-family: var(--display); font-size:19px; font-weight:700; letter-spacing:-0.01em; }
-.logoMark{ width:30px; height:30px; border-radius:50%; background: var(--green); border: 2.5px solid var(--ink); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.appLinks{ display:flex; align-items:center; gap:26px; }
-.appLinks a{ font-size:14px; font-weight:600; color: var(--muted); }
-.appLinks a:hover{ color: var(--ink); }
-.appRight{ display:flex; align-items:center; gap:16px; }
-.avatar{ width:34px; height:34px; border-radius:50%; background: var(--green-soft); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-size:15px; }
-
 /* ---------- layout ---------- */
 .stage{ height: calc(100vh - 64px); display:grid; grid-template-columns: 400px minmax(0, 1fr) 440px; overflow:hidden; }
 
@@ -97,20 +87,8 @@
 .tBody p{ font-size:12px; color: var(--muted); margin-top:2px; }
 .tMenu{ width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; color: var(--muted); font-size:16px; flex-shrink:0; background:transparent; border:none; }
 .tMenu:hover{ background: var(--bg-soft); color: var(--ink); }
-.tThumb > img{
-  position:absolute;
-  inset:0;
+.tThumb > img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center;display:block;margin:0;padding:0;}
 
-  width:100% !important;
-  height:100% !important;
-  max-width:none !important;
-
-  object-fit:cover !important;
-  object-position:center;
-  display:block;
-  margin:0;
-  padding:0;
-}
 /* ---------- timeline item: dropdown menu ---------- */
 .tMenuWrap{ position:relative; flex-shrink:0; }
 .tMenuBackdrop{ position:fixed; inset:0; z-index:30; background:transparent; }
@@ -219,6 +197,13 @@
 .pkgRecommendBody p{margin-top:5px;font-size:10.5px;line-height:1.45;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .pkgDetailLink{ display:block; width:100%; margin-top:auto; padding:7px 10px; border:1px solid var(--line); border-radius:100px; background:#fff; font-family:var(--display); font-size:14px; font-weight:700; color:var(--ink); text-align:center; }
 @media (max-width: 1150px){
-  .stage{ grid-template-columns: 300px 1fr; }
+  .stage{ grid-template-columns:300px 1fr; }
   .mapCol{ display:none; }
 }
+
+.itineraryHotel{ display:flex; align-items:center; gap:12px; margin:0 0 26px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
+.itineraryHotelIcon{ display:grid; width:40px; height:40px; flex:0 0 40px; place-items:center; border-radius:12px; background:#fff; font-size:20px; }
+.itineraryHotel > span:last-child{ display:flex; min-width:0; flex-direction:column; gap:3px; }
+.itineraryHotel small{ color:var(--muted); font-size:11px; font-weight:700; }
+.itineraryHotel strong{ color:var(--ink); font-size:15px; line-height:1.35; }
+.itineraryHotel p{ margin:0; color:var(--muted); font-size:12px; }

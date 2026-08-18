@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
-import AppHeader from './review/AppHeader.jsx';
+ import AppHeader from '../components/AppHeader.jsx'
 import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
@@ -11,7 +11,6 @@ import { getPackageDetail, getPackages } from '../api/packageApi.js';
 import { getReservations } from '../api/reservationApi.js';
 import { won } from '../data/packages.js';
 import { useEffect, useRef, useState } from 'react';
-
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -43,7 +42,8 @@ const getCustomPackageThumbnail = (itinerary) => {
 const getCustomItineraryTitle = (itinerary) =>
   `${itinerary?.durationLabel || ''} ${itinerary?.companionTypeDisplay || ''}`.trim();
 
-const formatPrice = won;
+const formatPrice = (value) =>
+  `${Number(value || 0).toLocaleString('ko-KR')}원`;
 
 const formatCustomPrice = (customPackage) =>
   customPackage?.pricing_basis === 'free_day_trip'
@@ -612,6 +612,7 @@ export default function ReviewPage() {
                   <ComparisonRouteMap
                     itineraryId={itinerary.id}
 
+
                     storedPackageId={packageComparison.stored_package?.id ?? null}
                     storedDays={packageComparison.stored_package?.days ?? []}
                     storedHotel={packageComparison.stored_package?.hotel ?? null}
@@ -974,33 +975,7 @@ export default function ReviewPage() {
                         : '완성한 일정을 확인해보세요.'}
                     </p>
                   </div>
-
-                {!token && (
-                  <div className={styles.reviewActions}>
-                    {showToast && (
-                      <div className={styles.toast}>
-                        링크 복사!
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      className={cx(styles.btn, styles.ghost, styles.sm)}
-                      onClick={handleShare}
-                    >
-                      📤 공유하기
-                    </button>
-
-                    <button
-                      type="button"
-                      className={cx(styles.btn, styles.ghost, styles.sm)}
-                      onClick={handlePdfDownload}
-                      disabled={isDownloading}
-                    >
-                      {isDownloading ? 'PDF 생성 중...' : '📄 PDF 저장'}
-                    </button>
-                  </div>
-                )}
+                  
                   <div className={styles.comparisonMapSlot}>
                     <ComparisonRouteMap
                       itineraryId={itinerary.id}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import styles from './chat/chat.module.css'
-import AppHeader from './chat/AppHeader.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import ChatColumn from './chat/ChatColumn.jsx'
 import { INITIAL_ANSWERS } from './chat/questionSteps.js'
 

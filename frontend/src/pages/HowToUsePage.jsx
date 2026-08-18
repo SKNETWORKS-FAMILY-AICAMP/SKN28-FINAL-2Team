@@ -1,4 +1,4 @@
-import Nav from '../components/Nav.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import How from '../components/How.jsx'
 import Itinerary from '../components/Itinerary.jsx'
 import Features from '../components/Features.jsx'
@@ -11,7 +11,7 @@ export default function HowToUsePage() {
 
   return (
     <>
-      <Nav />
+      <AppHeader variant="main" />
       <How />
       <Itinerary />
       <Features />

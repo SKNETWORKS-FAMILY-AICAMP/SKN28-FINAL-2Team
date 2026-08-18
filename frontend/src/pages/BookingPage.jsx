@@ -2,7 +2,7 @@ import {  useEffect, useState } from 'react'
 import { Link, useLocation } from "react-router-dom";
 import styles from './booking/booking.module.css'
 import cx from '../utils/cx.js'
-import AppHeader from './booking/AppHeader.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import PackageList from './booking/PackageList.jsx'
 import PaymentSummary from './booking/PaymentSummary.jsx'
 import { useBookmarks } from '../context/BookmarkContext.jsx'

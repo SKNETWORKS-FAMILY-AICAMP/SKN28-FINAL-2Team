@@ -1,4 +1,4 @@
-import Nav from '../components/Nav.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import Hero from '../components/Hero.jsx'
 import Footer from '../components/Footer.jsx'
 import useReveal from '../hooks/useReveal.js'
@@ -8,7 +8,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page">
-      <Nav />
+      <AppHeader variant="main" />
       <main className="landing-main">
         <Hero />
       </main>
