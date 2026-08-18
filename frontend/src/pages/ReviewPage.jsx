@@ -591,18 +591,6 @@ export default function ReviewPage() {
 
           {!token && !isItineraryOnlyView && itinerary.status === 'confirmed' && !isBooked && (
             <section className={styles.packageComparison}>
-              <div className={styles.packageComparisonHead}>
-                <span>여행 방식 선택</span>
-
-                <h2>
-                  내가 만든 일정과 추천 패키지를 비교해보세요
-                </h2>
-
-                <p>
-                  지도에서 여행 동선을 확인하고, 아래에서 원하는 여행 방식을 선택할 수 있어요.
-                </p>
-              </div>
-
               <div
                 id="package-comparison-map"
                 className={styles.comparisonMapSlot}
