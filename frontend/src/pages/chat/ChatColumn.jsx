@@ -396,22 +396,21 @@ export default function ChatColumn({
               itinerary: result.itinerary,
             },
           ])
-
-          setOpenPreviewId(null)
-          } else if (result.mode === 'recommend') {
-            setHistory((prev) => [
-              ...prev,
-              {
-                id: nextId(),
-                type: 'recommend',
-                me: false,
-                lines: [
-                  result.message ?? '추천 일정을 준비했어요.',
-                ],
-                options: result.options ?? [],
-              },
-            ])
-          } else if (result.mode === 'no_change') {
+        } else if (result.mode === 'recommend') {
+          setHistory((prev) => [
+            ...prev,
+            {
+              id: nextId(),
+              type: 'recommend',
+              me: false,
+              lines: [
+                result.message ?? '추천 일정을 준비했어요.',
+              ],
+              options: result.options ?? [],
+            },
+          ])
+        }
+        else if (result.mode === 'no_change') {
           setHistory((prev) => [
             ...prev,
             {
@@ -486,11 +485,16 @@ export default function ChatColumn({
 
             return (
               <div key={item.id}>
-                {/* AI 안내 멘트 */}
-                <div className={styles.previewMessageRow}>
-                  <div className={styles.previewAvatar}>
-                    <img src={harubangAvatar} alt="AI 여행 코치" />
+                {/* 일정 미리보기 */}
+                  <div className={styles.previewArea}>
+                    <ItineraryPreview itinerary={item.itinerary} />
                   </div>
+
+                  {/* AI 안내 멘트 */}
+                  <div className={styles.previewMessageRow}>
+                    <div className={styles.previewAvatar}>
+                      <img src={harubangAvatar} alt="AI 여행 코치" />
+                    </div>
 
                   <div className={styles.previewMessageBubble}>
                     <p>
@@ -505,11 +509,6 @@ export default function ChatColumn({
                       다음 단계에서 내 일정과 추천 패키지를 비교해 선택할 수 있어요.
                     </p>
                   </div>
-                </div>
-
-                {/* 일정 미리보기 바로 표시 */}
-                <div className={styles.previewArea}>
-                  <ItineraryPreview itinerary={item.itinerary} />
                 </div>
 
                 {/* 최신 일정에만 여행 준비 버튼 */}
