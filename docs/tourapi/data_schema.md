@@ -45,16 +45,11 @@
 
 ## ChromaDB
 
-- Docker 저장소: `chroma-data` named volume의 컨테이너 경로 `/data`
-- persistent 모드 로컬 경로: `data/vectorstore/`
+- 경로: `data/vectorstore/`
 - 컬렉션: `jeju_places`
 - 기본 모델: `text-embedding-3-small`
 - 거리: cosine
 - 입력 문서 수: 2,102
-
-기본 Docker 개발환경은 `CHROMA_MODE=http`로 Chroma 서버에 연결합니다.
-`CHROMA_MODE=persistent`는 Chroma 컨테이너를 거치지 않고 Python 프로세스가
-로컬 `data/vectorstore/`를 직접 열 때만 사용합니다.
 
 문서 해시·모델·차원이 같은 재실행은 임베딩 호출을 건너뜁니다. 모델이나 차원을
 바꿀 때만 `--recreate`를 사용합니다.

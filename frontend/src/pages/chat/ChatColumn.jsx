@@ -8,6 +8,8 @@ import { useNavigate } from "react-router-dom"
 import harubangTraveler from '../../assets/harubang-traveler.png'
 import harubangAvatar from '../../assets/harubang-avatar.png'
 
+
+const READY_DELAY_MS = 1800
 const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
 let uid = 100
@@ -127,21 +129,6 @@ export default function ChatColumn({
   const [endDate, setEndDate] = useState(
     savedChatColumn?.endDate ?? ""
   );
-  const handleConfirmItinerary = async (id) => {
-    if (isConfirming) return
-
-    try {
-      setIsConfirming(true)
-      await confirmItinerary(id)
-      navigate(`/review/${id}`)
-    } catch (err) {
-      console.error('일정 확정 실패:', err)
-      alert(err.response?.data?.detail ?? '일정을 확정하지 못했습니다.')
-    } finally {
-      setIsConfirming(false)
-    }
-  }
-
   const handleConfirmItinerary = async (id) => {
     if (isConfirming) return
 

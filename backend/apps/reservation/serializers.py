@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 from apps.travel.models import Package
 from apps.travel.serializers import PackageSerializer
-from apps.travel.kakao_route_service import get_kakao_route_path
 
 from .models import CartItem, Reservation, ReservationItem
 

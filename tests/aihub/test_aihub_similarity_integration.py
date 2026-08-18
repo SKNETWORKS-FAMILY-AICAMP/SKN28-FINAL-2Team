@@ -37,11 +37,7 @@ class AIHubSimilarityIntegrationTests(unittest.TestCase):
         cls.repository = repository
         cls.service = AIHubPatternService(
             repository,
-            AIHubPatternConfig(
-                top_k=1,
-                reference_keyword_top_k=1,
-                min_usable_visits=3,
-            ),
+            AIHubPatternConfig(top_k=1, min_usable_visits=3),
         )
 
     def test_real_db_returns_llm_route_template(self) -> None:
@@ -144,18 +140,10 @@ class RecordingPatternRepository:
     def fetch_trip_profiles(
         self,
         *,
-        age_groups: Sequence[str],
-        duration_days: int,
-        companion_rel_codes: Sequence[str],
-        min_stops_per_day: int,
-        limit: int,
+        min_usable_visits: int,
     ) -> list[TripProfile]:
         return self.delegate.fetch_trip_profiles(
-            age_groups=age_groups,
-            duration_days=duration_days,
-            companion_rel_codes=companion_rel_codes,
-            min_stops_per_day=min_stops_per_day,
-            limit=limit,
+            min_usable_visits=min_usable_visits
         )
 
     def fetch_trip_routes(
@@ -186,7 +174,6 @@ def _mysql_config_from_env() -> dict[str, object]:
         "MYSQL_HOST",
         "MYSQL_USER",
         "MYSQL_PASSWORD",
-        "MYSQL_DATABASE",
     )
     missing = [name for name in required_names if not os.getenv(name)]
     if missing:
@@ -198,7 +185,10 @@ def _mysql_config_from_env() -> dict[str, object]:
         "port": int(os.getenv("MYSQL_PORT", "3306")),
         "user": os.environ["MYSQL_USER"],
         "password": os.environ["MYSQL_PASSWORD"],
-        "database": os.environ["MYSQL_DATABASE"],
+        "database": os.getenv(
+            "AIHUB_MYSQL_DATABASE",
+            "tour_recommender_aihub",
+        ),
         "connection_timeout": int(
             os.getenv("MYSQL_CONNECT_TIMEOUT", "10")
         ),

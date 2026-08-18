@@ -113,11 +113,6 @@ class Package(models.Model):
         db_index=True,
     )
 
-    match_profile = models.JSONField(
-        null=True,
-        blank=True,
-    )
-
     companion = models.TextField(
         null=True,
         blank=True,
@@ -150,6 +145,7 @@ class Package(models.Model):
     def match_profile(self):
         return build_match_profile(self.companion, self.tags)
 
+
 class Itinerary(models.Model):
     """최종 여행 일정표 """
 
@@ -178,8 +174,10 @@ class Itinerary(models.Model):
     # 여행 스타일 텍스트를 그대로 저장한다. 이 값은 필터링에 쓰이지 않고
     # RAG 검색 조건(user_text)으로 그대로 전달된다.
     style = models.CharField(max_length=200, blank=True)
-    selected_package = models.ForeignKey(
-        Package, on_delete=models.SET_NULL, null=True, blank=True, related_name="itineraries"
+    selected_package = models.BigIntegerField(
+        null=True,
+        blank=True,
+        db_column="selected_package_id",
     )
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)

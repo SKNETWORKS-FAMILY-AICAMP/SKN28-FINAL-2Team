@@ -7,11 +7,7 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from .mappings.trip_feature_mapping import (
-    SLOT_ITINERARY_ROLES,
-    SLOT_TARGET_COLLECTIONS,
-    get_visit_area_type_mapping,
-)
+from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
@@ -134,23 +130,6 @@ class ChatUpdateResult:
     # 레이어(services.py)가 route optimizer 호출 시 건너뛰어야 한다.
     locked_days: tuple[int, ...] = ()
 
-
-_WHITESPACE_RE = re.compile(r"\s+")
-_DELETE_REQUEST_RE = re.compile(r"삭제|제거|지워|지우|빼")
-_DAY_POSITION_RE = re.compile(r"(\d+)\s*(?:일차|째\s*날)")
-_SEQUENCE_POSITION_RE = re.compile(
-    r"(?:(\d+)|(?P<word>첫|두|둘|세|셋|네|넷|다섯))\s*번째"
-)
-_KOREAN_ORDINALS = {
-    "첫": 1,
-    "두": 2,
-    "둘": 2,
-    "세": 3,
-    "셋": 3,
-    "네": 4,
-    "넷": 4,
-    "다섯": 5,
-}
 
 @dataclass(frozen=True)
 class AppContainer:
@@ -314,42 +293,6 @@ class ItineraryEngine:
     ) -> ChatUpdateResult:
         container = self._container
         delta = container.llm_service.extract_condition_delta(state.condition, user_text)
-
-        position_delete = _parse_position_delete_request(user_text)
-        base_slots = state.slots
-        base_itinerary = state.itinerary
-        base_used_content_ids = set(state.used_content_ids)
-
-        if delta.remove_places or position_delete is not None:
-            (
-                base_slots,
-                base_itinerary,
-                base_used_content_ids,
-                removed_titles,
-            ) = _remove_schedule_entries(
-                state,
-                titles=delta.remove_places,
-                position=position_delete,
-            )
-            if removed_titles:
-                new_condition = apply_delta(
-                    new_condition,
-                    ConditionDelta(add_excluded_places=removed_titles),
-                )
-
-            remaining_delta = (
-                ConditionDelta()
-                if position_delete is not None
-                else replace(delta, remove_places=(), notes="")
-            )
-            if remaining_delta.is_empty():
-                return ItineraryState(
-                    condition=new_condition,
-                    slots=base_slots,
-                    itinerary=base_itinerary,
-                    used_content_ids=base_used_content_ids,
-                )
-            delta = remaining_delta
 
         if delta.is_empty():
             print("[revise] delta.is_empty() == True -> 변경할 내용 없음, 그대로 반환")
@@ -525,7 +468,7 @@ class ItineraryEngine:
         updated_slots: list[ItinerarySlot] = []
         re_searched_keys: set[tuple[int, int]] = set()
 
-        for slot in base_slots:
+        for slot in state.slots:
             if slot.role not in affected_roles:
                 updated_slots.append(slot)
                 continue
@@ -576,7 +519,7 @@ class ItineraryEngine:
             "[revise] new_slots (add_slots)    :",
             [(s.day, s.sequence, s.role, len(s.candidates)) for s in new_slots],
         )
-
+        
         changed_keys = (
             re_searched_keys
             | {(slot.day, slot.sequence) for slot in forced_slots}
@@ -590,14 +533,14 @@ class ItineraryEngine:
 
         if changed_slot_payloads:
             itinerary = container.llm_service.revise_itinerary(
-                new_condition, base_itinerary, changed_slot_payloads
+                new_condition, state.itinerary, changed_slot_payloads
             )
             # LLM이 프롬프트 지시를 어기고 changed_keys 밖의 stop을 건드렸더라도
             # 최종 결과에서는 무조건 원본 그대로 되돌린다 (코드 레벨 강제).
             itinerary = _enforce_revision_scope(state.itinerary, itinerary, changed_keys)
         else:
             print("[revise] changed_slot_payloads가 비어있어서 LLM 재구성 없이 그대로 반환")
-            itinerary = base_itinerary
+            itinerary = state.itinerary
 
         return ChatUpdateResult(
             mode="edit",
@@ -801,14 +744,12 @@ class ItineraryEngine:
                     key=lambda item: int(item.get("visit_order") or 0),
                 )
                 roles = tuple(
-                    mapping.slot_role
-                    for row in ordered
-                    if (
-                        mapping := get_visit_area_type_mapping(
-                            row.get("visit_area_type_cd")
-                        )
-                    ) is not None
-                    and mapping.slot_role in SLOT_TARGET_COLLECTIONS
+                    role
+                    for role in (
+                        VIS_TO_SLOT_ROLE.get(str(row.get("visit_area_type_cd") or ""))
+                        for row in ordered
+                    )
+                    if role in SLOT_TARGET_COLLECTIONS
                 )
                 if not roles:
                     continue
@@ -1902,116 +1843,6 @@ class ItineraryEngine:
                 next_sequence += 1
 
         return new_slots
-
-def _is_valid_shopping_candidate(place: RetrievedPlace) -> bool:
-    """여행 일정용 쇼핑 장소인지 판단한다."""
-
-    tags = set(place.tags or ())
-    title = (place.title or "").lower()
-
-    # 시장은 허용
-    if "place_subtype:market" in tags:
-        return True
-
-    # 특산품/기념품점은 허용
-    if "place_subtype:local_specialty" in tags:
-        return True
-
-    # general_retail이 아니면 허용
-    if "place_subtype:general_retail" not in tags:
-        return True
-
-    # 여행 목적의 쇼핑점은 허용
-    allowed_keywords = (
-        "특산품",
-        "기념품",
-        "선물",
-        "토산품",
-        "소품샵",
-        "소품",
-    )
-
-    if any(keyword in title for keyword in allowed_keywords):
-        return True
-
-    # 일반 생활형 / 브랜드 매장은 제외
-    excluded_keywords = (
-        "마트",
-        "이마트",
-        "하나로",
-        "올리브영",
-        "이니스프리",
-        "다이소",
-        "탑텐",
-        "쌤소나이트",
-        "내셔널지오그래픽",
-        "유니클로",
-        "나이키",
-        "아디다스",
-        "아울렛",
-    )
-
-    if any(keyword in title for keyword in excluded_keywords):
-        return False
-
-    # general_retail인데 관광 목적 쇼핑이라는 근거가 없으면 제외
-    return False
-
-
-def _parse_position_delete_request(user_text: str) -> tuple[int, int] | None:
-    if not _DELETE_REQUEST_RE.search(user_text):
-        return None
-
-    day_match = _DAY_POSITION_RE.search(user_text)
-    sequence_match = _SEQUENCE_POSITION_RE.search(user_text)
-    if not day_match or not sequence_match:
-        return None
-
-    sequence = (
-        int(sequence_match.group(1))
-        if sequence_match.group(1)
-        else _KOREAN_ORDINALS[sequence_match.group("word")]
-    )
-    return int(day_match.group(1)), sequence
-
-
-def _remove_schedule_entries(
-    state: ItineraryState,
-    *,
-    titles: Sequence[str] = (),
-    position: tuple[int, int] | None = None,
-) -> tuple[list[ItinerarySlot], dict[str, Any], set[int], tuple[str, ...]]:
-    normalized_titles = {_normalize_title(title) for title in titles}
-    itinerary = deepcopy(state.itinerary)
-    removed_keys: set[tuple[int, int]] = set()
-    removed_titles: list[str] = []
-
-    for day in itinerary.get("days", []):
-        day_number = int(day.get("day") or 0)
-        retained_stops = []
-        for stop in day.get("stops", []):
-            key = (day_number, int(stop.get("sequence") or 0))
-            title = str(stop.get("title") or "")
-            should_remove = key == position or _normalize_title(title) in normalized_titles
-            if should_remove:
-                removed_keys.add(key)
-                if title:
-                    removed_titles.append(title)
-            else:
-                retained_stops.append(stop)
-        day["stops"] = retained_stops
-
-    slots = [
-        slot
-        for slot in state.slots
-        if (slot.day, slot.sequence) not in removed_keys
-    ]
-    used_content_ids = {
-        candidate.content_id
-        for slot in slots
-        for candidate in slot.candidates
-    }
-    return slots, itinerary, used_content_ids, tuple(dict.fromkeys(removed_titles))
 
 def _is_valid_shopping_candidate(place: RetrievedPlace) -> bool:
     """여행 일정용 쇼핑 장소인지 판단한다."""

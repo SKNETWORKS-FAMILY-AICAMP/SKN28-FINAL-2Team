@@ -75,8 +75,8 @@ python -m scripts.storage.manage_tourapi_storage mysql-load
 # 3. AIHub 파일 구성과 행 수 검증
 python -m scripts.storage.load_aihub_to_mysql --dry-run
 
-# 4. 같은 MYSQL_DATABASE에 AIHub 최초 적재
-python -m scripts.storage.load_aihub_to_mysql
+# 4. 같은 MYSQL_DATABASE에 AIHub 적재
+python -m scripts.storage.load_aihub_to_mysql --replace
 
 # 5. AIHub 장소 그룹화 및 TourAPI 매핑
 python -m scripts.preprocessing.map_aihub_places
@@ -102,13 +102,11 @@ python -B -m unittest discover -s tests/aihub -p "test_*.py"
 python -m scripts.storage.load_aihub_to_mysql --dry-run
 ```
 
-2026-07-27 Docker MySQL 검증에서 Mock 기반 테스트 33개와 실제 DB 통합
-테스트 1개가 통과했습니다. AIHub 13개 테이블 총 141,322행을 적재했고,
-31,401개 방문 기록을 7,642개 장소로 그룹화했습니다. TourAPI 자동 매칭은
-722개이며 연결 무결성 오류는 0건입니다.
+구조 이전 후 AIHub 테스트 35개와 MySQL dry-run이 통과했습니다.
+실제 MySQL 적재와 매핑은 실행 중인 MySQL과 유효한 환경설정이 있어야
+최종 확인할 수 있습니다.
 
 ## 관련 문서
 
 - [TourAPI 데이터 파이프라인](../tourapi/README.md)
 - [TourAPI 데이터 구조](../tourapi/data_schema.md)
-- [Docker 로컬 DB 개발 환경](../db_docker.md)
