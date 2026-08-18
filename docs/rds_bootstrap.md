@@ -137,3 +137,7 @@ python scripts/verify_rds.py
 최종적으로 `/health/` ALB health check와 실제 로그인 → 추천 → 일정 저장 smoke test까지
 통과한 뒤 ECS 트래픽을 전환한다. RDS 초기 적재는 CI/CD마다 반복하지 않고, 이후
 스키마 변경은 Django migration과 별도의 버전 관리된 catalog migration으로 처리한다.
+
+`migrate_package_companion_tags_50.sql`은 배포 준비 태스크에서
+`python -m scripts.storage.migrate_package_catalog`로 한 번만 적용되며, 적용 이력과
+체크섬은 `tourmain_catalog_migrations`에 기록된다.

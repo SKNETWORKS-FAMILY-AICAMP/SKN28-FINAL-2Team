@@ -218,6 +218,7 @@ jobs:
               command: [
                 "sh", "-c",
                 "python backend/manage.py migrate --database=default --noinput && "
+                + "python -m scripts.storage.migrate_package_catalog && "
                 + "python scripts/verify_rds.py && "
                 + "python -m scripts.indexing.build_tourapi_vector_index --prune && "
                 + "python scripts/verify_chroma.py"
