@@ -161,7 +161,7 @@ jobs:
       - name: Build and push backend image
         shell: bash
         run: |
-          IMAGE_URI="${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}:deploy-${GITHUB_SHA}"
+          IMAGE_URI="${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}:deploy-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker build --file backend/Dockerfile --tag "$IMAGE_URI" .
           docker push "$IMAGE_URI"
           echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
