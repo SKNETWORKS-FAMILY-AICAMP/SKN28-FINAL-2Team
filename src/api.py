@@ -1,15 +1,12 @@
+from functools import cache
 from pathlib import Path
 
 from src.engine import ItineraryEngine, create_container
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-container = create_container(
-    project_root=PROJECT_ROOT,
-)
 
-retrieval_service = container.retrieval_service
-pattern_service = container.pattern_service
-llm_service = container.llm_service
-
-itinerary_engine = ItineraryEngine(container)
+@cache
+def get_itinerary_engine() -> ItineraryEngine:
+    container = create_container(project_root=PROJECT_ROOT)
+    return ItineraryEngine(container)
