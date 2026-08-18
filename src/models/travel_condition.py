@@ -186,9 +186,27 @@ class ConditionDelta:
     affected_slots: tuple[SlotRole, ...] = ()
     add_slots: tuple[SlotAddRequest, ...] = ()
     notes: str = ""
+    # "edit"      -> 사용자가 실제로 일정을 바꿔달라고 요청함 (기존 동작)
+    # "recommend" -> 사용자가 단순히 후보를 보고 싶어함 (일정에는 반영하지 않고
+    #                채팅창에만 후보를 보여준다)
+    mode: str = "edit"
+    # 사용자가 "1일차", "둘째 날"처럼 특정 일차를 명시했을 때만 채워지는 값.
+    # 특정 일차를 언급하지 않았다면 None이며, 이 경우 영향 범위를 day로
+    # 좁히지 않는다.
+    target_day: int | None = None
 
     @classmethod
-    def from_mapping(cls, value: dict[str, Any]) -> "ConditionDelta":
+    def from_mapping(
+        cls,
+        value: dict[str, Any],
+    ) -> "ConditionDelta":
+        mode = str(
+            value.get("mode") or "edit"
+        ).strip().lower()
+
+        if mode not in ("edit", "recommend"):
+            mode = "edit"
+
         return cls(
             add_must_visit_places=_string_tuple(value.get("add_must_visit_places")),
             remove_must_visit_places=_string_tuple(value.get("remove_must_visit_places")),
@@ -201,24 +219,54 @@ class ConditionDelta:
             remove_preferred_visit_types=_visit_type_tuple(
                 value.get("remove_preferred_visit_types")
             ),
-            duration_days=_optional_int(value.get("duration_days")),
-            party_type=PartyType(value["party_type"])
-            if value.get("party_type")
-            else None,
-            local_transport=LocalTransport(value["local_transport"])
-            if value.get("local_transport")
-            else None,
-            pace=Pace(value["pace"]) if value.get("pace") else None,
-            affected_slots=_string_tuple(value.get("affected_slots")),
-            add_slots=_slot_add_request_tuple(value.get("add_slots")),
-            notes=str(value.get("notes") or "").strip(),
+            duration_days=_optional_int(
+                value.get("duration_days")
+            ),
+            party_type=(
+                PartyType(value["party_type"])
+                if value.get("party_type")
+                else None
+            ),
+            local_transport=(
+                LocalTransport(value["local_transport"])
+                if value.get("local_transport")
+                else None
+            ),
+            pace=(
+                Pace(value["pace"])
+                if value.get("pace")
+                else None
+            ),
+            affected_slots=_string_tuple(
+                value.get("affected_slots")
+            ),
+            add_slots=_slot_add_request_tuple(
+                value.get("add_slots")
+            ),
+            notes=str(
+                value.get("notes") or ""
+            ).strip(),
+            mode=mode,
+            target_day=_optional_int(
+                value.get("target_day")
+            ),
         )
 
     def is_empty(self) -> bool:
-        return replace(self, notes="") == ConditionDelta()
+        if self.mode == "recommend":
+            return False
 
-def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCondition:
+        return replace(
+            self,
+            notes="",
+            mode="edit",
+            target_day=None,
+        ) == ConditionDelta()
 
+def apply_delta(
+    condition: TravelCondition,
+    delta: ConditionDelta,
+) -> TravelCondition:
     must_visit = _apply_set_ops(
         condition.must_visit_places, delta.add_must_visit_places, delta.remove_must_visit_places
     )

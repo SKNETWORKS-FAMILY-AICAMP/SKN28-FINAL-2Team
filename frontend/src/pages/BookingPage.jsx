@@ -119,26 +119,34 @@ export default function BookingPage() {
       <AppHeader />
 
       <div className={styles.wrap}>
-        <Link
-          to={itineraryId ? `/review/${itineraryId}` : '/packages'}
-          className={styles.backLink}
-        >
-          ← {itineraryId ? '일정으로 돌아가기' : '패키지로 돌아가기'}
-        </Link>
+        {!confirmed && (
+          <Link
+            to={itineraryId ? `/review/${itineraryId}` : '/packages'}
+            className={styles.backLink}
+          >
+            ← {itineraryId ? '일정으로 돌아가기' : '패키지로 돌아가기'}
+          </Link>
+        )}
 
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>✓ 예약 및 결제</div>
-          <h1>{confirmed ? '예약이 완료됐어요!' : '마지막이에요, 예약을 확정해주세요'}</h1>
+
+          <h1>
+            {confirmed
+              ? '결제가 완료됐어요!'
+              : '예약 전 마지막으로 확인해주세요'}
+          </h1>
+
           <p>
             {confirmed
-              ? '결제 확인 메일을 보내드렸어요. 즐거운 제주 여행 되세요 🌿'
+              ? '예약이 정상적으로 확정되었습니다.'
               : bookingSource === 'package'
-                ? '선택한 패키지의 예약 정보를 확인하고 결제를 진행하세요.'
+                ? '선택한 패키지와 결제 금액을 확인해주세요.'
                 : bookingSource === 'custom-itinerary'
-                  ? '확정한 자유일정의 예약 정보와 금액을 확인해주세요.'
-                : bookingSource === 'cart'
-                  ? '장바구니에 담은 패키지를 확인하고 결제를 진행하세요.'
-                  : '일정에 함께할 패키지를 선택하고 결제를 진행하세요.'}
+                  ? '선택한 일정과 결제 금액을 확인해주세요.'
+                  : bookingSource === 'cart'
+                    ? '장바구니에 담은 상품과 결제 금액을 확인해주세요.'
+                    : '선택한 여행 상품과 결제 금액을 확인해주세요.'}
           </p>
         </div>
 

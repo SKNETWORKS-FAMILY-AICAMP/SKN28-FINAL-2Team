@@ -10,11 +10,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Itinerary, Package
-from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
+from .serializers import (
+    ItineraryRouteSerializer,
+    ItinerarySerializer,
+    ItineraryShareSerializer,
+    ItineraryRevisionSerializer,
+    PackageSerializer,
+    PackageListSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
-from .kakao_route_service import get_kakao_route_path
+from .kakao_route_service import get_kakao_day_route_path
 
 from apps.package_recommendation.services import recommend_package_comparison
 
@@ -23,10 +28,15 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PackageSerializer
     permission_classes = [permissions.AllowAny]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return PackageListSerializer
+        return PackageSerializer
+
     @extend_schema(
         tags=["Package"],
         summary="패키지 목록 조회",
-        responses=PackageSerializer(many=True),
+        responses=PackageListSerializer(many=True),
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
@@ -78,10 +88,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = (
             self.get_queryset()
-            .filter(
-                reservations__status="confirmed"
-            )
-            .distinct()
+            .filter(status=Itinerary.Status.CONFIRMED)
         )
 
         serializer = self.get_serializer(
@@ -122,7 +129,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         tags=["Itinerary"],
         summary="채팅으로 일정 수정",
         request=ItineraryRevisionSerializer,
-        responses={200: ItinerarySerializer},
+        responses={200: OpenApiTypes.OBJECT},
     )
     
     @action(detail=True, methods=["post"])
@@ -134,13 +141,36 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         serializer = ItineraryRevisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        revise_itinerary(
+        itinerary, chat_result = revise_itinerary(
             itinerary,
             serializer.validated_data["message"],
         )
 
+        if chat_result.mode == "recommend":
+            # 일정은 그대로다. 채팅창에만 후보를 보여준다.
+            return Response(
+                {
+                    "mode": "recommend",
+                    "message": chat_result.message,
+                    "options": chat_result.recommendations,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        if chat_result.mode == "no_change":
+            return Response(
+                {
+                    "mode": "no_change",
+                    "message": "요청에서 변경할 내용을 찾지 못했어요. 조금 더 구체적으로 말씀해주세요.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # mode == "edit": 일정이 실제로 갱신되었다.
+        data = self.get_serializer(itinerary).data
+        data["mode"] = "edit"
         return Response(
-            self.get_serializer(itinerary).data,
+            data,
             status=status.HTTP_200_OK,
         )
 
@@ -302,7 +332,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
 
         - OR-Tools로 최적화되어 저장된 방문 순서를 사용
         - 각 장소의 좌표를 points로 반환
-        - 인접 장소 사이의 실제 Kakao 자동차 도로 경로를 path로 반환
+        - Kakao Directions API는 호출하지 않는다.
         """
 
         itinerary = self.get_object()
@@ -329,49 +359,179 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 for item in items
             ]
 
-            path = []
+            result.append(
+                {
+                    "day_number": day.day_number,
+                    "points": points,
+                    "path": [],
+                }
+            )
 
-            # 1번 장소 → 2번 장소
-            # 2번 장소 → 3번 장소
-            # ...
-            # 실제 자동차 도로 경로 조회
-            for index in range(len(points) - 1):
+        return Response(result)
 
-                origin = points[index]
-                destination = points[index + 1]
+    @extend_schema(
+        tags=["Itinerary"],
+        summary="실제 자동차 도로 경로 조회",
+        responses=ItineraryRouteSerializer(many=True),
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="road-route",
+    )
+    def road_route(self, request, pk=None):
+        """
+        확정된 일정의 실제 자동차 도로 경로 조회.
+
+        - package_id가 없으면 자유일정 경로 조회
+        - package_id가 있으면 추천 패키지 경로 조회
+        - 저장된 방문 순서를 그대로 사용
+        - 하루 일정당 Kakao Directions API 1회 호출
+        """
+
+        itinerary = self.get_object()
+
+        if itinerary.status != Itinerary.Status.CONFIRMED:
+            return Response(
+                {
+                    "detail": (
+                        "확정된 일정에서만 "
+                        "실제 경로를 조회할 수 있습니다."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        package_id = request.query_params.get("package_id")
+
+        result = []
+
+        # =========================================================
+        # 추천 패키지 실제 경로
+        # =========================================================
+        if package_id:
+            try:
+                package = (
+                    Package.objects
+                    .using("travel")
+                    .get(
+                        pk=package_id,
+                        is_active=True,
+                    )
+                )
+            except Package.DoesNotExist:
+                return Response(
+                    {
+                        "detail": (
+                            "추천 패키지를 찾을 수 없습니다."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            package_data = PackageSerializer(package).data
+
+            course = package_data.get("course") or []
+
+            for day_index, day in enumerate(course):
+                day_number = int(
+                    day.get("day") or day_index + 1
+                )
+
+                items = day.get("items") or []
+
+                points = []
+
+                for item in items:
+                    latitude = item.get("latitude")
+                    longitude = item.get("longitude")
+
+                    if (
+                        latitude is None
+                        or longitude is None
+                    ):
+                        continue
+
+                    points.append(
+                        {
+                            "order": item.get("sequence"),
+                            "title": item.get("title"),
+                            "latitude": float(latitude),
+                            "longitude": float(longitude),
+                        }
+                    )
 
                 try:
-                    segment_path = get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                except RuntimeError as exc:
-                    print(
-                        "[Kakao Route] 실제 경로 조회 실패:",
-                        origin["title"],
-                        "→",
-                        destination["title"],
-                        exc,
+                    path = get_kakao_day_route_path(
+                        points
                     )
 
-                    # 도로 경로 조회 실패 시 직선 좌표라도 유지
-                    segment_path = [
+                except (ValueError, RuntimeError) as exc:
+                    return Response(
                         {
-                            "latitude": origin["latitude"],
-                            "longitude": origin["longitude"],
+                            "detail": str(exc),
+                            "day_number": day_number,
                         },
-                        {
-                            "latitude": destination["latitude"],
-                            "longitude": destination["longitude"],
-                        },
-                    ]
+                        status=(
+                            status.HTTP_503_SERVICE_UNAVAILABLE
+                        ),
+                    )
 
-                # 이전 segment 마지막 좌표와
-                # 현재 segment 첫 좌표 중복 방지
-                if path and segment_path:
-                    segment_path = segment_path[1:]
+                result.append(
+                    {
+                        "day_number": day_number,
+                        "points": points,
+                        "path": path,
+                    }
+                )
 
-                path.extend(segment_path)
+            return Response(
+                result,
+                status=status.HTTP_200_OK,
+            )
+
+        # =========================================================
+        # 자유일정 실제 경로
+        # =========================================================
+        for day in (
+            itinerary.days
+            .all()
+            .order_by("day_number")
+        ):
+            items = list(
+                day.items
+                .filter(
+                    latitude__isnull=False,
+                    longitude__isnull=False,
+                )
+                .order_by("order")
+            )
+
+            points = [
+                {
+                    "order": item.order,
+                    "title": item.title,
+                    "latitude": float(item.latitude),
+                    "longitude": float(item.longitude),
+                }
+                for item in items
+            ]
+
+            try:
+                path = get_kakao_day_route_path(
+                    points
+                )
+
+            except (ValueError, RuntimeError) as exc:
+                return Response(
+                    {
+                        "detail": str(exc),
+                        "day_number": day.day_number,
+                    },
+                    status=(
+                        status.HTTP_503_SERVICE_UNAVAILABLE
+                    ),
+                )
 
             result.append(
                 {
@@ -381,7 +541,10 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        return Response(result)
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["Itinerary"],

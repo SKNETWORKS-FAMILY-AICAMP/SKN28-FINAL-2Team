@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { getRoute } from '../../api/itinerary';
+import { getRoadRoute } from '../../api/itinerary';
 import styles from './review.module.css';
 
 const validPoint = (point) =>
@@ -20,53 +20,132 @@ const dayColor = (dayNumber) =>
 
 export default function ComparisonRouteMap({
   itineraryId,
+  storedPackageId = null,
   storedDays = [],
+  storedHotel = null,
+  customHotel = null,
   mode = 'compare',
+  selectedProduct = 'stored',
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const overlaysRef = useRef([]);
   const polylinesRef = useRef([]);
 
+  // 실제 도로 경로 데이터
   const [customRoutes, setCustomRoutes] = useState([]);
+  const [storedRoutes, setStoredRoutes] = useState([]);
 
-  const [activeProduct, setActiveProduct] = useState(
-    mode === 'custom' ? 'custom' : 'stored'
-  );
+
+  // 이미 조회한 경로를 다시 요청하지 않기 위한 key
+  const loadedCustomKeyRef = useRef(null);
+  const loadedStoredKeyRef = useRef(null);
+
+  // 컴포넌트가 사라진 뒤 state 변경 방지
+  const mountedRef = useRef(true);
 
   const currentProduct =
     mode === 'stored'
       ? 'stored'
       : mode === 'custom'
         ? 'custom'
-        : activeProduct;
+        : selectedProduct;
 
   useEffect(() => {
-    let cancelled = false;
+    mountedRef.current = true;
 
-    const load = async () => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /*
+   * 실제 도로 경로 조회
+   *
+   * - 현재 화면에서 필요한 상품만 조회
+   * - 동일 상품은 한 번 조회한 뒤 재사용
+   * - 탭 변경/지도 재렌더링으로 재호출하지 않음
+   */
+  useEffect(() => {
+    if (!itineraryId) {
+      return;
+    }
+
+    const loadStoredRoute = async () => {
+      if (!storedPackageId) {
+        return;
+      }
+
+      const key =
+        `${itineraryId}:package:${storedPackageId}`;
+
+      if (loadedStoredKeyRef.current === key) {
+        return;
+      }
+
+      loadedStoredKeyRef.current = key;
+
       try {
-        const routes = await getRoute(itineraryId);
+        const routes = await getRoadRoute(
+          itineraryId,
+          storedPackageId
+        );
 
-        if (cancelled) return;
+        if (!mountedRef.current) {
+          return;
+        }
 
-        setCustomRoutes(routes);
+        setStoredRoutes(routes);
       } catch (error) {
+        loadedStoredKeyRef.current = null;
+
         console.error(
-          '비교 지도 경로 조회 실패:',
+          '추천 패키지 실제 도로 경로 조회 실패:',
           error
         );
       }
     };
 
-    if (itineraryId) {
-      load();
-    }
+    const loadCustomRoute = async () => {
+      const key = `${itineraryId}:custom`;
 
-    return () => {
-      cancelled = true;
+      if (loadedCustomKeyRef.current === key) {
+        return;
+      }
+
+      loadedCustomKeyRef.current = key;
+
+
+      try {
+        const routes = await getRoadRoute(
+          itineraryId
+        );
+
+        if (!mountedRef.current) {
+          return;
+        }
+
+        setCustomRoutes(routes);
+      } catch (error) {
+        loadedCustomKeyRef.current = null;
+
+        console.error(
+          '자유일정 실제 도로 경로 조회 실패:',
+          error
+        );
+      }
     };
-  }, [itineraryId]);
+
+    if (currentProduct === 'stored') {
+      loadStoredRoute();
+    } else {
+      loadCustomRoute();
+    }
+  }, [
+    currentProduct,
+    itineraryId,
+    storedPackageId,
+  ]);
 
   useEffect(() => {
     if (!window.kakao?.maps || !mapRef.current) {
@@ -91,6 +170,23 @@ export default function ComparisonRouteMap({
       }
 
       const map = mapInstanceRef.current;
+      // 자유일정 경로가 아직 도착하지 않았을 때는
+      // 숙소 하나만 기준으로 지도를 확대하지 않는다.
+      if (
+        currentProduct === 'custom' &&
+        customRoutes.length === 0
+      ) {
+        map.setCenter(
+          new kakao.maps.LatLng(
+            33.3617,
+            126.5292
+          )
+        );
+
+        map.setLevel(10);
+
+        return;
+      }
 
       overlaysRef.current.forEach(
         (overlay) => overlay.setMap(null)
@@ -213,11 +309,63 @@ export default function ComparisonRouteMap({
         );
       };
 
+      const drawHotelMarker = (hotel, label) => {
+        if (!validPoint(hotel)) return;
+
+        const position = new kakao.maps.LatLng(
+          Number(hotel.latitude),
+          Number(hotel.longitude)
+        );
+
+        bounds.extend(position);
+        pointCount += 1;
+
+        const marker = document.createElement('button');
+        marker.type = 'button';
+        marker.textContent = '🏨';
+        marker.title = `${label} 숙소 · ${hotel.title || '숙소'}`;
+
+        Object.assign(marker.style, {
+          width: '34px',
+          height: '34px',
+          padding: '0',
+          borderRadius: '10px',
+          border: '2px solid #1B211D',
+          background: '#FFF7DD',
+          color: '#1B211D',
+          fontSize: '17px',
+          cursor: 'pointer',
+          boxShadow: '2px 2px 0 #1B211D',
+        });
+
+        const overlay = new kakao.maps.CustomOverlay({
+          position,
+          content: marker,
+          yAnchor: 1,
+          zIndex: 12,
+        });
+
+        overlay.setMap(map);
+        overlaysRef.current.push(overlay);
+      };
+
       if (currentProduct === 'stored') {
+        const routeByDay = new Map(
+          storedRoutes.map((route, index) => [
+            Number(
+              route.day_number ??
+                index + 1
+            ),
+            route,
+          ])
+        );
+
         storedDays.forEach(
           (day, dayIndex) => {
             const dayNumber = Number(
-              day.day ?? dayIndex + 1
+              day.day ??
+                day.dayNumber ??
+                dayIndex + 1
             );
 
             const points = (
@@ -227,27 +375,34 @@ export default function ComparisonRouteMap({
               .sort(
                 (a, b) =>
                   Number(
-                    a.sequence ?? 0
+                    a.sequence ??
+                      a.order ??
+                      0
                   ) -
                   Number(
-                    b.sequence ?? 0
+                    b.sequence ??
+                      b.order ??
+                      0
                   )
               );
 
+            const route =
+              routeByDay.get(dayNumber);
+
             const roadPath = (
-              day.path || []
+              route?.path || []
             ).filter(validPoint);
 
             const color =
               dayColor(dayNumber);
 
-            drawPath(
-              roadPath.length >= 2
-                ? roadPath
-                : points,
-              color,
-              6
-            );
+            if (roadPath.length >= 2) {
+              drawPath(
+                roadPath,
+                color,
+                6
+              );
+            }
 
             drawMarkers(
               points,
@@ -257,6 +412,7 @@ export default function ComparisonRouteMap({
             );
           }
         );
+        drawHotelMarker(storedHotel, '추천 패키지');
       } else {
         customRoutes.forEach(
           (route, routeIndex) => {
@@ -276,13 +432,13 @@ export default function ComparisonRouteMap({
             const color =
               dayColor(dayNumber);
 
-            drawPath(
-              roadPath.length >= 2
-                ? roadPath
-                : points,
-              color,
-              5
-            );
+            if (roadPath.length >= 2) {
+              drawPath(
+                roadPath,
+                color,
+                5
+              );
+            }
 
             drawMarkers(
               points,
@@ -292,6 +448,7 @@ export default function ComparisonRouteMap({
             );
           }
         );
+        drawHotelMarker(customHotel, '자유일정');
       }
 
       if (pointCount > 0) {
@@ -322,7 +479,10 @@ export default function ComparisonRouteMap({
   }, [
     currentProduct,
     customRoutes,
+    storedRoutes,
+    customHotel,
     storedDays,
+    storedHotel,
   ]);
 
   const visibleDayNumbers = (
@@ -330,7 +490,9 @@ export default function ComparisonRouteMap({
       ? storedDays.map(
           (day, index) =>
             Number(
-              day.day ?? index + 1
+              day.day ??
+                day.dayNumber ??
+                index + 1
             )
         )
       : customRoutes.map(
@@ -344,41 +506,6 @@ export default function ComparisonRouteMap({
 
   return (
     <>
-      {mode === 'compare' && (
-        <div
-          className={
-            styles.comparisonMapTabs
-          }
-        >
-          <button
-            type="button"
-            className={
-              activeProduct === 'stored'
-                ? styles.comparisonMapTabActive
-                : ''
-            }
-            onClick={() =>
-              setActiveProduct('stored')
-            }
-          >
-            추천 패키지
-          </button>
-
-          <button
-            type="button"
-            className={
-              activeProduct === 'custom'
-                ? styles.comparisonMapTabActive
-                : ''
-            }
-            onClick={() =>
-              setActiveProduct('custom')
-            }
-          >
-            자유일정
-          </button>
-        </div>
-      )}
 
       <div
         className={
@@ -396,13 +523,17 @@ export default function ComparisonRouteMap({
             {day}일차
           </span>
         ))}
+        {validPoint(currentProduct === 'stored' ? storedHotel : customHotel) && (
+          <span>
+            <i style={{ backgroundColor: '#FFF7DD', border: '1px solid #1B211D' }} />
+            숙소 🛏
+          </span>
+        )}
       </div>
 
       <div
         ref={mapRef}
-        className={
-          styles.comparisonMapCanvas
-        }
+        className={styles.comparisonMapCanvas}
       />
     </>
   );

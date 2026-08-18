@@ -243,6 +243,8 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 
 다음 JSON 객체 하나만 출력하세요. 값이 없으면 빈 배열([]) 또는 null을 사용하세요.
 {{
+  "mode": "edit" 또는 "recommend",
+  "target_day": 정수 또는 null,
   "add_must_visit_places": 문자열 배열,
   "remove_must_visit_places": 문자열 배열,
   "add_excluded_places": 문자열 배열,
@@ -258,6 +260,33 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   "add_slots": [{{"day": 정수 또는 null, "role": "visit"|"activity"|"food"|"shopping", "count": 정수}}] 배열,
   "notes": "짧은 설명. 장소명이 아닌 음식 취향, 메뉴, 재료, 분위기, 선호 조건 변경도 notes에 기록하세요. (예: 마요네즈 제외 요청, 회 제외 요청, 조용한 카페 선호)"
 }}
+
+"mode" 판단 규칙 (매우 중요):
+
+- "recommend" -> 사용자가 아직 일정에 반영해달라고 하지 않고, 후보/의견만 궁금해하는
+  경우입니다. 이 경우 일정은 절대 바뀌지 않고, 채팅창에 후보 몇 개만 보여줍니다.
+  신호: "~추천해줘", "~추천해줄래", "~어디가 좋아?", "~뭐가 있어?", "~알려줘",
+  "~가고싶어" (단독으로, 바꿔달라는 말 없이) 등 "보여달라/알려달라"는 뉘앙스.
+  예: "해변가 가고싶어, 맛집 추천해줘" -> mode="recommend"
+      "근처에 갈만한 카페 있어?" -> mode="recommend"
+      "흑돼지 맛집 뭐가 있어?" -> mode="recommend"
+- "edit" -> 사용자가 실제로 일정을 바꾸거나 채워달라고 요청하는 경우입니다.
+  신호: "~로 바꿔줘", "~로 교체해줘", "~빼줘", "~추가해줘", "~넣어줘", "~수정해줘",
+  "~로 정해줘", "~로 할게" 등 명확한 적용/확정 의사가 있는 표현.
+  예: "우도 대신 협재해변으로 바꿔줘" -> mode="edit"
+      "1일차 카페를 다른 곳으로 수정해줘" -> mode="edit"
+- 애매하면 "recommend"를 우선하세요. 일정을 실제로 바꾸는 것은 사용자가 명확히
+  요청했을 때만 해야 하는, 되돌리기 어려운 동작입니다. mode="recommend"일 때는
+  affected_slots/add_must_visit_places 등 다른 필드는 어떤 종류의 후보를
+  찾아야 하는지 알려주는 용도로만 채우고, 실제로 일정에 반영되지는 않습니다.
+
+"target_day" 판단 규칙:
+
+- 사용자가 "1일차", "둘째 날", "3일째" 처럼 특정 일차를 명시적으로 언급했을 때만
+  해당 정수(1부터 시작)를 넣으세요.
+- 일차를 언급하지 않았다면 반드시 null로 두세요. 임의로 추측해서 채우지 마세요.
+- target_day는 영향 범위를 그 날짜로만 좁히는 데 사용되므로, 잘못 채우면 다른
+  날짜의 정당한 수정 요청까지 무시될 수 있습니다. 확실하지 않으면 null.
 
 "add_slots" 사용 규칙:
 
@@ -292,16 +321,23 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 예시:
 
 - "우도 대신 협재해변으로 바꿔줘"
-  -> add_excluded_places=["우도"], add_must_visit_places=["협재해변"], affected_slots=["visit"]
+  -> mode="edit", add_excluded_places=["우도"], add_must_visit_places=["협재해변"], affected_slots=["visit"]
 
 - "우도는 빼줘"
-  -> remove_places=["우도"], affected_slots=[]
+  -> mode="edit", remove_places=["우도"], affected_slots=[]
 
 - "허디거디 이도점은 빼줘"
-  -> remove_places=["허디거디 이도점"], affected_slots=[]
+  -> mode="edit", remove_places=["허디거디 이도점"], affected_slots=[]
+
+- "해변가 가고싶어, 맛집 추천해줘"
+  -> mode="recommend", affected_slots=["food"], notes="해변가 근처 맛집 추천 요청"
+  (일정을 바꿔달라는 말이 없으므로 후보만 보여주고 일정은 그대로 둔다)
 
 - "자녀를 위한 흑돼지 맛집 추천해줘"
-  -> add_must_visit_places=["흑돼지 맛집"], affected_slots=["food"]
+  -> mode="recommend", affected_slots=["food"], notes="자녀 동반 흑돼지 맛집 추천 요청"
+
+- "1일차 맛집 다른 곳으로 수정해줘"
+  -> mode="edit", target_day=1, affected_slots=["food"]
 
 - "카페를 하나 더 추가해줘"
   -> add_slots=[{{"day": null, "role": "food", "count": 1}}], affected_slots=[], notes="카페 하나 추가 요청"
@@ -349,6 +385,18 @@ def build_chat_update_prompt(
 ITINERARY_REVISION_SYSTEM_PROMPT = """당신은 이미 생성된 제주 여행 일정을 부분 수정하는 플래너입니다.
 기존 일정(existing_itinerary)과 새로 검색된 슬롯별 후보(changed_slots)를 받습니다.
 
+### 절대 규칙 (가장 중요, 이 규칙이 다른 모든 규칙보다 우선합니다) ###
+changed_slots에 (day, sequence)가 명시적으로 포함된 stop만 수정 대상입니다.
+그 외의 모든 stop은, 같은 day에 있든 다른 day에 있든 상관없이, 글자 하나
+바꾸지 말고 입력 그대로 반환하세요. "더 잘 어울릴 것 같아서", "일관성을
+위해서" 같은 이유로 changed_slots에 없는 stop을 임의로 바꾸는 것은
+허용되지 않습니다. 특히 changed_slots에 없는 day는 통째로 완전히
+동일하게 반환해야 합니다. 이 규칙을 어기면 사용자가 요청하지 않은
+일정까지 바뀌어 신뢰를 잃게 되므로, 의심스러우면 반드시 "바꾸지 않는"
+쪽을 선택하세요. 이 응답은 프로그램이 changed_slots에 없는 stop을
+자동으로 원본과 대조/복원하므로, 임의로 바꿔도 사용자에게는 결국
+반영되지 않습니다.
+
 다음 JSON 객체 하나만 출력하세요. 스키마는 existing_itinerary와 동일합니다:
 {"days": [{"day": 1, "title": "...", "stops": [...]}]}
 
@@ -384,7 +432,12 @@ ITINERARY_REVISION_SYSTEM_PROMPT = """당신은 이미 생성된 제주 여행 �
 - 같은 content_id를 두 번 이상 사용하지 마세요.
 - 전체 일정을 동일한 JSON 스키마로, days와 stops를 모두 포함해서 반환하세요(수정되지 않은 부분도 그대로 포함).
 - 기존 일정을 다시 생성하거나 전체 순서를 재구성하지 마세요.
-- 수정 범위를 최소화하는 것이 가장 중요한 목표입니다."""
+- 수정 범위를 최소화하는 것이 가장 중요한 목표입니다.
+
+### 다시 한 번 강조 ###
+changed_slots에 없는 stop은 절대 건드리지 마세요. changed_slots에 없는
+day는 통째로 원본 그대로 반환하세요. 이것이 이 작업에서 가장 중요한
+제약 조건입니다."""
 
 def build_itinerary_revision_prompt(
     condition_dict: dict[str, Any],

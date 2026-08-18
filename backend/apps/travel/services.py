@@ -1,9 +1,10 @@
 from datetime import timedelta
 from copy import deepcopy
 import json
+import math
 import traceback
 
-from django.db import transaction
+from django.db import connections, transaction
 
 from src.api import itinerary_engine
 from src.models import ItineraryState
@@ -63,6 +64,139 @@ def _merge_schedule_into_engine_state(
         )
     )
     return merged
+
+
+LODGING_CONTENT_TYPE_ID = 32
+
+
+def _haversine_km(
+    latitude1: float,
+    longitude1: float,
+    latitude2: float,
+    longitude2: float,
+) -> float:
+    """Return the great-circle distance between two coordinates."""
+
+    earth_radius_km = 6371.0088
+    lat1 = math.radians(latitude1)
+    lat2 = math.radians(latitude2)
+    delta_lat = lat2 - lat1
+    delta_lng = math.radians(longitude2 - longitude1)
+
+    value = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lng / 2) ** 2
+    )
+    return 2 * earth_radius_km * math.asin(math.sqrt(value))
+
+
+def _itinerary_route_points(state: ItineraryState) -> list[tuple[float, float]]:
+    points = []
+
+    for day_data in state.itinerary.get("days", []):
+        for stop in day_data.get("stops", []):
+            if stop.get("role") in {"accommodation", "stay"}:
+                continue
+
+            latitude = stop.get("latitude")
+            longitude = stop.get("longitude")
+            if latitude is None or longitude is None:
+                continue
+
+            points.append((float(latitude), float(longitude)))
+
+    return points
+
+
+def _load_lodging_candidates() -> list[dict]:
+    """Load TourAPI lodging candidates from the shared travel database."""
+
+    with connections["travel"].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                p.content_id,
+                p.title,
+                p.addr1,
+                p.addr2,
+                p.latitude,
+                p.longitude,
+                (
+                    SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                    FROM place_images img
+                    WHERE img.content_id = p.content_id
+                      AND (
+                          NULLIF(img.image_url, '') IS NOT NULL
+                          OR NULLIF(img.thumbnail_url, '') IS NOT NULL
+                      )
+                    ORDER BY img.display_order
+                    LIMIT 1
+                ) AS thumbnail_url
+            FROM places p
+            WHERE p.content_type_id = %s
+              AND p.latitude IS NOT NULL
+              AND p.longitude IS NOT NULL
+              AND p.latitude <> 0
+              AND p.longitude <> 0
+              AND NULLIF(TRIM(p.title), '') IS NOT NULL
+            """,
+            [LODGING_CONTENT_TYPE_ID],
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "content_id": int(content_id),
+            "title": title,
+            "address": " ".join(part for part in (addr1, addr2) if part).strip(),
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+            "thumbnail_url": thumbnail_url or "",
+        }
+        for content_id, title, addr1, addr2, latitude, longitude, thumbnail_url in rows
+    ]
+
+
+def _select_fixed_accommodation(
+    state: ItineraryState,
+    *,
+    nights: int,
+) -> dict | None:
+    """Select one lodging that minimizes travel across the initial itinerary."""
+
+    if nights < 1:
+        return None
+
+    route_points = _itinerary_route_points(state)
+    if not route_points:
+        return None
+
+    candidates = _load_lodging_candidates()
+    if not candidates:
+        return None
+
+    def candidate_score(candidate: dict) -> tuple[float, float, str]:
+        distances = [
+            _haversine_km(
+                candidate["latitude"],
+                candidate["longitude"],
+                latitude,
+                longitude,
+            )
+            for latitude, longitude in route_points
+        ]
+        average_distance = sum(distances) / len(distances)
+        # Equal-distance candidates with an image are more useful in the UI.
+        image_penalty = 0.0 if candidate["thumbnail_url"] else 1.0
+        return average_distance, image_penalty, candidate["title"]
+
+    selected = min(candidates, key=candidate_score)
+    return {
+        **selected,
+        "nights": nights,
+        "source": "tourapi",
+        "is_fixed": True,
+    }
 
 def _build_place_info_map(
     state: ItineraryState,
@@ -200,7 +334,6 @@ def _save_itinerary_result(
             date=itinerary.start_date
             + timedelta(days=day_number - 1),
         )
-
         for stop in day_data.get("stops", []):
             content_id = stop.get("content_id")
             place = None
@@ -249,25 +382,15 @@ def _save_itinerary_result(
                 thumbnail,
             )
             role = stop.get("role")
-
             item_type_map = {
                 "visit": ItineraryItem.ItemType.SPOT,
                 "food": ItineraryItem.ItemType.RESTAURANT,
                 "shopping": ItineraryItem.ItemType.SHOPPING,
                 "activity": ItineraryItem.ItemType.ACTIVITY,
                 "accommodation": ItineraryItem.ItemType.ACCOMMODATION,
+                "stay": ItineraryItem.ItemType.ACCOMMODATION,
             }
-
-            item_type = item_type_map.get(
-                role,
-                ItineraryItem.ItemType.SPOT,
-            )
-
-            print(
-                "[ITEM TYPE]",
-                "role =", role,
-                "→ item_type =", item_type,
-            )
+            item_type = item_type_map.get(role, ItineraryItem.ItemType.SPOT)
 
             ItineraryItem.objects.create(
                 day=itinerary_day,
@@ -303,7 +426,8 @@ def generate_itinerary(
 
     itinerary.title = (
         f"{itinerary.duration_label} "
-        f"{itinerary.get_companion_type_display()} 여행"
+        f"{itinerary.get_companion_type_display()} "
+        f"{itinerary.style}"
     )
     itinerary.save(update_fields=["title"])
 
@@ -365,6 +489,16 @@ def generate_itinerary(
         # -------------------------------------------------
         _optimize_itinerary_routes(state)
 
+        start_date = getattr(itinerary, "start_date", None)
+        end_date = getattr(itinerary, "end_date", None)
+        if start_date is not None and end_date is not None:
+            hotel = _select_fixed_accommodation(
+                state,
+                nights=(end_date - start_date).days,
+            )
+            if hotel:
+                state.itinerary["hotel"] = hotel
+
         # -------------------------------------------------
         # 최종 일정
         # -------------------------------------------------
@@ -413,7 +547,13 @@ def revise_itinerary(
     user_text: str,
 ):
     """
-    채팅으로 기존 여행 일정을 수정한다.
+    채팅으로 기존 여행 일정을 수정하거나, 아직 적용하지 않고 후보만 보여준다.
+
+    반환값은 (itinerary, chat_result) 튜플이다. chat_result.mode 가
+    - "recommend" 이면 itinerary는 전혀 수정되지 않았고, chat_result에 담긴
+      추천 후보만 화면(채팅창)에 보여주면 된다.
+    - "edit" 이면 itinerary가 실제로 갱신된 것이다.
+    - "no_change" 이면 사용자의 메시지에서 아무 변경 신호도 찾지 못한 것이다.
     """
 
     print("=" * 80)
@@ -430,21 +570,45 @@ def revise_itinerary(
         state = ItineraryState.from_dict(
             itinerary.engine_state
         )
+        fixed_hotel = state.itinerary.get("hotel")
 
-        # 엔진을 이용하여 일정 수정
-        new_state = (
-            itinerary_engine.update_itinerary_from_chat(
-                state,
-                user_text,
-            )
+        # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
+        chat_result = itinerary_engine.update_itinerary_from_chat(
+            state,
+            user_text,
         )
 
-        # 수정된 일정도 다시 최적 경로 계산
-        _optimize_itinerary_routes(new_state)
+        # 추천만 조회했거나 변경 사항이 없는 경우
+        if chat_result.mode != "edit":
+
+            if chat_result.mode == "recommend":
+                itinerary.engine_state = chat_result.state.to_dict()
+                itinerary.save(
+                    update_fields=["engine_state"]
+                )
+
+            print("=" * 80)
+            print(
+                f"===== revise_itinerary 완료 "
+                f"(mode={chat_result.mode}, 일정 미변경) ====="
+            )
+            print("=" * 80)
+
+            return itinerary, chat_result
+
+        # 실제 일정 수정 결과
+        new_state = chat_result.state
+
+        # 기존에 선택된 숙소는 채팅으로 일정을 수정해도 유지
+        if fixed_hotel:
+            new_state.itinerary["hotel"] = fixed_hotel
+
 
         # 수정된 엔진 상태 저장
         itinerary.engine_state = new_state.to_dict()
-        itinerary.save(update_fields=["engine_state"])
+        itinerary.save(
+            update_fields=["engine_state"]
+        )
 
         # 수정된 일정 DB 저장
         _save_itinerary_result(
@@ -456,7 +620,7 @@ def revise_itinerary(
         print("===== revise_itinerary 완료 =====")
         print("=" * 80)
 
-        return itinerary
+        return itinerary, chat_result
 
     except Exception as e:
         print("=" * 80)

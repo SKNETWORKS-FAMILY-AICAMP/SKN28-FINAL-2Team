@@ -106,17 +106,25 @@ class PackageComparisonServiceTests(SimpleTestCase):
             "meta": {"candidate_count": 9},
         }
 
-        result = recommend_package_comparison({}, itinerary_id=7)
+        payload = {
+            "condition": {"duration_days": 3},
+            "itinerary": {
+                "hotel": {"title": "엠버리조트", "nights": 2},
+                "days": [{"day": 1}, {"day": 2}, {"day": 3}],
+            },
+        }
+        result = recommend_package_comparison(payload, itinerary_id=7)
 
-        mocked_recommend.assert_called_once_with({}, top_k=1)
+        mocked_recommend.assert_called_once_with(payload, top_k=1)
         self.assertEqual(result["stored_package"], stored_package)
         self.assertEqual(result["recommendations"], [stored_package])
         self.assertEqual(result["custom_package"]["itinerary_id"], 7)
-        self.assertEqual(result["custom_package"]["price_per_person"], 746_000)
+        self.assertEqual(result["custom_package"]["price_per_person"], 220_000)
+        self.assertEqual(result["custom_package"]["pricing_basis"], "estimated_accommodation_only")
         self.assertTrue(result["custom_package"]["is_provisional_quote"])
 
     @patch("apps.package_recommendation.services.recommend_packages")
-    def test_returns_empty_comparison_when_no_package_matches(self, mocked_recommend):
+    def test_keeps_free_custom_day_trip_when_no_package_matches(self, mocked_recommend):
         mocked_recommend.return_value = {
             "status": "no_candidates",
             "recommendations": [],
@@ -126,4 +134,6 @@ class PackageComparisonServiceTests(SimpleTestCase):
         result = recommend_package_comparison({}, itinerary_id=7)
 
         self.assertIsNone(result["stored_package"])
-        self.assertIsNone(result["custom_package"])
+        self.assertEqual(result["custom_package"]["price_per_person"], 0)
+        self.assertEqual(result["custom_package"]["pricing_basis"], "free_day_trip")
+        self.assertFalse(result["custom_package"]["is_provisional_quote"])

@@ -5,6 +5,8 @@ import cx from '../../utils/cx.js'
 import { STEPS } from './questionSteps.js'
 import ItineraryPreview from "./ItineraryPreview.jsx"
 import { useNavigate } from "react-router-dom"
+import harubangTraveler from '../../assets/harubang-traveler.png'
+import harubangAvatar from '../../assets/harubang-avatar.png'
 
 const CHAT_COLUMN_STORAGE_KEY = "travel-chat-column";
 
@@ -365,29 +367,56 @@ export default function ChatColumn({
       try {
         setIsRevising(true)
 
-        const updatedItinerary = await reviseItinerary(
+        const result = await reviseItinerary(
           itineraryId,
           text
         )
 
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: nextId(),
-            type: 'msg',
-            me: false,
-            lines: [
-              '요청하신 내용을 일정에 반영했어요. 🍊',
-            ],
-          },
-          {
-            id: nextId(),
-            type: 'itinerary',
-            itinerary: updatedItinerary,
-          },
-        ])
+        if (result.mode === 'edit') {
+          setHistory((prev) => [
+            ...prev,
+            {
+              id: nextId(),
+              type: 'msg',
+              me: false,
+              lines: [
+                '요청하신 내용을 일정에 반영했어요. 🍊',
+              ],
+            },
+            {
+              id: nextId(),
+              type: 'itinerary',
+              itinerary: result.itinerary,
+            },
+          ])
 
-        setOpenPreviewId(null)
+          setOpenPreviewId(null)
+          } else if (result.mode === 'recommend') {
+            setHistory((prev) => [
+              ...prev,
+              {
+                id: nextId(),
+                type: 'recommend',
+                me: false,
+                lines: [
+                  result.message ?? '추천 일정을 준비했어요.',
+                ],
+                options: result.options ?? [],
+              },
+            ])
+          } else if (result.mode === 'no_change') {
+          setHistory((prev) => [
+            ...prev,
+            {
+              id: nextId(),
+              type: 'msg',
+              me: false,
+              lines: [
+                result.message ?? '일정을 변경하지 않았어요.',
+              ],
+            },
+          ])
+        }
       } catch (error) {
         console.error('일정 수정 실패:', error)
 
@@ -451,14 +480,34 @@ export default function ChatColumn({
               <div key={item.id}>
                 {/* 기존 텍스트 일정 */}
                 <div className={styles.itineraryResult}>
-                  {item.itinerary.days.map((day) => (
+                  {item.itinerary?.hotel && (
+                    <div className={styles.itineraryHotel}>
+                      <span className={styles.itineraryHotelIcon}>🛏</span>
+
+                      <span>
+                        <small>
+                          포함 숙소 · {item.itinerary.hotel.nights}박
+                        </small>
+
+                        <strong>
+                          {item.itinerary.hotel.title}
+                        </strong>
+
+                        {item.itinerary.hotel.address && (
+                          <p>{item.itinerary.hotel.address}</p>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {(item.itinerary?.days ?? []).map((day) => (
                     <div
                       key={day.dayNumber}
                       className={styles.itineraryDay}
                     >
                       <h2>{day.dayNumber}일차</h2>
 
-                      {day.items.map((place, index) => (
+                      {(day.items ?? []).map((place, index) => (
                         <div
                           key={`${day.dayNumber}-${index}`}
                           className={styles.itineraryItem}
@@ -478,19 +527,21 @@ export default function ChatColumn({
 
                 {/* AI 안내 멘트 */}
                 <div className={styles.previewMessageRow}>
-                  <div className={styles.previewAvatar}>🍊</div>
+                  <div className={styles.previewAvatar}>
+                    <img src={harubangAvatar} alt="AI 여행 코치" />
+                  </div>
 
                   <div className={styles.previewMessageBubble}>
                     <p>
                       제안해 드린 일정은 어떠셨나요?
                       <br />
-                      일정은 취향에 맞게 자유롭게 변경할 수 있습니다.
+                      일정은 취향에 맞게 자유롭게 변경할 수 있어요.
                     </p>
 
                     <p>
-                      복잡한 여행 일정을 한눈에 보기 쉽게 정리했어요!
+                      일정을 확인한 뒤 여행 준비를 이어가 보세요.
                       <br />
-                      [일정 미리보기] 버튼을 눌러 확인해 보세요.
+                      다음 단계에서 내 일정과 추천 패키지를 비교해 선택할 수 있어요.
                     </p>
                   </div>
                 </div>
@@ -521,18 +572,18 @@ export default function ChatColumn({
                     onClick={() => handleConfirmItinerary(item.itinerary.id)}
                     disabled={isConfirming}
                   >
-                    {isConfirming ? '확정 중...' : '이 일정으로 확정하기 →'}
+                    {isConfirming ? '준비 중...' : '이 일정으로 여행 준비하기 →'}
                   </button>
                 )}
               </div>
             )
           }
-          if (item.type === 'question') {
-            const step =
-              STEPS[item.stepIndex]
+            if (item.type === 'question') {
+              const step =
+                STEPS[item.stepIndex]
 
-            const alreadyAnswered =
-              item.stepIndex < stepIndex
+              const alreadyAnswered =
+                item.stepIndex < stepIndex
 
             return (
               <div
@@ -540,191 +591,292 @@ export default function ChatColumn({
                 key={item.id}
               >
                 <div className={styles.who}>
-                  🍊
+                  <img src={harubangAvatar} alt="AI 여행 코치" />
                 </div>
 
-                <div className={styles.bubble}>
-                  {step.question}
+                  <div className={styles.bubble}>
+                    {step.question}
 
-                  {step.type === 'toggle' &&
-                    !alreadyAnswered && (
-                      <div
-                        className={
-                          styles.toggleRow
-                        }
-                      >
-                        {step.options.map(
-                          (option) => (
-                            <button
-                              key={option}
-                              type="button"
-                              className={
-                                styles.toggleBtn
-                              }
-                              onClick={() =>
-                                answerStep(
-                                  step.key,
-                                  option
-                                )
-                              }
-                            >
-                              {option}
-                            </button>
-                          )
-                        )}
-                      </div>
-                    )}
-
-                  {step.type === 'dateRange' &&
-                    !alreadyAnswered && (
-                      <div className={styles.dateRange}>
-                        <div className={styles.dateInputs}>
-                          <label className={styles.dateField}>
-                            <span>출발일</span>
-
-                            <input
-                              type="date"
-                              value={startDate}
-                              min={new Date().toISOString().split('T')[0]}
-                              onChange={(event) => {
-                                const value = event.target.value
-
-                                setStartDate(value)
-
-                                if (endDate && value > endDate) {
-                                  setEndDate('')
+                    {step.type === 'toggle' &&
+                      !alreadyAnswered && (
+                        <div
+                          className={
+                            styles.toggleRow
+                          }
+                        >
+                          {step.options.map(
+                            (option) => (
+                              <button
+                                key={option}
+                                type="button"
+                                className={
+                                  styles.toggleBtn
                                 }
-                              }}
-                            />
-                          </label>
-
-                          <label className={styles.dateField}>
-                            <span>도착일</span>
-
-                            <input
-                              type="date"
-                              value={endDate}
-                              min={
-                                startDate ||
-                                new Date().toISOString().split('T')[0]
-                              }
-                              onChange={(event) =>
-                                setEndDate(event.target.value)
-                              }
-                            />
-                          </label>
+                                onClick={() =>
+                                  answerStep(
+                                    step.key,
+                                    option
+                                  )
+                                }
+                              >
+                                {option}
+                              </button>
+                            )
+                          )}
                         </div>
+                      )}
 
-                        {startDate && endDate && (
-                          <div className={styles.dateSummary}>
-                            <div className={styles.dateText}>
-                              {startDate} ~ {endDate}
-                            </div>
-                            
-                            <strong>
-                              {calculateTripDuration(startDate, endDate)?.label}
-                            </strong>
+                    {step.type === 'dateRange' &&
+                      !alreadyAnswered && (
+                        <div className={styles.dateRange}>
+                          <div className={styles.dateInputs}>
+                            <label className={styles.dateField}>
+                              <span>출발일</span>
+
+                              <input
+                                type="date"
+                                value={startDate}
+                                min={new Date().toISOString().split('T')[0]}
+                                onChange={(event) => {
+                                  const value = event.target.value
+
+                                  setStartDate(value)
+
+                                  if (
+                                    endDate &&
+                                    value > endDate
+                                  ) {
+                                    setEndDate('')
+                                  }
+                                }}
+                              />
+                            </label>
+
+                            <label className={styles.dateField}>
+                              <span>도착일</span>
+
+                              <input
+                                type="date"
+                                value={endDate}
+                                min={
+                                  startDate ||
+                                  new Date().toISOString().split('T')[0]
+                                }
+                                onChange={(event) =>
+                                  setEndDate(event.target.value)
+                                }
+                              />
+                            </label>
                           </div>
-                        )}
 
-                        <button
-                          type="button"
-                          className={styles.dateCompleteBtn}
-                          disabled={!startDate || !endDate}
-                          onClick={() => {
-                            const duration = calculateTripDuration(startDate, endDate)
+                          {startDate && endDate && (
+                            <div className={styles.dateSummary}>
+                              <div className={styles.dateText}>
+                                {startDate} ~ {endDate}
+                              </div>
 
-                            if (!duration) return
+                              <strong>
+                                {
+                                  calculateTripDuration(
+                                    startDate,
+                                    endDate
+                                  )?.label
+                                }
+                              </strong>
+                            </div>
+                          )}
 
-                            const value = {
-                              startDate,
-                              endDate,
-                              duration: duration.label,
+                          <button
+                            type="button"
+                            className={styles.dateCompleteBtn}
+                            disabled={
+                              !startDate || !endDate
                             }
+                            onClick={() => {
+                              const duration =
+                                calculateTripDuration(
+                                  startDate,
+                                  endDate
+                                )
 
-                            setHistory((prev) => [
-                              ...prev,
-                              {
-                                id: nextId(),
-                                type: 'msg',
-                                me: true,
-                                lines:
-                                  duration.nights === 0
-                                    ? [
-                                        `${startDate.replaceAll('-', '.')} · 당일`,
-                                      ]
-                                    : [
-                                        `${startDate} ~ ${endDate}`,
-                                        duration.label,
-                                      ],
-                              },
-                            ])
+                              if (!duration) return
 
-                            const nextAnswers = {
-                              ...answers,
-                              travelDates: value,
-                            }
+                              const value = {
+                                startDate,
+                                endDate,
+                                duration:
+                                  duration.label,
+                              }
 
-                            setAnswers(nextAnswers)
-
-                            const next = stepIndex + 1
-                            setStepIndex(next)
-
-                            if (next < STEPS.length) {
                               setHistory((prev) => [
                                 ...prev,
                                 {
                                   id: nextId(),
-                                  type: 'question',
-                                  stepIndex: next,
+                                  type: 'msg',
+                                  me: true,
+                                  lines:
+                                    duration.nights === 0
+                                      ? [
+                                          `${startDate.replaceAll(
+                                            '-',
+                                            '.'
+                                          )} · 당일`,
+                                        ]
+                                      : [
+                                          `${startDate} ~ ${endDate}`,
+                                          duration.label,
+                                        ],
                                 },
                               ])
-                            } else {
-                              finishFlow(nextAnswers)
-                            }
-                          }}
-                        >
-                          날짜 선택 완료
-                        </button>
-                      </div>
+
+                              const nextAnswers = {
+                                ...answers,
+                                travelDates: value,
+                              }
+
+                              setAnswers(nextAnswers)
+
+                              const next =
+                                stepIndex + 1
+
+                              setStepIndex(next)
+
+                              if (
+                                next < STEPS.length
+                              ) {
+                                setHistory((prev) => [
+                                  ...prev,
+                                  {
+                                    id: nextId(),
+                                    type: 'question',
+                                    stepIndex: next,
+                                  },
+                                ])
+                              } else {
+                                finishFlow(nextAnswers)
+                              }
+                            }}
+                          >
+                            날짜 선택 완료
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )
+            }
+
+            // ========================================
+            // 추천 후보 메시지
+            // ========================================
+            if (item.type === 'recommend') {
+              return (
+                <div
+                  className={styles.msg}
+                  key={item.id}
+                >
+                  <div className={styles.who}>
+                    <img src={harubangAvatar} alt="AI 여행 코치" />
+                  </div>
+
+                  <div className={styles.bubble}>
+                    {(item.lines ?? []).map(
+                      (line, index) => (
+                        <span key={index}>
+                          {line}
+
+                          {index <
+                            (item.lines ?? []).length -
+                              1 && <br />}
+                        </span>
+                      )
                     )}
+
+                    <div className={styles.recommendList}>
+                      {(item.options ?? []).map(
+                        (option) => (
+                          <div
+                            key={option.content_id}
+                            className={
+                              styles.recommendCard
+                            }
+                          >
+                            <strong>
+                              {option.title}
+                            </strong>
+
+                            {option.summary && (
+                              <p>
+                                {option.summary}
+                              </p>
+                            )}
+
+                            {option.address && (
+                              <span>
+                                {option.address}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            // ========================================
+            // 일반 메시지
+            // ========================================
+            return (
+              <div
+                className={cx(
+                  styles.msg,
+                  item.me && styles.me
+                )}
+                key={item.id}
+              >
+                <div
+                  className={cx(
+                    styles.who,
+                    item.me && styles.userWho
+                  )}
+                >
+                  {item.me ? (
+                    <img
+                      src={harubangTraveler}
+                      alt="내 프로필"
+                    />
+                  ) : (
+                    <img
+                      src={harubangAvatar}
+                      alt="AI 여행 코치"
+                    />
+                  )}
+                </div>
+
+                <div className={styles.bubble}>
+                  {(item.lines ?? []).map(
+                    (line, index) => (
+                      <span key={index}>
+                        {line}
+                        {index <
+                          (item.lines ?? []).length - 1 && <br />}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             )
-          }
-
-          return (
-            <div
-              className={cx(
-                styles.msg,
-                item.me && styles.me
-              )}
-              key={item.id}
-            >
-              <div className={styles.who}>
-                {item.me ? '나' : '🍊'}
-              </div>
-
-              <div className={styles.bubble}>
-                {item.lines.map(
-                  (line, index) => (
-                    <span key={index}>
-                      {line}
-
-                      {index <
-                        item.lines.length -
-                          1 && <br />}
-                    </span>
-                  )
-                )}
-              </div>
-            </div>
-          )
-        })}
-
-        {flowDone && isCreating && !ready && !latestItineraryItem && (
+            })}
+        {flowDone &&
+          isCreating &&
+          !ready &&
+          !latestItineraryItem && (
           <div className={styles.msg}>
-            <div className={styles.who}>🍊</div>
+            <div className={styles.who}>
+              <img src={harubangAvatar} alt="AI 여행 코치" />
+            </div>
 
             <div className={styles.bubble}>
               입력한 조건으로 일정 생성 중
@@ -739,7 +891,9 @@ export default function ChatColumn({
         )}
         {flowDone && isRevising && (
           <div className={styles.msg}>
-            <div className={styles.who}>🍊</div>
+            <div className={styles.who}>
+              <img src={harubangAvatar} alt="AI 여행 코치" />
+            </div>
 
             <div className={styles.bubble}>
               요청하신 내용으로 일정 수정 중

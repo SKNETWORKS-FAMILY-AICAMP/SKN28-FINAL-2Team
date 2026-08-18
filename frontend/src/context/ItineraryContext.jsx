@@ -38,15 +38,19 @@ export function ItineraryProvider({ children }) {
       return
     }
 
-    loadItineraries()
+    loadItineraries().catch((err) => {
+      console.error('초기 일정 조회 실패', err)
+    })
   }, [isLoggedIn, authLoading])
 
   async function loadItineraries() {
+    setLoading(true)
     try {
       const data = await getItineraries()
       setItineraries(data)
     } catch (err) {
       console.error('일정 조회 실패', err)
+      throw err
     } finally {
       setLoading(false)
     }
@@ -89,10 +93,14 @@ export function ItineraryProvider({ children }) {
     return result
   }
 
-  // 채팅으로 일정 수정
+  // 채팅으로 일정 수정 (또는 추천만 조회)
   async function revise(id, message) {
     const result = await reviseItinerary(id, message)
-    await loadItineraries()
+
+    if (result.mode === 'edit') {
+      await loadItineraries()
+    }
+
     return result
   }
 

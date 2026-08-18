@@ -22,6 +22,7 @@ const mapItinerary = (data) => ({
   bookedProductType: data.booked_product_type,
   bookedPackageDbId: data.booked_package_db_id,
   bookedPrice: data.booked_price,
+  hotel: data.hotel || null,
 
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
@@ -45,6 +46,7 @@ export const getItineraries = async () => {
     styleDisplay: item.style_display,
     status: item.status,
     statusDisplay: item.status_display,
+    hotel: item.hotel || null,
   }));
 };
 
@@ -71,14 +73,32 @@ export const regenerateItinerary = async (id) => {
   return mapItinerary(data);
 };
 
-// 일정 수정(채팅)
+// 일정 수정(채팅) — mode: "edit" | "recommend" | "no_change"
 export const reviseItinerary = async (id, message) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/revise/`,
     { message }
   );
 
-  return mapItinerary(data);
+  if (data.mode === "recommend") {
+    return {
+      mode: "recommend",
+      message: data.message,
+      options: data.options ?? [],
+    };
+  }
+
+  if (data.mode === "no_change") {
+    return {
+      mode: "no_change",
+      message: data.message,
+    };
+  }
+
+  return {
+    mode: "edit",
+    itinerary: mapItinerary(data),
+  };
 };
 
 // 공유 일정 조회
@@ -109,10 +129,6 @@ export const updateItinerary = async (id, payload) => {
   return mapItinerary(data);
 };
 
-export const deleteItinerary = async (id) => {
-  await api.delete(`/travel/itineraries/${id}/`);
-};
-
 // 일정 일부 수정
 export const patchItinerary = async (id, payload) => {
   const { data } = await api.patch(
@@ -122,12 +138,16 @@ export const patchItinerary = async (id, payload) => {
 
   return mapItinerary(data);
 };
+// 일정 삭제
+export const deleteItinerary = async (id) => {
+  await api.delete(`/travel/itineraries/${id}/`);
+};
 
+// 일정 확정
 export const confirmItinerary = async (id) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/confirm/`
   );
-
   return mapItinerary(data);
 };
 
@@ -140,7 +160,40 @@ export const getRoute = async (id) => {
   return data;
 };
 
+// 실제 자동차 도로 경로 조회
+// 동일 일정에 대한 동시 중복 요청 방지
+// 실제 자동차 도로 경로 조회
+// 동일 경로에 대한 동시 중복 요청 방지
+const roadRouteRequests = new Map();
+
+export const getRoadRoute = async (id, packageId = null) => {
+  const key = packageId
+    ? `${id}:package:${packageId}`
+    : `${id}:custom`;
+
+  if (roadRouteRequests.has(key)) {
+    return roadRouteRequests.get(key);
+  }
+
+  const request = api
+    .get(`/travel/itineraries/${id}/road-route/`, {
+      params: packageId
+        ? { package_id: packageId }
+        : {},
+    })
+    .then(({ data }) => data)
+    .finally(() => {
+      roadRouteRequests.delete(key);
+    });
+
+  roadRouteRequests.set(key, request);
+
+  return request;
+};
+
 // 생성된 일정 기반 패키지 추천 조회
+const packageRecommendationRequests = new Map();
+
 export const getPackageRecommendations = async (id, topK = 3) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/package-recommendations/`,

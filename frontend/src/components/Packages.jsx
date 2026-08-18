@@ -17,6 +17,7 @@ const normalizePackage = (pkg) => ({
   durationDays: pkg.duration_days,
   region: pkg.region,
   accommodationIncluded: pkg.accommodation_included,
+  accommodationName: pkg.accommodation_name || '',
   includedItems: Array.isArray(pkg.included_items)
     ? pkg.included_items
     : [],

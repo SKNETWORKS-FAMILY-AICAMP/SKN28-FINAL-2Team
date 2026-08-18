@@ -1,68 +1,88 @@
-"""Simple estimated pricing for a confirmed itinerary package."""
+"""Accommodation-only pricing for a confirmed custom itinerary."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Iterable
 
 
-CUSTOM_PACKAGE_PREMIUM_RATE = 0.12
-PRICE_ROUNDING_UNIT = 1_000
-PRICING_VERSION = "2.0"
+PRICING_VERSION = "3.0"
+ROOM_OCCUPANCY = 2
+STANDARD_ROOM_PRICE = 140_000
+UPPER_ROOM_PRICE = 220_000
+LUXURY_ROOM_PRICE = 350_000
+
+LUXURY_HOTEL_WORDS = ("JW 메리어트", "제주신라호텔", "파르나스 호텔")
+UPPER_HOTEL_WORDS = (
+    "디아넥스",
+    "라온호텔",
+    "라헨느",
+    "루체빌",
+    "에코랜드 호텔",
+    "엠버리조트",
+    "제주 블랙스톤",
+    "제주신화월드",
+)
 
 
 @dataclass(frozen=True)
 class CustomPackagePrice:
-    """Per-person estimated price based on a comparable stored package."""
+    """Per-person price for the lodging included in a custom itinerary."""
 
-    reference_package_price: int
-    customization_fee: int
+    nights: int
+    lodging_name: str | None
+    lodging_tier: str | None
+    room_price_per_night: int
     price_per_person: int
+    pricing_basis: str
     pricing_version: str = PRICING_VERSION
 
-    def to_dict(self) -> dict[str, int | str]:
+    def to_dict(self) -> dict[str, int | str | None]:
         return asdict(self)
 
 
-def calculate_custom_package_price(reference_package_price: int) -> CustomPackagePrice:
-    """Add a 12% premium to a comparable package's per-person price."""
+def calculate_custom_package_price(
+    nights: int,
+    lodging_name: str | None = None,
+) -> CustomPackagePrice:
+    """Return zero for a day trip, otherwise charge only estimated lodging."""
 
-    _validate_price(reference_package_price, "reference_package_price")
+    _validate_nights(nights)
+    normalized_name = (lodging_name or "").strip() or None
 
-    price_per_person = _round_price(
-        reference_package_price * (1 + CUSTOM_PACKAGE_PREMIUM_RATE)
-    )
+    if nights == 0:
+        return CustomPackagePrice(
+            nights=0,
+            lodging_name=None,
+            lodging_tier=None,
+            room_price_per_night=0,
+            price_per_person=0,
+            pricing_basis="free_day_trip",
+        )
+
+    room_price, lodging_tier = estimate_room_price(normalized_name)
     return CustomPackagePrice(
-        reference_package_price=reference_package_price,
-        customization_fee=price_per_person - reference_package_price,
-        price_per_person=price_per_person,
+        nights=nights,
+        lodging_name=normalized_name,
+        lodging_tier=lodging_tier,
+        room_price_per_night=room_price,
+        price_per_person=room_price * nights // ROOM_OCCUPANCY,
+        pricing_basis="estimated_accommodation_only",
     )
 
 
-def choose_reference_package_price(
-    recommended_package_price: int | None,
-    same_duration_package_prices: Iterable[int] = (),
-) -> int:
-    """Choose the recommendation price, or the same-duration average as fallback."""
+def estimate_room_price(lodging_name: str | None) -> tuple[int, str]:
+    """Use the same lodging tiers as the stored-package generation script."""
 
-    if recommended_package_price is not None:
-        _validate_price(recommended_package_price, "recommended_package_price")
-        return recommended_package_price
-
-    prices = list(same_duration_package_prices)
-    if not prices:
-        raise ValueError("a recommended package price or fallback prices are required")
-    for price in prices:
-        _validate_price(price, "same_duration_package_price")
-    return _round_price(sum(prices) / len(prices))
+    name = lodging_name or ""
+    if any(word.casefold() in name.casefold() for word in LUXURY_HOTEL_WORDS):
+        return LUXURY_ROOM_PRICE, "luxury"
+    if any(word.casefold() in name.casefold() for word in UPPER_HOTEL_WORDS):
+        return UPPER_ROOM_PRICE, "upper"
+    return STANDARD_ROOM_PRICE, "standard"
 
 
-def _validate_price(price: int, field_name: str) -> None:
-    if isinstance(price, bool) or not isinstance(price, int):
-        raise TypeError(f"{field_name} must be an integer")
-    if price <= 0:
-        raise ValueError(f"{field_name} must be greater than zero")
-
-
-def _round_price(amount: float) -> int:
-    return round(amount / PRICE_ROUNDING_UNIT) * PRICE_ROUNDING_UNIT
+def _validate_nights(nights: int) -> None:
+    if isinstance(nights, bool) or not isinstance(nights, int):
+        raise TypeError("nights must be an integer")
+    if nights < 0:
+        raise ValueError("nights must be zero or greater")

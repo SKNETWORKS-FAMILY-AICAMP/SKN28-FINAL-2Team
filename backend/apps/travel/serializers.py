@@ -9,6 +9,7 @@ class PackageSerializer(serializers.ModelSerializer):
     price = serializers.IntegerField(source="estimated_price", read_only=True)
 
     accommodation_included = serializers.SerializerMethodField()
+    accommodation_name = serializers.SerializerMethodField()
     style = serializers.SerializerMethodField()
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
@@ -30,6 +31,7 @@ class PackageSerializer(serializers.ModelSerializer):
             "match_profile",
             "thumbnail_url",
             "accommodation_included",
+            "accommodation_name",
             "style",
             "style_display",
             "course",
@@ -52,6 +54,29 @@ class PackageSerializer(serializers.ModelSerializer):
                 [obj.id],
             )
             return bool(cursor.fetchone()[0])
+
+    def get_accommodation_name(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.title
+                FROM package_items pi
+                LEFT JOIN places p
+                    ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.item_type = 'hotel'
+                ORDER BY
+                    CASE WHEN pi.day_no IS NULL THEN 999 ELSE pi.day_no END,
+                    CASE WHEN pi.sequence IS NULL THEN 999 ELSE pi.sequence END
+                LIMIT 1
+                """,
+                [obj.id],
+            )
+            row = cursor.fetchone()
+
+        return row[0] if row and row[0] else ""
 
     def get_style(self, obj):
         return infer_package_style(obj.companion, obj.tags)
@@ -162,6 +187,14 @@ class PackageSerializer(serializers.ModelSerializer):
             }
             for day_no, items in sorted(course_by_day.items())
         ]
+
+class PackageListSerializer(PackageSerializer):
+    class Meta(PackageSerializer.Meta):
+        fields = tuple(
+            field
+            for field in PackageSerializer.Meta.fields
+            if field != "course"
+        )
     
 class ItineraryItemSerializer(serializers.ModelSerializer):
 
@@ -197,6 +230,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
     booked_product_type = serializers.SerializerMethodField()
     booked_package_db_id = serializers.SerializerMethodField()
     booked_price = serializers.SerializerMethodField()
+    hotel = serializers.SerializerMethodField()
 
     class Meta:
         model = Itinerary
@@ -207,8 +241,8 @@ class ItinerarySerializer(serializers.ModelSerializer):
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
             "additional_request",
-            "created_at", "updated_at",
-            "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price"
+            "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price",
+            "hotel"
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
@@ -269,6 +303,10 @@ class ItinerarySerializer(serializers.ModelSerializer):
             return None
 
         return item.price
+
+    def get_hotel(self, obj):
+        itinerary_state = (obj.engine_state or {}).get("itinerary") or {}
+        return itinerary_state.get("hotel")
 
     def create(self, validated_data):
         validated_data.pop("additional_request", None)

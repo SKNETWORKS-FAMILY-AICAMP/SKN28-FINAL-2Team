@@ -5,8 +5,8 @@ import requests
 from django.conf import settings
 
 
-KAKAO_DIRECTIONS_URL = (
-    "https://apis-navi.kakaomobility.com/v1/directions"
+KAKAO_WAYPOINTS_DIRECTIONS_URL = (
+    "https://apis-navi.kakaomobility.com/v1/waypoints/directions"
 )
 
 
@@ -20,87 +20,28 @@ def _build_headers() -> dict[str, str]:
 
     return {
         "Authorization": f"KakaoAK {api_key}",
+        "Content-Type": "application/json",
     }
 
 
-def _request_travel_time(
-    origin_stop: dict,
-    destination_stop: dict,
-) -> int:
-    """
-    출발지 → 목적지 자동차 이동시간을 초 단위로 반환한다.
-    """
-
-    params = {
-        "origin": (
-            f'{origin_stop["longitude"]},'
-            f'{origin_stop["latitude"]}'
-        ),
-        "destination": (
-            f'{destination_stop["longitude"]},'
-            f'{destination_stop["latitude"]}'
-        ),
-        "priority": "TIME",
-    }
-
-    response = requests.get(
-        KAKAO_DIRECTIONS_URL,
-        headers=_build_headers(),
-        params=params,
-        timeout=10,
-    )
-
-    if response.status_code != 200:
-        raise RuntimeError(
-            "카카오 자동차 길찾기 API 호출 실패: "
-            f"{response.status_code} "
-            f"{response.text}"
-        )
-
-    data = response.json()
-
-    routes = data.get("routes", [])
-
-    if not routes:
-        raise RuntimeError(
-            "카카오 자동차 길찾기 결과가 없습니다."
-        )
-
-    route = routes[0]
-
-    result_code = route.get("result_code")
-
-    if result_code != 0:
-        raise RuntimeError(
-            "카카오 자동차 길찾기 실패: "
-            f"result_code={result_code}, "
-            f"message={route.get('result_msg')}"
-        )
-
-    summary = route.get("summary") or {}
-
-    duration = summary.get("duration")
-
-    if duration is None:
-        raise RuntimeError(
-            "카카오 길찾기 결과에 이동시간이 없습니다."
-        )
-
-    return int(duration)
-
-
-def build_kakao_time_matrix(
+def get_kakao_day_route_path(
     stops: list[dict],
-) -> list[list[int]]:
+) -> list[dict]:
     """
-    각 장소 사이 실제 자동차 이동시간 matrix 생성.
+    하루 일정에 저장된 방문 순서를 그대로 유지하면서
+    실제 자동차 도로 경로 좌표를 조회한다.
 
-    matrix[from][to] = 이동시간(초)
+    예:
+    A → B → C → D → E
+
+    origin      = A
+    waypoints   = B, C, D
+    destination = E
+
+    하루당 Kakao API 1회만 호출한다.
     """
 
-    stop_count = len(stops)
-
-    if stop_count == 0:
+    if len(stops) < 2:
         return []
 
     for stop in stops:
@@ -109,83 +50,50 @@ def build_kakao_time_matrix(
             or stop.get("longitude") is None
         ):
             raise ValueError(
-                "카카오 이동시간 계산에 필요한 좌표가 없습니다."
+                "카카오 실제 경로 조회에 필요한 좌표가 없습니다."
             )
 
-    matrix = [
-        [0 for _ in range(stop_count)]
-        for _ in range(stop_count)
-    ]
+    # 경유지 최대 30개
+    # 출발지 + 목적지를 포함하면 하루 최대 32개 장소
+    if len(stops) > 32:
+        raise ValueError(
+            "하루 일정 장소가 너무 많습니다. "
+            "카카오 다중 경유지는 최대 30개까지 지원합니다."
+        )
 
-    for from_index, from_stop in enumerate(stops):
-        for to_index, to_stop in enumerate(stops):
+    origin = stops[0]
+    destination = stops[-1]
+    waypoints = stops[1:-1]
 
-            if from_index == to_index:
-                matrix[from_index][to_index] = 0
-                continue
-
-            duration = _request_travel_time(
-                from_stop,
-                to_stop,
-            )
-
-            matrix[from_index][to_index] = duration
-
-            print(
-                "[Kakao]",
-                from_stop.get("title"),
-                "→",
-                to_stop.get("title"),
-                ":",
-                duration,
-                "초",
-            )
-
-    print("=" * 80)
-    print("[Kakao] 자동차 이동시간 Matrix")
-
-    for row in matrix:
-        print(row)
-
-    print("=" * 80)
-
-    return matrix
-
-def get_kakao_route_path(
-    origin_stop: dict,
-    destination_stop: dict,
-) -> list[dict]:
-    """
-    출발지 → 목적지 실제 자동차 도로 경로 좌표를 반환한다.
-
-    반환 예:
-    [
-        {
-            "latitude": 33.123,
-            "longitude": 126.456,
+    payload = {
+        "origin": {
+            "name": str(origin.get("title") or ""),
+            "x": float(origin["longitude"]),
+            "y": float(origin["latitude"]),
         },
-        ...
-    ]
-    """
-
-    params = {
-        "origin": (
-            f'{origin_stop["longitude"]},'
-            f'{origin_stop["latitude"]}'
-        ),
-        "destination": (
-            f'{destination_stop["longitude"]},'
-            f'{destination_stop["latitude"]}'
-        ),
+        "destination": {
+            "name": str(destination.get("title") or ""),
+            "x": float(destination["longitude"]),
+            "y": float(destination["latitude"]),
+        },
+        "waypoints": [
+            {
+                "name": str(stop.get("title") or ""),
+                "x": float(stop["longitude"]),
+                "y": float(stop["latitude"]),
+            }
+            for stop in waypoints
+        ],
         "priority": "TIME",
-        "summary": "false",
-        "road_details": "true",
+        "alternatives": False,
+        "road_details": True,
+        "summary": False,
     }
 
-    response = requests.get(
-        KAKAO_DIRECTIONS_URL,
+    response = requests.post(
+        KAKAO_WAYPOINTS_DIRECTIONS_URL,
         headers=_build_headers(),
-        params=params,
+        json=payload,
         timeout=10,
     )
 
@@ -221,18 +129,22 @@ def get_kakao_route_path(
             # vertexes:
             # [longitude, latitude, longitude, latitude, ...]
             for index in range(0, len(vertexes), 2):
-                longitude = vertexes[index]
 
                 if index + 1 >= len(vertexes):
                     break
 
+                longitude = vertexes[index]
                 latitude = vertexes[index + 1]
 
-                path.append(
-                    {
-                        "latitude": latitude,
-                        "longitude": longitude,
-                    }
-                )
+                point = {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                }
+
+                # 같은 좌표가 연속으로 들어오는 경우만 제거
+                if path and path[-1] == point:
+                    continue
+
+                path.append(point)
 
     return path

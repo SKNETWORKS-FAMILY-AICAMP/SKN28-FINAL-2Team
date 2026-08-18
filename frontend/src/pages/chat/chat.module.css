@@ -49,7 +49,10 @@
 .dayDivider{ text-align:center; font-size:11.5px; color: var(--muted); margin: 6px 0 4px; position:relative; }
 
 .msg{ display:flex; gap:10px; align-items:flex-start; max-width:88%; }
-.msg .who{ width:30px; height:30px; border-radius:9px; background: var(--green-soft); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.msg .who{ width:40px; height:40px; border-radius:12px; background: var(--green-soft); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.msg .who img{ width:37px; height:37px; object-fit:contain; display:block; }
+.msg .userWho{ width:40px; height:40px; border-radius:12px; }
+.msg .userWho img{ width:37px; height:37px; }
 .bubble{ background: var(--bg-soft); border-radius: 14px 14px 14px 4px; padding: 11px 15px; font-size:14px; line-height:1.65; }
 .me{ align-self:flex-end; flex-direction:row-reverse; }
 .me .bubble{ background: var(--ink); color:#fff; border-radius: 14px 14px 4px 14px; }
@@ -177,13 +180,20 @@
   .appLinks{ display:none; }
 }
 .itineraryResult { width:100%; padding:20px 40px; box-sizing:border-box; }
+.itineraryHotel{ display:flex; align-items:center; gap:12px; margin:0 0 26px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
+.itineraryHotelIcon{ display:grid; width:40px; height:40px; flex:0 0 40px; place-items:center; border-radius:12px; background:#fff; font-size:20px; }
+.itineraryHotel > span:last-child{ display:flex; min-width:0; flex-direction:column; gap:3px; }
+.itineraryHotel small{ color:var(--muted); font-size:11px; font-weight:700; }
+.itineraryHotel strong{ color:var(--ink); font-size:15px; line-height:1.35; }
+.itineraryHotel p{ margin:0; color:var(--muted); font-size:12px; }
 .itineraryDay { margin-bottom:32px; }
 .itineraryDay h2 { margin:0 0 18px; font-size:14px; font-weight:700; }
 .itineraryItem { margin-bottom:18px; line-height:1.7; }
 .itineraryItem strong { display:block; font-size:14px; margin-bottom:4px; }
 .itineraryItem p { margin:0; font-size:14px; color:var(--muted); }
 .previewMessageRow { display:flex; align-items:flex-start; gap:10px; margin-top:32px; margin-bottom:16px; }
-.previewAvatar { width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--green-soft); border:1.5px solid var(--line); border-radius:9px; font-size:14px; }
+.previewAvatar { width:40px; height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--green-soft); border:1.5px solid var(--line); border-radius:12px; font-size:14px; }
+.previewAvatar img{ width:37px; height:37px; object-fit:contain; display:block; }
 .previewMessageBubble { width: fit-content; max-width: 620px; padding: 11px 15px; background: var(--bg-soft); border-radius: 14px 14px 14px 4px; font-size: 14px; line-height: 1.65; }
 .previewMessageBubble p { margin: 0; }
 .previewMessageBubble p + p { margin-top: 16px; }

@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 from apps.travel.models import Package
 from apps.travel.serializers import PackageSerializer
-from apps.travel.kakao_route_service import get_kakao_route_path
 
 from .models import CartItem, Reservation, ReservationItem
 
@@ -126,6 +125,7 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 
 class ReservationItemSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
+    accommodation = serializers.SerializerMethodField()
 
     class Meta:
         model = ReservationItem
@@ -139,8 +139,71 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "quantity",
             "option_date",
             "option_people",
+            "accommodation",
             "schedule",
         )
+
+    def get_accommodation(self, obj):
+        is_custom = (
+            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
+            or str(obj.package_id or "").upper().startswith("CUSTOM-")
+        )
+
+        if is_custom:
+            itinerary = obj.reservation.itinerary
+            if itinerary is None:
+                return None
+
+            itinerary_state = (itinerary.engine_state or {}).get("itinerary") or {}
+            return itinerary_state.get("hotel")
+
+        package_db_id = obj.package_db_id
+        if not package_db_id and obj.package_id:
+            package_db_id = (
+                Package.objects.using("travel")
+                .filter(package_id=obj.package_id, is_active=True)
+                .values_list("id", flat=True)
+                .first()
+            )
+
+        if not package_db_id:
+            return None
+
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.title,
+                    p.addr1,
+                    p.addr2,
+                    p.latitude,
+                    p.longitude,
+                    pi.content_id
+                FROM package_items pi
+                LEFT JOIN places p ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.item_type = 'hotel'
+                ORDER BY pi.day_no, pi.sequence
+                LIMIT 1
+                """,
+                [package_db_id],
+            )
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        title, addr1, addr2, latitude, longitude, content_id = row
+        address = " ".join(part for part in (addr1, addr2) if part)
+        return {
+            "content_id": content_id,
+            "title": title or "숙소",
+            "address": address,
+            "latitude": latitude,
+            "longitude": longitude,
+        }
 
     def get_schedule(self, obj):
         if not self.context.get("include_schedule", True):
@@ -226,72 +289,13 @@ class ReservationItemSerializer(serializers.ModelSerializer):
                 "thumbnail": thumbnail or "",
             })
 
-        result = []
-
-        for day_no, items in sorted(days.items()):
-            valid_items = [
-                item
-                for item in items
-                if (
-                    item.get("latitude") is not None
-                    and item.get("longitude") is not None
-                )
-            ]
-
-            valid_items.sort(
-                key=lambda item: int(
-                    item.get("sequence") or 0
-                )
-            )
-
-            day_path = []
-
-            for index in range(len(valid_items) - 1):
-                origin = valid_items[index]
-                destination = valid_items[index + 1]
-
-                try:
-                    segment_path = get_kakao_route_path(
-                        origin,
-                        destination,
-                    )
-                except RuntimeError as exc:
-                    print(
-                        "[Kakao] 예약 패키지 경로 조회 실패:",
-                        origin.get("title"),
-                        "→",
-                        destination.get("title"),
-                        exc,
-                    )
-                    continue
-
-                if not segment_path:
-                    continue
-
-                if day_path:
-                    day_path.extend(
-                        segment_path[1:]
-                    )
-                else:
-                    day_path.extend(
-                        segment_path
-                    )
-
-            print(
-                "[Kakao] 예약 패키지 경로 생성:",
-                f"DAY {day_no}",
-                f"{len(day_path)} points",
-            )
-
-            result.append(
-                {
-                    "day": day_no,
-                    "items": items,
-                    "path": day_path,
-                }
-            )
-
-        return result
+        return [
+            {
+                "day": day_no,
+                "items": items,
+            }
+            for day_no, items in sorted(days.items())
+        ]
 
 
 class ReservationSerializer(serializers.ModelSerializer):

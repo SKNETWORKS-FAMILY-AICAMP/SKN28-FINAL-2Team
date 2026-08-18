@@ -1,23 +1,68 @@
 from __future__ import annotations
 
+import math
+
 from ortools.constraint_solver import pywrapcp
 from ortools.constraint_solver import routing_enums_pb2
 
-from .kakao_route_service import build_kakao_time_matrix
 
+def build_distance_matrix(stops: list[dict]) -> list[list[int]]:
+    """위도/경도를 이용해 장소 간 직선거리 matrix를 미터 단위로 생성한다."""
 
+    stop_count = len(stops)
+
+    if stop_count == 0:
+        return []
+
+    earth_radius = 6_371_000
+
+    matrix = [
+        [0 for _ in range(stop_count)]
+        for _ in range(stop_count)
+    ]
+
+    for from_index, from_stop in enumerate(stops):
+        lat1 = math.radians(float(from_stop["latitude"]))
+        lon1 = math.radians(float(from_stop["longitude"]))
+
+        for to_index, to_stop in enumerate(stops):
+            if from_index == to_index:
+                continue
+
+            lat2 = math.radians(float(to_stop["latitude"]))
+            lon2 = math.radians(float(to_stop["longitude"]))
+
+            delta_lat = lat2 - lat1
+            delta_lon = lon2 - lon1
+
+            a = (
+                math.sin(delta_lat / 2) ** 2
+                + math.cos(lat1)
+                * math.cos(lat2)
+                * math.sin(delta_lon / 2) ** 2
+            )
+
+            distance = (
+                2
+                * earth_radius
+                * math.asin(math.sqrt(a))
+            )
+
+            matrix[from_index][to_index] = int(distance)
+
+    return matrix
 def optimize_stops(
     stops: list[dict],
 ) -> list[dict]:
     """
-    하루 일정의 stop 목록을 카카오 자동차 이동시간 기준으로
+    하루 일정의 stop 목록을 좌표 기반 직선거리 기준으로
     OR-Tools를 이용해 최적화한다.
 
     - 특정 첫 장소를 고정하지 않는다.
     - food 장소는 시작점 후보에서 제외한다.
     - food가 아닌 각 장소를 시작점으로 OR-Tools를 실행한다.
-    - 각 결과의 전체 이동시간을 비교한다.
-    - 총 이동시간이 가장 짧은 경로를 최종 선택한다.
+    - 각 결과의 전체 이동거리를 비교한다.
+    - 총 직선거리가 가장 짧은 경로를 최종 선택한다.
     - 종료점은 자유롭다.
     - 시간 정보는 사용하지 않는다.
     """
@@ -40,9 +85,10 @@ def optimize_stops(
             return stops
 
     # -------------------------------------------------
-    # Kakao 실제 자동차 이동시간 Matrix
+    # 좌표 기반 거리 Matrix
+    # Kakao API를 호출하지 않는다.
     # -------------------------------------------------
-    time_matrix = build_kakao_time_matrix(stops)
+    time_matrix = build_distance_matrix(stops)
 
     stop_count = len(stops)
 
@@ -99,7 +145,7 @@ def optimize_stops(
         )
 
         # ---------------------------------------------
-        # 이동시간 비용
+        # 이동거리 비용
         # ---------------------------------------------
         def time_callback(
             from_index,
@@ -178,7 +224,7 @@ def optimize_stops(
             )
 
         # ---------------------------------------------
-        # 실제 전체 이동시간 계산
+        # 전체 전체 이동시간 계산
         # ---------------------------------------------
         total_travel_time = 0
 
@@ -237,9 +283,9 @@ def optimize_stops(
             stops[start_index].get(
                 "title"
             ),
-            "| 총 이동시간:",
+            "| 총 이동거리:",
             total_time,
-            "초",
+            "m",
         )
 
         print(
@@ -310,9 +356,9 @@ def optimize_stops(
     )
 
     print(
-        "총 자동차 이동시간:",
+        "총 직선 이동거리:",
         best_total_time,
-        "초",
+        "m",
     )
 
     print("-" * 80)
