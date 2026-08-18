@@ -289,7 +289,6 @@ def _save_itinerary_result(
         )
         for stop in day_data.get("stops", []):
             content_id = stop.get("content_id")
-
             place = None
 
             if content_id:
@@ -327,7 +326,6 @@ def _save_itinerary_result(
                 or place_info["thumbnail"]
                 or ""
             )
-
             print(
                 "장소 조회:",
                 content_id,
@@ -355,8 +353,8 @@ def _save_itinerary_result(
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
                 thumbnail=thumbnail,
-                latitude=latitude,
-                longitude=longitude,
+                latitude=round(latitude, 6) if latitude is not None else None,
+                longitude=round(longitude, 6) if longitude is not None else None,
                 spot=None,
                 restaurant=None,
                 accommodation=None,
@@ -420,6 +418,11 @@ def generate_itinerary(itinerary: Itinerary):
             f"{itinerary.get_companion_type_display()}, "
             f"{itinerary.age_group}대"
         )
+        if additional_request.strip():
+            user_text = f"{user_text}, 추가 요청: {additional_request.strip()}"
+
+        if itinerary.style:
+            user_text = f"{user_text}, {itinerary.style}"
 
         if itinerary.style:
             user_text = f"{user_text}, {itinerary.style}"

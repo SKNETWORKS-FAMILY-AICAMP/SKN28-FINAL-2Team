@@ -4,6 +4,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+# =========================================================
+# 생성 일정
+# =========================================================
+
 @dataclass(frozen=True)
 class ItineraryStop:
     day: int
@@ -21,18 +25,31 @@ class NormalizedItinerary:
     tourism_stops: tuple[ItineraryStop, ...]
 
 
+# =========================================================
+# 패키지 구성 장소
+# =========================================================
+
 @dataclass(frozen=True)
 class PackageItem:
     day: int | None
     sequence: int | None
     item_type: str
     content_id: int
+
+    # 패키지 추천 로직에서 사용하는 장소 카테고리
+    place_categories: tuple[str, ...] = ()
+
+    # 기존 코드에서 사용하던 정보
     title: str = ""
     stay_minutes: int | None = None
     longitude: float | None = None
     latitude: float | None = None
     place_categories: tuple[str, ...] = ()
 
+
+# =========================================================
+# 패키지 후보
+# =========================================================
 
 @dataclass(frozen=True)
 class PackageCandidate:
@@ -49,8 +66,16 @@ class PackageCandidate:
 
     @property
     def tourism_items(self) -> tuple[PackageItem, ...]:
-        return tuple(item for item in self.items if item.item_type == "tourism")
+        return tuple(
+            item
+            for item in self.items
+            if item.item_type == "tourism"
+        )
 
+
+# =========================================================
+# 추천 점수
+# =========================================================
 
 @dataclass(frozen=True)
 class ScoreBreakdown:
@@ -61,18 +86,31 @@ class ScoreBreakdown:
     total: float
 
 
+# =========================================================
+# 점수가 계산된 패키지
+# =========================================================
+
 @dataclass(frozen=True)
 class ScoredPackage:
     package: PackageCandidate
     score: ScoreBreakdown
+
     exact_match_count: int
     itinerary_place_count: int
+
     matched_content_ids: tuple[int, ...]
     unmatched_content_ids: tuple[int, ...]
-    evidence: dict[str, Any] = field(default_factory=dict)
+
+    evidence: dict[str, Any] = field(
+        default_factory=dict
+    )
 
     @property
     def overlap_ratio(self) -> float:
         if not self.itinerary_place_count:
             return 0.0
-        return self.exact_match_count / self.itinerary_place_count
+
+        return (
+            self.exact_match_count
+            / self.itinerary_place_count
+        )

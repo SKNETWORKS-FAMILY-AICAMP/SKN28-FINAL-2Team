@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+
 import { useItineraries } from "../../context/ItineraryContext";
 import { getItinerary } from "../../api/itinerary";
 import styles from "./itinerary.module.css";
@@ -21,16 +22,29 @@ export default function ChatPanel({ onRevised }) {
   const { id } = useParams();
   const { revise } = useItineraries();
 
+  const storageKey = `itinerary-chat-${id}`;
+
   const [messages, setMessages] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [input, setInput] = useState("");
   const [isRevising, setIsRevising] = useState(false);
+
   const bodyRef = useRef(null);
 
-  
-
   useEffect(() => {
-    const fetchItinerary = async () => {
+    const initializeMessages = async () => {
       try {
+        const saved = sessionStorage.getItem(storageKey);
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+            return;
+          }
+        }
+
         const itinerary = await getItinerary(id);
 
         setMessages([
@@ -42,30 +56,45 @@ export default function ChatPanel({ onRevised }) {
           },
         ]);
       } catch (err) {
-        console.error(err);
+        console.error("채팅 초기화 실패:", err);
+      } finally {
+        setIsInitialized(true);
       }
     };
 
     if (id) {
-      fetchItinerary();
+      initializeMessages();
     }
-  }, [id]);
+  }, [id, storageKey]);
 
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    try {
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(messages)
+      );
+    } catch (err) {
+      console.error("채팅 기록 저장 실패:", err);
+    }
+  }, [messages, storageKey, isInitialized]);
 
   useEffect(() => {
     if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+      bodyRef.current.scrollTop =
+        bodyRef.current.scrollHeight;
     }
   }, [messages]);
 
   const sendMsg = async () => {
     const text = input.trim();
+
     if (!text || isRevising) return;
 
     const userMessageId = crypto.randomUUID();
     const loadingMessageId = crypto.randomUUID();
 
-    // 사용자 메시지 추가
     setMessages((prev) => [
       ...prev,
       {
@@ -136,7 +165,7 @@ export default function ChatPanel({ onRevised }) {
     } finally {
       setIsRevising(false);
     }
-  }
+  };
 
   // 추천 카드에서 "이걸로 바꿔줘"를 눌렀을 때: 실제 편집 요청 문장을 만들어 바로 전송
   const applyOption = (optionTitle) => {
@@ -148,33 +177,41 @@ export default function ChatPanel({ onRevised }) {
     <div className={styles.chatCol}>
       <div className={styles.chatHead}>
         <div className={styles.mark}>🗿</div>
+
         <div>
           <h2>AI 여행 코치</h2>
           <p>대화로 바로 수정해보세요</p>
         </div>
       </div>
 
-      <div className={styles.chatBody} ref={bodyRef}>
-        {messages.map((m) => (
+      <div
+        className={styles.chatBody}
+        ref={bodyRef}
+      >     
+        {messages.map((message) => (
           <div
-            key={m.id}
-            className={cx(styles.msg, m.me && styles.me)}
+            key={message.id}
+            className={cx(
+              styles.msg,
+              message.me && styles.me
+            )}
           >
             <div className={styles.who}>
-              {m.me ? "나" : "🍊"}
+              {message.me ? "나" : "🍊"}
             </div>
 
             <div
               className={styles.bubble}
               style={{ whiteSpace: "pre-wrap" }}
             >
-              {m.text}
+              {message.text}
 
-              {m.mini && (
+              {message.mini && (
                 <>
                   <br />
+
                   <span className={styles.miniBtn}>
-                    {m.mini}
+                    {message.mini}
                   </span>
                 </>
               )}
@@ -220,13 +257,13 @@ export default function ChatPanel({ onRevised }) {
 
       <div className={styles.chatFoot}>
         <div className={styles.chips}>
-          {CHIPS.map((text, i) => (
+          {CHIPS.map((text, index) => (
             <button
               key={text}
               className={styles.chip}
               onClick={() => setInput(text)}
             >
-              {CHIP_LABELS[i]}
+              {CHIP_LABELS[index]}
             </button>
           ))}
         </div>
@@ -236,9 +273,11 @@ export default function ChatPanel({ onRevised }) {
             type="text"
             placeholder="예: 협재해변도 가고 싶어요"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
+            onChange={(event) =>
+              setInput(event.target.value)
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
                 sendMsg();
               }
             }}

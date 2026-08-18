@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { API_BASE_URL } from '../api/config'
 
 const AuthContext = createContext(null)
-
-const API_BASE_URL = 'http://localhost:8000'
 
 const normalizeUser = (user) => ({
   id: user.id,

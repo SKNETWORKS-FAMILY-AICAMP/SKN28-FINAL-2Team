@@ -1,7 +1,7 @@
-chromadb>=1.5.9,<2.0
-mysql-connector-python>=9.6.0,<10.0
-openai>=2.41.0,<3.0
-pandas>=2.3.3,<3.0
+chromadb==1.5.9
+mysql-connector-python==9.7.0
+openai==2.54.0
+pandas==2.3.3
 
 Django==6.0.7
 djangorestframework==3.17.1

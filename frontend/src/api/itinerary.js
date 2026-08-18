@@ -77,9 +77,7 @@ export const regenerateItinerary = async (id) => {
 export const reviseItinerary = async (id, message) => {
   const { data } = await api.post(
     `/travel/itineraries/${id}/revise/`,
-    {
-      message,
-    }
+    { message }
   );
 
   if (data.mode === "recommend") {
@@ -112,7 +110,6 @@ export const getSharedItinerary = async (token) => {
   return mapItinerary(data);
 };
 
-
 // 공유 링크 생성
 export const createShareLink = async (id) => {
   const { data } = await api.post(
@@ -122,7 +119,6 @@ export const createShareLink = async (id) => {
   return data;
 };
 
-
 // 일정 전체 수정
 export const updateItinerary = async (id, payload) => {
   const { data } = await api.put(
@@ -131,6 +127,10 @@ export const updateItinerary = async (id, payload) => {
   );
 
   return mapItinerary(data);
+};
+
+export const deleteItinerary = async (id) => {
+  await api.delete(`/travel/itineraries/${id}/`);
 };
 
 // 일정 일부 수정
@@ -160,6 +160,7 @@ export const getRoute = async (id) => {
   const { data } = await api.get(
     `/travel/itineraries/${id}/route/`
   );
+
   return data;
 };
 

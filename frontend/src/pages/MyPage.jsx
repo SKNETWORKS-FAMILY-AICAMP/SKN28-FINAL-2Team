@@ -5,6 +5,7 @@ import cx from '../utils/cx.js'
 import AccountHeader from './account/AccountHeader.jsx'
 import AccountTabs from './account/AccountTabs.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { API_BASE_URL } from '../api/config.js'
 
 const STYLE_OPTIONS = [
   { value: '', label: '선택 안 함' },
@@ -44,7 +45,7 @@ export default function MyPage() {
 
     try {
       const response = await fetch(
-        'http://localhost:8000/api/accounts/me/',
+        `${API_BASE_URL}/api/accounts/me/`,
         {
           method: 'PATCH',
           headers: {

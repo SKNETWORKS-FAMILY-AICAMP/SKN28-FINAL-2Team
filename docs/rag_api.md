@@ -1,6 +1,12 @@
 # 여행 일정 LLM용 장소 검색 API
 
-`src.rag`는 TourAPI MySQL과 ChromaDB를 한 번에 조회하는 동기식 Python API입니다.
+> 구현 상태: 이 문서는 장소 검색 API의 설계와 사용 계약을 기록한 문서입니다.
+> 현재 브랜치에는 `src/rag/__init__.py`만 남아 있고 여기서 참조하는
+> `api.py`, `models.py`, `service.py`가 없으므로 아래 예제는 아직 실행할 수
+> 없습니다. 현재 DB 연결·적재·벡터 검색 검증은
+> [Docker 로컬 DB 개발 환경](db_docker.md)을 기준으로 합니다.
+
+설계상 `src.rag`는 TourAPI MySQL과 ChromaDB를 한 번에 조회하는 동기식 Python API입니다.
 여행 일정 생성 팀은 DB별 연결 코드를 작성하지 않고 이 모듈만 호출하면 됩니다.
 
 ## 검색 흐름

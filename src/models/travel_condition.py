@@ -1,18 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Mapping
 
-from ..models.enums import LocalTransport, Pace, PartyType, VisitPreference
-
-SlotRole = str  # "visit" | "activity" | "food" | "shopping"
-
-VALID_SLOT_ROLES: tuple[str, ...] = (
-    "visit",
-    "activity",
-    "food",
-    "shopping",
-)
+from .enums import LocalTransport, Pace, PartyType, VisitPreference
 
 
 @dataclass(frozen=True)
@@ -33,6 +24,16 @@ class TravelCondition:
     must_visit_places: tuple[str, ...] = ()
     excluded_places: tuple[str, ...] = ()
     mobility_constraints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.duration_days <= 30:
+            raise ValueError("duration_days must be between 1 and 30")
+
+        if not self.preferred_visit_types:
+            raise ValueError("at least one preferred_visit_type is required")
+
+        if self.companion_count is not None and self.companion_count < 0:
+            raise ValueError("companion_count must be zero or greater")
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any]) -> "TravelCondition":
@@ -64,10 +65,11 @@ class TravelCondition:
             "party_type": self.party_type.value,
             "local_transport": self.local_transport.value,
             "preferred_visit_types": [
-                preference.value
-                for preference in self.preferred_visit_types
+                item.value
+                for item in self.preferred_visit_types
             ],
             "companion_count": self.companion_count,
+            "age_group": self.age_group,
             "purpose_codes": list(self.purpose_codes),
             "pace": self.pace.value if self.pace else None,
             "arrival_time": self.arrival_time,
@@ -76,8 +78,19 @@ class TravelCondition:
             "accommodation_address": self.accommodation_address,
             "must_visit_places": list(self.must_visit_places),
             "excluded_places": list(self.excluded_places),
-            "mobility_constraints": list(self.mobility_constraints),
+            "mobility_constraints": list(
+                self.mobility_constraints
+            ),
         }
+
+SlotRole = str  # "visit" | "activity" | "food" | "shopping"
+
+VALID_SLOT_ROLES: tuple[str, ...] = (
+    "visit",
+    "activity",
+    "food",
+    "shopping",
+)
 
 @dataclass(frozen=True)
 class SlotAddRequest:
@@ -113,6 +126,7 @@ class ConditionDelta:
     remove_must_visit_places: tuple[str, ...] = ()
     add_excluded_places: tuple[str, ...] = ()
     remove_excluded_places: tuple[str, ...] = ()
+    remove_places: tuple[str, ...] = ()
     add_preferred_visit_types: tuple[VisitPreference, ...] = ()
     remove_preferred_visit_types: tuple[VisitPreference, ...] = ()
     duration_days: int | None = None
@@ -154,6 +168,7 @@ class ConditionDelta:
             remove_must_visit_places=_string_tuple(value.get("remove_must_visit_places")),
             add_excluded_places=_string_tuple(value.get("add_excluded_places")),
             remove_excluded_places=_string_tuple(value.get("remove_excluded_places")),
+            remove_places=_string_tuple(value.get("remove_places")),
             add_preferred_visit_types=_visit_type_tuple(
                 value.get("add_preferred_visit_types")
             ),
@@ -192,9 +207,11 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
         condition.must_visit_places, delta.add_must_visit_places, delta.remove_must_visit_places
     )
     excluded = _apply_set_ops(
-        condition.excluded_places, delta.add_excluded_places, delta.remove_excluded_places
+        condition.excluded_places,
+        (*delta.add_excluded_places, *delta.remove_places),
+        delta.remove_excluded_places,
     )
-    
+
     must_visit = tuple(place for place in must_visit if place not in excluded)
     excluded = tuple(place for place in excluded if place not in must_visit)
 
@@ -245,6 +262,8 @@ def infer_affected_slots(delta: ConditionDelta) -> tuple[SlotRole, ...]:
         roles.append("activity")
     if delta.add_must_visit_places or delta.remove_must_visit_places:
         roles.extend(["visit", "activity", "food", "shopping"])
+    if delta.remove_places and not roles:
+        return ()
     # NOTE: add_slots (이름 없이 "N개 더 추가해줘" 요청)는 여기 포함시키지 않는다.
     # 이건 기존 슬롯을 다시 검색/교체하라는 신호가 아니라 새 슬롯을 만들라는
     # 신호이므로, engine.update_itinerary_from_chat에서 별도로 처리한다.
@@ -309,6 +328,14 @@ def _optional_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def _optional_string(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+
+    text = str(value).strip()
+    return text or None
 
 
 __all__ = [

@@ -1,0 +1,71 @@
+cloud-architecture-diagram
+
+direction right
+colorMode pastel
+styleMode plain
+typeface clean
+
+User [icon: user, label: "사용자 브라우저", color: blue]
+
+AWS [icon: aws, label: "AWS Cloud", color: blue] {
+  GlobalEdge [label: "Global Edge", color: green] {
+    CloudFront [icon: aws-cloudfront, label: "CloudFront HTTPS + SPA rewrite"]
+  }
+
+  SeoulRegion [icon: aws-region, label: "Seoul Region ap-northeast-2", color: blue] {
+    Frontend [label: "Frontend", color: green] {
+      S3 [icon: aws-simple-storage-service, label: "Private S3 React build"]
+    }
+
+    VPC [icon: aws-vpc, label: "VPC 10.20.0.0/16", color: blue] {
+      PublicTier [icon: aws-public-subnet, label: "Public subnets / 2 AZ", color: green] {
+        ALB [icon: aws-elb-application-load-balancer, label: "Application Load Balancer"]
+        Backend [icon: aws-fargate, label: "ECS Backend / 1 task"]
+        Chroma [icon: aws-fargate, label: "ECS Chroma / 1 task"]
+      }
+
+      DataTier [icon: aws-private-subnet, label: "Data subnets / 2 AZ", color: purple] {
+        RDS [icon: aws-rds, label: "RDS MySQL 8.4 / Single-AZ"]
+        EFS [icon: aws-efs, label: "Encrypted EFS + mount targets"]
+      }
+
+      CloudMap [icon: aws-cloud-map, label: "Cloud Map private DNS"]
+      InternetGateway [icon: aws-internet-gateway, label: "Internet Gateway"]
+    }
+
+    ManagedServices [label: "Regional managed services", color: orange] {
+      Secrets [icon: aws-secrets-manager, label: "Secrets Manager"]
+      CloudWatch [icon: aws-cloudwatch, label: "CloudWatch logs + metrics"]
+      SNS [icon: aws-simple-notification-service, label: "SNS alerts"]
+      Backup [icon: aws-backup, label: "EFS automatic backup"]
+    }
+  }
+}
+
+ExternalAPIs [icon: globe, label: "OpenAI / Google / Kakao APIs", color: purple]
+
+User > CloudFront: HTTPS
+CloudFront > S3: static routes / signed OAC
+CloudFront > ALB: API routes / CloudFront-only ingress
+ALB > Backend: HTTP 8000 / SG
+
+Backend > RDS: MySQL 3306 / SG
+Backend > CloudMap: resolve chroma.tamrajeju.local
+CloudMap > Chroma: HTTP 8000 / SG
+Chroma > EFS: NFS 2049 / SG
+
+Backend > InternetGateway: public outbound
+InternetGateway > ExternalAPIs: HTTPS
+
+Backend > Secrets: runtime secrets
+Backend > CloudWatch: application logs + metrics
+Chroma > CloudWatch: service logs + metrics
+RDS > CloudWatch: error + slow query logs
+CloudWatch > SNS: alarm notification
+EFS > Backup: scheduled backup
+
+legend [position: bottom-right] {
+  [color: green, label: "접속 및 애플리케이션 영역"]
+  [color: purple, label: "데이터 영역"]
+  [color: orange, label: "운영 관리 영역"]
+}

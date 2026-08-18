@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from src.models.enums import  LocalTransport, Pace, PartyType, VisitPreference
 from src.models.travel_condition import TravelCondition
 import hashlib
+import inspect
 import math
 import re
 from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence
@@ -27,6 +28,7 @@ class TripProfile:
     usable_visit_count: int
     average_stay_minutes: float | None
     average_satisfaction: float | None
+    age_group: str | None = None
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> TripProfile:
@@ -111,6 +113,10 @@ class AIHubPatternConfig:
 
         if self.min_stops_per_day <= 0:
             raise ValueError("min_stops_per_day must be greater than zero")
+
+    @property
+    def minimum_visits(self) -> int:
+        return self.min_usable_visits or self.min_stops_per_day
 
 class AIHubPatternRepository(Protocol):
     def fetch_trip_profiles(
@@ -317,6 +323,24 @@ class AIHubPatternService:
     ) -> None:
         self.repository = repository
         self.config = config or AIHubPatternConfig()
+
+    def _fetch_profiles(
+        self,
+        condition: TravelCondition,
+        *,
+        limit: int,
+    ) -> list[TripProfile]:
+        fetch = self.repository.fetch_trip_profiles
+        if "age_groups" not in inspect.signature(fetch).parameters:
+            return fetch(min_usable_visits=self.config.minimum_visits)
+
+        return fetch(
+            age_groups=_fallback_age_groups(condition.age_group),
+            duration_days=condition.duration_days,
+            companion_rel_codes=_companion_relation_codes(condition.party_type),
+            min_stops_per_day=self.config.minimum_visits,
+            limit=limit,
+        )
 
     def find_reference_trips(
         self,

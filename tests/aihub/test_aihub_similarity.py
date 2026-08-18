@@ -17,6 +17,7 @@ from src.aihub.similarity import (
     TripProfile,
     VisitPreference,
     VISIT_TYPE_CODES,
+    _fallback_age_groups,
 )
 
 
@@ -36,6 +37,7 @@ class UserScenario:
             party_type=self.party_type,
             local_transport=self.local_transport,
             preferred_visit_types=self.preferences,
+            companion_count=1,
             pace=self.pace,
             purpose_codes=self.purpose_codes,
             entry_point="제주공항",
@@ -193,7 +195,14 @@ class TravelConditionTests(unittest.TestCase):
                 party_type=PartyType.SOLO,
                 local_transport=LocalTransport.PUBLIC_TRANSIT,
                 preferred_visit_types=(),
+                companion_count=1,
             )
+
+    def test_missing_age_group_searches_all_supported_age_groups(self) -> None:
+        self.assertEqual(
+            _fallback_age_groups(None),
+            ("20", "30", "40", "50", "60"),
+        )
 
 
 class RepositoryQueryTests(unittest.TestCase):

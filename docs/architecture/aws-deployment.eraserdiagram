@@ -1,0 +1,57 @@
+cloud-architecture-diagram
+
+direction right
+colorMode pastel
+styleMode plain
+typeface clean
+
+Developer [icon: user, label: "개발자", color: blue]
+GitHub [icon: github, label: "GitHub repository"]
+
+ManualDeployment [label: "현재 수동 배포", color: green] {
+  Terraform [label: "Terraform plan + apply"]
+  Docker [icon: docker, label: "Docker backend build"]
+  NPM [icon: npm, label: "npm frontend build"]
+  AWSCLI [icon: aws-command-line-interface, label: "AWS CLI validation"]
+}
+
+AWSTargets [icon: aws, label: "AWS deployment targets", color: blue] {
+  Infrastructure [icon: aws-infrastructure-composer, label: "Terraform-managed infrastructure"]
+  ECR [icon: aws-elastic-container-registry, label: "ECR immutable images"]
+  ECS [icon: aws-elastic-container-service, label: "ECS Fargate services"]
+  S3 [icon: aws-simple-storage-service, label: "Private frontend S3"]
+  CloudFront [icon: aws-cloudfront, label: "CloudFront distribution"]
+  CloudWatch [icon: aws-cloudwatch, label: "CloudWatch validation"]
+}
+
+FutureAutomation [label: "다음 단계 CI/CD", color: orange] {
+  GitHubActions [icon: github-actions, label: "GitHub Actions / production environment"]
+}
+
+Developer > GitHub: source changes
+Developer > Terraform: infrastructure changes
+Terraform > Infrastructure: plan + reviewed apply
+
+Developer > Docker: backend build
+Docker > ECR: deploy commit image tag
+ECR > ECS: task definition revision
+
+Developer > NPM: frontend build
+NPM > S3: sync dist
+S3 > CloudFront: origin
+Developer > CloudFront: cache invalidation
+
+Developer > AWSCLI: post-deploy checks
+AWSCLI > ECS: service health
+AWSCLI > CloudWatch: logs + alarms
+
+GitHub > GitHubActions: main workflow dispatch
+GitHubActions --> ECR: build + push
+GitHubActions --> ECS: migrate + deploy + rollback
+GitHubActions --> S3: frontend sync
+GitHubActions --> CloudFront: invalidation
+
+legend [position: bottom-right] {
+  [connection: >, label: "현재 수동 배포"]
+  [connection: -->, color: orange, label: "CI/CD 전환 예정"]
+}

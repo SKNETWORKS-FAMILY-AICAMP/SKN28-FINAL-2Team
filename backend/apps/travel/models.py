@@ -1,6 +1,8 @@
 import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
+from src.recommender.package_profile import build_match_profile
+
 User = get_user_model()
 
 
@@ -144,6 +146,9 @@ class Package(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def match_profile(self):
+        return build_match_profile(self.companion, self.tags)
 
 class Itinerary(models.Model):
     """최종 여행 일정표 """
