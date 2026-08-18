@@ -5,10 +5,12 @@ import styles from './reservationDetail.module.css'
 const DAY_COLORS = ['#4E9F79', '#F08A72', '#5B8FD1', '#9B7BC4', '#D9A441']
 
 const isPoint = (item) =>
+  item?.latitude != null &&
+  item?.longitude != null &&
   Number.isFinite(Number(item?.latitude)) &&
   Number.isFinite(Number(item?.longitude))
 
-export default function ReservationRouteMap({ days = [] }) {
+export default function ReservationRouteMap({ days = [], hotel = null }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const overlaysRef = useRef([])
@@ -116,6 +118,30 @@ export default function ReservationRouteMap({ days = [] }) {
         })
       })
 
+      if (isPoint(hotel)) {
+        const position = new kakao.maps.LatLng(
+          Number(hotel.latitude),
+          Number(hotel.longitude),
+        )
+        const marker = document.createElement('div')
+
+        bounds.extend(position)
+        pointCount += 1
+        marker.className = styles.hotelMapMarker
+        marker.textContent = '🏨'
+        marker.title = `포함 숙소 · ${hotel.title || '숙소'}`
+
+        const overlay = new kakao.maps.CustomOverlay({
+          position,
+          content: marker,
+          yAnchor: 1,
+          zIndex: 30,
+        })
+
+        overlay.setMap(map)
+        overlaysRef.current.push(overlay)
+      }
+
       if (pointCount > 0) {
         map.setBounds(bounds)
         requestAnimationFrame(() => {
@@ -131,9 +157,11 @@ export default function ReservationRouteMap({ days = [] }) {
       overlaysRef.current = []
       polylinesRef.current = []
     }
-  }, [days])
+  }, [days, hotel])
 
-  const hasCoordinates = days.some((day) => (day.items || []).some(isPoint))
+  const hasCoordinates =
+    isPoint(hotel) ||
+    days.some((day) => (day.items || []).some(isPoint))
 
   if (!hasCoordinates) {
     return (

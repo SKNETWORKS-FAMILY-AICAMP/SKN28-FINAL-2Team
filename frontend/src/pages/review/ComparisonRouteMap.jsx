@@ -4,6 +4,8 @@ import { getRoadRoute } from '../../api/itinerary';
 import styles from './review.module.css';
 
 const validPoint = (point) =>
+  point?.latitude != null &&
+  point?.longitude != null &&
   Number.isFinite(Number(point?.latitude)) &&
   Number.isFinite(Number(point?.longitude));
 
