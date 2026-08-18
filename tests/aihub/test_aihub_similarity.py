@@ -36,6 +36,8 @@ class UserScenario:
             party_type=self.party_type,
             local_transport=self.local_transport,
             preferred_visit_types=self.preferences,
+            companion_count=0,
+            age_group="30",
             pace=self.pace,
             purpose_codes=self.purpose_codes,
             entry_point="제주공항",
@@ -85,12 +87,25 @@ class FakePatternRepository:
         self.profiles = list(profiles)
         self.routes = list(routes)
 
-    def fetch_trip_profiles(self, *, min_usable_visits: int) -> list[TripProfile]:
-        return [
+    def fetch_trip_profiles(
+        self,
+        *,
+        age_groups: Sequence[str],
+        duration_days: int,
+        companion_rel_codes: Sequence[str],
+        min_stops_per_day: int,
+        limit: int,
+    ) -> list[TripProfile]:
+        del companion_rel_codes
+        matches = [
             profile
             for profile in self.profiles
-            if profile.usable_visit_count >= min_usable_visits
+            if profile.age_group in age_groups
+            and profile.duration_days == duration_days
+            and profile.usable_visit_count
+            >= profile.duration_days * min_stops_per_day
         ]
+        return matches[:limit]
 
     def fetch_trip_routes(
         self,
@@ -105,11 +120,10 @@ class FakePatternRepository:
 class ThirtyUserScenarioTests(unittest.TestCase):
     def assert_scenario(self, index: int, scenario: UserScenario) -> None:
         condition = scenario.condition()
-        expected_duration = 2 if condition.duration_days == 1 else condition.duration_days
         expected = _matching_profile(
             condition,
             travel_id=f"matching-{index:02d}",
-            duration_days=expected_duration,
+            duration_days=condition.duration_days,
         )
         distractor = _distractor_profile(
             condition,
@@ -121,7 +135,7 @@ class ThirtyUserScenarioTests(unittest.TestCase):
         ]
         service = AIHubPatternService(
             FakePatternRepository([distractor, expected], routes),
-            AIHubPatternConfig(top_k=1),
+            AIHubPatternConfig(top_k=1, min_stops_per_day=3),
         )
 
         context = service.build_llm_context(condition)
@@ -183,17 +197,16 @@ class TravelConditionTests(unittest.TestCase):
         self.assertEqual(condition.local_transport, LocalTransport.RENTAL_CAR)
         self.assertEqual(len(condition.preferred_visit_types), 2)
 
-    def test_rejects_blank_preferences(self) -> None:
-        with self.assertRaisesRegex(
-            ValueError,
-            "at least one preferred_visit_type",
-        ):
-            TravelCondition(
-                duration_days=3,
-                party_type=PartyType.SOLO,
-                local_transport=LocalTransport.PUBLIC_TRANSIT,
-                preferred_visit_types=(),
-            )
+    def test_accepts_blank_preferences(self) -> None:
+        condition = TravelCondition(
+            duration_days=3,
+            party_type=PartyType.SOLO,
+            local_transport=LocalTransport.PUBLIC_TRANSIT,
+            preferred_visit_types=(),
+            companion_count=0,
+        )
+
+        self.assertEqual(condition.preferred_visit_types, ())
 
 
 class RepositoryQueryTests(unittest.TestCase):
@@ -271,6 +284,7 @@ def _matching_profile(
         party_type=condition.party_type,
         local_transport=condition.local_transport,
         companion_count=condition.companion_count or 0,
+        age_group=condition.age_group,
         purpose_codes=frozenset(condition.purpose_codes),
         visit_type_counts=counts,
         usable_visit_count=max(stops_per_day * duration_days, 3),
@@ -308,6 +322,7 @@ def _distractor_profile(
         party_type=party_type,
         local_transport=transport,
         companion_count=0,
+        age_group=None,
         purpose_codes=frozenset({"99"}),
         visit_type_counts=counts,
         usable_visit_count=10,
