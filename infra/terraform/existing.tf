@@ -216,13 +216,13 @@ resource "aws_db_instance" "production" {
   db_subnet_group_name   = aws_db_subnet_group.production.name
   vpc_security_group_ids = [aws_security_group.production["rds"].id]
   publicly_accessible    = false
-  multi_az               = false
+  multi_az               = true
   network_type           = "IPV4"
 
   parameter_group_name = "default.mysql8.4"
   option_group_name    = "default:mysql-8-4"
 
-  backup_retention_period    = 7
+  backup_retention_period    = 14
   backup_window              = "13:21-13:51"
   maintenance_window         = "tue:19:42-tue:20:12"
   copy_tags_to_snapshot      = true
@@ -445,6 +445,17 @@ resource "aws_iam_role_policy" "github_deploy" {
         Condition = {
           StringEquals = {
             "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      },
+      {
+        Sid      = "PassECSLoadBalancerRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = aws_iam_role.ecs_load_balancer.arn
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs.amazonaws.com"
           }
         }
       },

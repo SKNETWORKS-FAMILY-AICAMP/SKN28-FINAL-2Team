@@ -120,6 +120,7 @@ jobs:
       ECS_CLUSTER: tourmain-production
       ECS_SERVICE: tourmain-backend
       ECS_CONTAINER_NAME: backend
+      ECS_TEST_HEADER: X-Tourmain-Deployment
       FRONTEND_S3_BUCKET: tourmain-frontend-511092105773
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
       VITE_API_BASE_URL: https://d9mejd7qkrml.cloudfront.net
@@ -255,12 +256,35 @@ jobs:
       - name: Deploy backend
         shell: bash
         run: |
+          rollback_backend() {
+            CURRENT_TASK_DEFINITION=$(aws ecs describe-services \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+
+            if [[ "$CURRENT_TASK_DEFINITION" != "$PREVIOUS_TASK_DEFINITION" ]]; then
+              aws ecs update-service \
+                --cluster "$ECS_CLUSTER" \
+                --service "$ECS_SERVICE" \
+                --task-definition "$PREVIOUS_TASK_DEFINITION" > /dev/null
+            fi
+
+            aws ecs wait services-stable \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE"
+          }
+
           aws ecs update-service \
             --cluster "$ECS_CLUSTER" \
             --service "$ECS_SERVICE" \
             --task-definition "$NEW_TASK_DEFINITION" > /dev/null
 
           if ! {
+            curl --fail --silent --show-error \
+              --header "$ECS_TEST_HEADER: green" \
+              --retry 30 --retry-delay 5 --retry-all-errors \
+              "${VITE_API_BASE_URL%/}/ready/" > /dev/null &&
             aws ecs wait services-stable \
               --cluster "$ECS_CLUSTER" \
               --services "$ECS_SERVICE" &&
@@ -268,13 +292,19 @@ jobs:
               --retry 5 --retry-delay 5 --retry-all-errors \
               "${VITE_API_BASE_URL%/}/ready/" > /dev/null;
           }; then
-            aws ecs update-service \
-              --cluster "$ECS_CLUSTER" \
-              --service "$ECS_SERVICE" \
-              --task-definition "$PREVIOUS_TASK_DEFINITION" > /dev/null
-            aws ecs wait services-stable \
-              --cluster "$ECS_CLUSTER" \
-              --services "$ECS_SERVICE"
+            rollback_backend
+            exit 1
+          fi
+
+          DEPLOYED_TASK_DEFINITION=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          if [[ "$DEPLOYED_TASK_DEFINITION" != "$NEW_TASK_DEFINITION" ]]; then
+            echo "ECS rolled back the deployment to $DEPLOYED_TASK_DEFINITION" >&2
+            rollback_backend
             exit 1
           fi
 
