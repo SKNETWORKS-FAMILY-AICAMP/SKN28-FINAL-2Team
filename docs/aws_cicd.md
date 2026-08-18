@@ -33,14 +33,15 @@ ECS task definition에는 다음이 준비되어 있어야 한다.
 환경 설정 권한이 없으면 **Settings → Secrets and variables → Actions → Variables**의
 repository variables에 같은 이름으로 등록해도 된다.
 
-단일 운영환경에서는 변경 가능성이 있거나 외부 콘솔에서 발급되는 다음 4개만 등록한다.
+단일 운영환경에서는 변경 가능성이 있거나 외부 콘솔에서 발급되는 다음 5개만 등록한다.
 
 | 이름 | 운영 값 |
 | --- | --- |
 | `AWS_ROLE_ARN` | `arn:aws:iam::511092105773:role/tourmain-github-deploy-role` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | `E19GBBQUW25GVT` |
 | `VITE_GOOGLE_CLIENT_ID` | 현재 운영 Google OAuth client ID |
-| `VITE_KAKAO_JAVASCRIPT_KEY` | 현재 운영 Kakao JavaScript key |
+| `VITE_KAKAO_JAVASCRIPT_KEY` | Kakao Maps용 JavaScript key |
+| `VITE_KAKAO_LOGIN_JAVASCRIPT_KEY` | Kakao Login용 JavaScript key |
 
 리전, ECR·ECS·S3 이름, CloudFront 도메인과 Kakao redirect URI는 현재 단일
 운영환경의 고정값이므로 workflow에 명시한다. staging이나 별도 AWS 계정이 생길 때

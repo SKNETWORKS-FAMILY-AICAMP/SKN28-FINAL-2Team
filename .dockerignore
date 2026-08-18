@@ -1,9 +1,15 @@
 .git
 .venv
 .env
+.env.*
+**/.env
+**/.env.*
 __pycache__
 *.pyc
 backups
+.codex-test-tmp
+**/.terraform
+*.tfplan
 data/*
 !data/raw
 data/raw/*
