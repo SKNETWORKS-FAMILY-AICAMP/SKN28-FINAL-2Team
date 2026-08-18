@@ -50,7 +50,9 @@ export default function LoginPage() {
       sessionStorage.setItem('kakaoLoginNext', next)
 
       window.Kakao.Auth.authorize({
-        redirectUri: 'http://localhost:5173/oauth/kakao/callback',
+        redirectUri:
+          import.meta.env.VITE_KAKAO_REDIRECT_URI ||
+          `${window.location.origin}/oauth/kakao/callback`,
         prompt: 'login',
       })
     } catch (err) {

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 import json
 import math
 import traceback
@@ -319,6 +320,8 @@ def _save_itinerary_result(
                 if place
                 else place_info["longitude"]
             )
+            latitude = round(Decimal(str(latitude)), 6) if latitude is not None else None
+            longitude = round(Decimal(str(longitude)), 6) if longitude is not None else None
 
             thumbnail = (
                 stop.get("image_url")
