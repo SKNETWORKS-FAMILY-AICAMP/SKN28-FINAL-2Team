@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend ./backend
 COPY src ./src
 COPY scripts ./scripts
+COPY generated_packages.100.json/migrate_package_companion_tags_50.sql ./generated_packages.100.json/migrate_package_companion_tags_50.sql
 COPY data/raw/korea_tour_openapi_jeju_places.csv ./data/raw/korea_tour_openapi_jeju_places.csv
 COPY data/raw/korea_tour_openapi_lcls_codes.csv ./data/raw/korea_tour_openapi_lcls_codes.csv
 COPY data/processed/jeju_place_rag_documents.json ./data/processed/jeju_place_rag_documents.json
