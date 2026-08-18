@@ -16,6 +16,8 @@ export default function BookingPage() {
   const initialSelected =
     bookingSource === 'package' && Array.isArray(state?.packageIds)
       ? state.packageIds
+      : bookingSource === 'custom-itinerary' && Array.isArray(state?.packages)
+        ? state.packages.map((item) => item.id)
       : [1, 2]
   const [selected, setSelected] = useState(initialSelected)
   const [submitting, setSubmitting] = useState(false)
@@ -30,6 +32,7 @@ export default function BookingPage() {
   }
 
   const isCartBooking = bookingSource === 'cart'
+  const isCustomBooking = bookingSource === 'custom-itinerary'
   useEffect(() => {
     if (isCartBooking) {
       setSelected(
@@ -66,6 +69,7 @@ export default function BookingPage() {
       '신용카드 (**** **** **** 1234)',
       {
         packageIds: isCartBooking
+          || isCustomBooking
           ? undefined
           : chosen.map((p) => p.id),
         cartItemIds: isCartBooking
@@ -123,13 +127,15 @@ export default function BookingPage() {
         </Link>
 
         <div className={styles.pageHead}>
-          <div className={styles.sectionTag}>✓ 예약 및 저장</div>
+          <div className={styles.sectionTag}>✓ 예약 및 결제</div>
           <h1>{confirmed ? '예약이 완료됐어요!' : '마지막이에요, 예약을 확정해주세요'}</h1>
           <p>
             {confirmed
               ? '결제 확인 메일을 보내드렸어요. 즐거운 제주 여행 되세요 🌿'
               : bookingSource === 'package'
                 ? '선택한 패키지의 예약 정보를 확인하고 결제를 진행하세요.'
+                : bookingSource === 'custom-itinerary'
+                  ? '확정한 자유일정의 예약 정보와 금액을 확인해주세요.'
                 : bookingSource === 'cart'
                   ? '장바구니에 담은 패키지를 확인하고 결제를 진행하세요.'
                   : '일정에 함께할 패키지를 선택하고 결제를 진행하세요.'}
@@ -176,16 +182,6 @@ export default function BookingPage() {
                 isBookmarked={isBookmarked}
                 onToggleBookmark={toggleBookmark}
               />
-
-              <div className={cx(styles.card, styles.saveCard)}>
-                <h4>일정 저장</h4>
-
-                <div className={styles.saveRow}>
-                  <button className={cx(styles.btn, styles.ghost, styles.sm)}>
-                    💾 내 여행으로 저장
-                  </button>
-                </div>
-              </div>
               </div>
 
               <PaymentSummary

@@ -1,18 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Mapping
 
-from ..models.enums import LocalTransport, Pace, PartyType, VisitPreference
-
-SlotRole = str  # "visit" | "activity" | "food" | "shopping"
-
-VALID_SLOT_ROLES: tuple[str, ...] = (
-    "visit",
-    "activity",
-    "food",
-    "shopping",
-)
+from .enums import LocalTransport, Pace, PartyType, VisitPreference
 
 
 @dataclass(frozen=True)
@@ -21,8 +12,8 @@ class TravelCondition:
     party_type: PartyType
     local_transport: LocalTransport
     preferred_visit_types: tuple[VisitPreference, ...]
-    companion_count: int
-
+    companion_count: int | None = None
+    age_group: str | None = None
     purpose_codes: tuple[str, ...] = ()
     pace: Pace | None = None
     arrival_time: str | None = None
@@ -34,31 +25,89 @@ class TravelCondition:
     mobility_constraints: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if not 1 <= self.duration_days <= 30:
+            raise ValueError("duration_days must be between 1 and 30")
+
         if not self.preferred_visit_types:
             raise ValueError("at least one preferred_visit_type is required")
 
+        if self.companion_count is not None and self.companion_count < 0:
+            raise ValueError("companion_count must be zero or greater")
+
     @classmethod
-    def from_mapping(cls, value: dict[str, Any]) -> "TravelCondition":
-        return cls(
-            duration_days=_optional_int(value.get("duration_days")) or 1,
-            party_type=PartyType(value["party_type"]),
-            local_transport=LocalTransport(value["local_transport"]),
-            preferred_visit_types=_visit_type_tuple(
-                value.get("preferred_visit_types")
-            ),
-            companion_count=_optional_int(value.get("companion_count")) or 0,
-            purpose_codes=_string_tuple(value.get("purpose_codes")),
-            pace=Pace(value["pace"]) if value.get("pace") else None,
-            arrival_time=value.get("arrival_time"),
-            departure_time=value.get("departure_time"),
-            entry_point=value.get("entry_point"),
-            accommodation_address=value.get("accommodation_address"),
-            must_visit_places=_string_tuple(value.get("must_visit_places")),
-            excluded_places=_string_tuple(value.get("excluded_places")),
-            mobility_constraints=_string_tuple(
-                value.get("mobility_constraints")
-            ),
-        )
+    def from_mapping(
+        cls,
+        value: Mapping[str, Any],
+    ) -> "TravelCondition":
+        try:
+            preferred_visit_types = tuple(
+                VisitPreference(item)
+                for item in value["preferred_visit_types"]
+            )
+
+            return cls(
+                duration_days=int(value["duration_days"]),
+                party_type=PartyType(value["party_type"]),
+                local_transport=LocalTransport(
+                    value["local_transport"]
+                ),
+                preferred_visit_types=preferred_visit_types,
+                companion_count=_optional_int(
+                    value.get("companion_count")
+                ),
+                age_group=str(value.get("age_group") or "").strip() or None,
+                purpose_codes=_string_tuple(
+                    value.get("purpose_codes")
+                ),
+                pace=(
+                    Pace(value["pace"])
+                    if value.get("pace")
+                    else None
+                ),
+                arrival_time=_optional_string(
+                    value.get("arrival_time")
+                ),
+                departure_time=_optional_string(
+                    value.get("departure_time")
+                ),
+                entry_point=_optional_string(
+                    value.get("entry_point")
+                ),
+                accommodation_address=_optional_string(
+                    value.get("accommodation_address")
+                ),
+                must_visit_places=_string_tuple(
+                    value.get("must_visit_places")
+                ),
+                excluded_places=_string_tuple(
+                    value.get("excluded_places")
+                ),
+                mobility_constraints=_string_tuple(
+                    value.get("mobility_constraints")
+                ),
+            )
+
+        except KeyError as exc:
+            raise ValueError(
+                f"missing required travel condition: {exc.args[0]}"
+            ) from exc
+
+        except (TypeError, ValueError) as exc:
+            if (
+                isinstance(exc, ValueError)
+                and str(exc).startswith(
+                    (
+                        "duration_days",
+                        "at least",
+                        "companion_count",
+                    )
+                )
+            ):
+                raise
+
+            raise ValueError(
+                f"invalid travel condition: {exc}"
+            ) from exc
 
     def to_llm_dict(self) -> dict[str, Any]:
         return {
@@ -66,10 +115,11 @@ class TravelCondition:
             "party_type": self.party_type.value,
             "local_transport": self.local_transport.value,
             "preferred_visit_types": [
-                preference.value
-                for preference in self.preferred_visit_types
+                item.value
+                for item in self.preferred_visit_types
             ],
             "companion_count": self.companion_count,
+            "age_group": self.age_group,
             "purpose_codes": list(self.purpose_codes),
             "pace": self.pace.value if self.pace else None,
             "arrival_time": self.arrival_time,
@@ -78,8 +128,19 @@ class TravelCondition:
             "accommodation_address": self.accommodation_address,
             "must_visit_places": list(self.must_visit_places),
             "excluded_places": list(self.excluded_places),
-            "mobility_constraints": list(self.mobility_constraints),
+            "mobility_constraints": list(
+                self.mobility_constraints
+            ),
         }
+
+SlotRole = str  # "visit" | "activity" | "food" | "shopping"
+
+VALID_SLOT_ROLES: tuple[str, ...] = (
+    "visit",
+    "activity",
+    "food",
+    "shopping",
+)
 
 @dataclass(frozen=True)
 class SlotAddRequest:
@@ -283,6 +344,14 @@ def _optional_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def _optional_string(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+
+    text = str(value).strip()
+    return text or None
 
 
 __all__ = [

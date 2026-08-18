@@ -105,9 +105,10 @@ class CrossDatabaseReferenceContractTests(SimpleTestCase):
     def test_package_model_matches_the_seeded_catalog_schema(self):
         field_names = {field.name for field in Package._meta.local_fields}
 
-        self.assertIn("match_profile", field_names)
-        self.assertNotIn("companion", field_names)
-        self.assertNotIn("tags", field_names)
+        self.assertIn("companion", field_names)
+        self.assertIn("tags", field_names)
+        self.assertNotIn("match_profile", field_names)
+        self.assertIsInstance(Package.match_profile, property)
 
     def test_selected_package_keeps_the_existing_column_without_a_foreign_key(self):
         field = Itinerary._meta.get_field("selected_package")

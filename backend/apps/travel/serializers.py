@@ -1,8 +1,7 @@
 from rest_framework import serializers
-from src.recommender.package_profile import infer_package_style_from_profile
+from src.recommender.package_profile import infer_package_style
 
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
-
 
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
@@ -14,14 +13,27 @@ class PackageSerializer(serializers.ModelSerializer):
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
-    match_profile = serializers.JSONField(read_only=True)
+    match_profile = serializers.ReadOnlyField()
 
     class Meta:
         model = Package
         fields = (
-            "id", "package_id", "name", "description", "price", "region", "duration_days",
+            "id",
+            "package_id",
+            "name",
+            "description",
+            "price",
+            "region",
+            "duration_days",
+            "companion",
+            "tags",
             "match_profile",
-            "thumbnail_url", "accommodation_included", "style", "style_display", "course", "is_active",
+            "thumbnail_url",
+            "accommodation_included",
+            "style",
+            "style_display",
+            "course",
+            "is_active",
         )
 
     def get_accommodation_included(self, obj):
@@ -42,7 +54,7 @@ class PackageSerializer(serializers.ModelSerializer):
             return bool(cursor.fetchone()[0])
 
     def get_style(self, obj):
-        return infer_package_style_from_profile(obj.match_profile)
+        return infer_package_style(obj.companion, obj.tags)
 
     def get_style_display(self, obj):
         labels = {
@@ -101,7 +113,9 @@ class PackageSerializer(serializers.ModelSerializer):
                     pi.content_id,
                     p.title,
                     p.addr1,
-                    p.addr2
+                    p.addr2,
+                    p.latitude,
+                    p.longitude
                 FROM package_items pi
                 LEFT JOIN places p
                     ON p.content_id = pi.content_id
@@ -124,6 +138,8 @@ class PackageSerializer(serializers.ModelSerializer):
             title,
             addr1,
             addr2,
+            latitude,
+            longitude,
         ) in rows:
             course_by_day.setdefault(day_no, []).append(
                 {
@@ -134,6 +150,8 @@ class PackageSerializer(serializers.ModelSerializer):
                     "address": " ".join(
                         part for part in [addr1, addr2] if part
                     ),
+                    "latitude": latitude,
+                    "longitude": longitude,
                 }
             )
 
@@ -171,23 +189,86 @@ class ItinerarySerializer(serializers.ModelSerializer):
     )
     days = ItineraryDaySerializer(many=True, required=False)
     duration_label = serializers.ReadOnlyField()
-    style_display = serializers.CharField(source="get_style_display", read_only=True)
+    # style은 더 이상 choices로 제한된 카테고리가 아니라 자유 입력 텍스트이므로
+    # 별도의 "표시용" 값이 없다. style 값 자체를 그대로 노출한다.
+    style_display = serializers.CharField(source="style", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
+    booked_product_type = serializers.SerializerMethodField()
+    booked_package_db_id = serializers.SerializerMethodField()
+    booked_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Itinerary
         fields = (
             "id", "title", "subtitle", "start_date", "end_date",
             "companion_type", "companion_type_display",
-            "companion_count", "style", "style_display",
+            "companion_count",  "age_group", "style", "style_display",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
             "additional_request",
             "created_at", "updated_at",
+            "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price"
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
+    def get_booked_product_type(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.product_type
+
+
+    def get_booked_package_db_id(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.package_db_id
+
+    def get_booked_price(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.price
 
     def create(self, validated_data):
         validated_data.pop("additional_request", None)
@@ -257,10 +338,17 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
 
 class ItineraryRouteSerializer(serializers.Serializer):
-    """일자별 순서대로의 좌표 목록."""
+    """
+    일자별 최적 방문 순서와 실제 자동차 도로 경로.
+    """
 
     day_number = serializers.IntegerField()
+
     points = serializers.ListField(
+        child=serializers.DictField(),
+    )
+
+    path = serializers.ListField(
         child=serializers.DictField(),
     )
 

@@ -17,6 +17,7 @@ from src.aihub.similarity import (
     TripProfile,
     VisitPreference,
     VISIT_TYPE_CODES,
+    _fallback_age_groups,
 )
 
 
@@ -196,6 +197,12 @@ class TravelConditionTests(unittest.TestCase):
                 preferred_visit_types=(),
                 companion_count=1,
             )
+
+    def test_missing_age_group_searches_all_supported_age_groups(self) -> None:
+        self.assertEqual(
+            _fallback_age_groups(None),
+            ("20", "30", "40", "50", "60"),
+        )
 
 
 class RepositoryQueryTests(unittest.TestCase):

@@ -1,18 +1,22 @@
+import copy
+
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from apps.package_recommendation.services import recommend_packages
+from rest_framework.response import Response
 
 from .models import Itinerary, Package
 from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
         ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
+from .kakao_route_service import get_kakao_route_path
+
+from apps.package_recommendation.services import recommend_package_comparison
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -58,6 +62,13 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     serializer_class = ItinerarySerializer
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def _confirmed_edit_response():
+        return Response(
+            {"detail": "확정된 일정은 수정할 수 없습니다."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
 
     @extend_schema(
         tags=["Itinerary"],
@@ -65,7 +76,20 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses=ItinerarySerializer(many=True),
     )
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        queryset = (
+            self.get_queryset()
+            .filter(
+                reservations__status="confirmed"
+            )
+            .distinct()
+        )
+
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+        )
+
+        return Response(serializer.data)
 
     @extend_schema(
         tags=["Itinerary"],
@@ -85,6 +109,9 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def regenerate(self, request, pk=None):
         itinerary = self.get_object()
+        if itinerary.status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
+
         generate_itinerary(itinerary)
         serializer = self.get_serializer(itinerary)
         return Response(serializer.data)
@@ -101,6 +128,8 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def revise(self, request, pk=None):
         itinerary = self.get_object()
+        if itinerary.status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
 
         serializer = ItineraryRevisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -153,6 +182,8 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses=ItinerarySerializer,
     )
     def update(self, request, *args, **kwargs):
+        if self.get_object().status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
         return super().update(request, *args, **kwargs)
 
     @extend_schema(
@@ -162,7 +193,34 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         responses=ItinerarySerializer,
     )
     def partial_update(self, request, *args, **kwargs):
+        if self.get_object().status == Itinerary.Status.CONFIRMED:
+            return self._confirmed_edit_response()
         return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        tags=["Itinerary"],
+        summary="일정 확정",
+        request=None,
+        responses={200: ItinerarySerializer},
+    )
+    @action(detail=True, methods=["post"])
+    def confirm(self, request, pk=None):
+        itinerary = self.get_object()
+
+        if not itinerary.engine_state:
+            return Response(
+                {"detail": "확정할 일정 데이터가 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if itinerary.status != Itinerary.Status.CONFIRMED:
+            itinerary.status = Itinerary.Status.CONFIRMED
+            itinerary.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            self.get_serializer(itinerary).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         tags=["Itinerary"],
@@ -177,10 +235,11 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Itinerary.objects.none()
 
-        return Itinerary.objects.filter(
-            user=self.request.user
-        ).prefetch_related("days__items")
-
+        return (
+            Itinerary.objects
+            .filter(user=self.request.user)
+            .order_by("-id")
+        )
     @extend_schema(
         tags=["Package Recommendation"],
         summary="생성된 일정에 맞는 패키지 추천",
@@ -194,6 +253,12 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     def package_recommendations(self, request, pk=None):
         itinerary = self.get_object()
 
+        if itinerary.status != Itinerary.Status.CONFIRMED:
+            return Response(
+                {"detail": "일정을 먼저 확정해주세요."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         if not itinerary.engine_state:
             return Response(
                 {"detail": "추천에 필요한 일정 엔진 상태가 없습니다."},
@@ -201,23 +266,12 @@ class ItineraryViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            top_k = int(request.query_params.get("top_k", 3))
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "top_k는 정수여야 합니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not 1 <= top_k <= 10:
-            return Response(
-                {"detail": "top_k는 1부터 10까지 지정할 수 있습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            result = recommend_packages(
-                itinerary.engine_state,
-                top_k=top_k,
+            recommendation_payload = copy.deepcopy(itinerary.engine_state)
+            conditions = recommendation_payload.setdefault("condition", {})
+            conditions["start_date"] = itinerary.start_date.isoformat()
+            result = recommend_package_comparison(
+                recommendation_payload,
+                itinerary_id=itinerary.pk,
             )
         except (TypeError, ValueError) as exc:
             return Response(
@@ -243,21 +297,90 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get"])
     def route(self, request, pk=None):
-        """여행 경로 지도 표시 — 일자별 순서대로의 좌표 목록."""
+        """
+        여행 경로 지도 표시.
+
+        - OR-Tools로 최적화되어 저장된 방문 순서를 사용
+        - 각 장소의 좌표를 points로 반환
+        - 인접 장소 사이의 실제 Kakao 자동차 도로 경로를 path로 반환
+        """
+
         itinerary = self.get_object()
         result = []
-        for day in itinerary.days.all():
+
+        for day in itinerary.days.all().order_by("day_number"):
+
+            items = list(
+                day.items
+                .filter(
+                    latitude__isnull=False,
+                    longitude__isnull=False,
+                )
+                .order_by("order")
+            )
+
             points = [
                 {
                     "order": item.order,
                     "title": item.title,
-                    "latitude": item.latitude,
-                    "longitude": item.longitude,
+                    "latitude": float(item.latitude),
+                    "longitude": float(item.longitude),
                 }
-                for item in day.items.all()
-                if item.latitude is not None and item.longitude is not None
+                for item in items
             ]
-            result.append({"day_number": day.day_number, "points": points})
+
+            path = []
+
+            # 1번 장소 → 2번 장소
+            # 2번 장소 → 3번 장소
+            # ...
+            # 실제 자동차 도로 경로 조회
+            for index in range(len(points) - 1):
+
+                origin = points[index]
+                destination = points[index + 1]
+
+                try:
+                    segment_path = get_kakao_route_path(
+                        origin,
+                        destination,
+                    )
+                except RuntimeError as exc:
+                    print(
+                        "[Kakao Route] 실제 경로 조회 실패:",
+                        origin["title"],
+                        "→",
+                        destination["title"],
+                        exc,
+                    )
+
+                    # 도로 경로 조회 실패 시 직선 좌표라도 유지
+                    segment_path = [
+                        {
+                            "latitude": origin["latitude"],
+                            "longitude": origin["longitude"],
+                        },
+                        {
+                            "latitude": destination["latitude"],
+                            "longitude": destination["longitude"],
+                        },
+                    ]
+
+                # 이전 segment 마지막 좌표와
+                # 현재 segment 첫 좌표 중복 방지
+                if path and segment_path:
+                    segment_path = segment_path[1:]
+
+                path.extend(segment_path)
+
+            result.append(
+                {
+                    "day_number": day.day_number,
+                    "points": points,
+                    "path": path,
+                }
+            )
+
         return Response(result)
 
     @extend_schema(

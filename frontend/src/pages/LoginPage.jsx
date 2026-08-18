@@ -42,7 +42,10 @@ export default function LoginPage() {
         throw new Error('카카오 로그인 SDK를 불러오지 못했습니다.')
       }
 
-      const javascriptKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY
+      const javascriptKey = (
+        import.meta.env.VITE_KAKAO_LOGIN_JAVASCRIPT_KEY
+        || import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY
+      )
       if (!javascriptKey) {
         throw new Error('카카오 로그인 키가 설정되지 않았습니다.')
       }

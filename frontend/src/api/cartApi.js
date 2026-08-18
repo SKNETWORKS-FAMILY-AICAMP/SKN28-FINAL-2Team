@@ -50,12 +50,16 @@ export async function getCart() {
   return response.json()
 }
 
-export async function addToCart(packageId) {
+export async function addToCart(packageId, options = {}) {
   const response = await fetch(`${API_BASE_URL}/api/cart/`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
-      package_id: packageId,
+      product_type: options.productType || 'stored_package',
+      ...(packageId != null && { package_id: packageId }),
+      ...(options.itineraryId != null && {
+        itinerary_id: options.itineraryId,
+      }),
     }),
   })
 

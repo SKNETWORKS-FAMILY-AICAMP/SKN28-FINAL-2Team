@@ -12,7 +12,9 @@ const CartContext = createContext(null)
 
 const normalizeCartItem = (item) => ({
   cartId: item.id,
-  packageId: item.package,
+  packageId: item.package_db_id,
+  productType: item.product_type,
+  itineraryId: item.itinerary_id,
   quantity: item.quantity,
   optionDate: item.option_date || '',
   optionPeople: item.option_people ?? 2,
@@ -57,7 +59,7 @@ export function CartProvider({ children }) {
 
   const addToCart = async (packageId, options = {}) => {
     try {
-      let createdItem = await addToCartApi(packageId)
+      let createdItem = await addToCartApi(packageId, options)
 
       if (options.optionDate || options.optionPeople) {
         createdItem = await updateCartItem(createdItem.id, {
@@ -94,6 +96,13 @@ export function CartProvider({ children }) {
       throw error
     }
   }
+
+  const addCustomToCart = async (itineraryId, options = {}) =>
+    addToCart(null, {
+      ...options,
+      productType: 'custom_itinerary',
+      itineraryId,
+    })
 
   const updateQuantity = async (cartId, delta) => {
     const currentItem = items.find((item) => item.cartId === cartId)
@@ -199,6 +208,7 @@ export function CartProvider({ children }) {
         closeCart,
         toggleCart,
         addToCart,
+        addCustomToCart,
         updateQuantity,
         updateOptions,
         removeFromCart,

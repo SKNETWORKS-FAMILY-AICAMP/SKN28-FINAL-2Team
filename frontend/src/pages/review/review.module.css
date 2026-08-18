@@ -81,6 +81,61 @@
         border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; white-space:nowrap; box-shadow:0 4px 10px rgba(0,0,0,.08); z-index:10; animation:fadeInOut 2s ease forwards; }
 @keyframes fadeInOut{ 0%{opacity:0;transform:translateY(8px);} 15%{opacity:1;transform:translateY(0);} 85%{opacity:1;} 100%{opacity:0;transform:translateY(-8px);} }
 
+.packageComparison{ margin-top:28px; }
+.packageComparisonHead{ margin-bottom:18px; }
+.packageComparisonHead span{ color:var(--green-deep); font-size:12px; font-weight:800; }
+.packageComparisonHead h2{ margin-top:4px; font-family:var(--display); font-size:21px; }
+.packageComparisonHead p{ margin-top:6px; color:var(--muted); font-size:13px; }
+.comparisonMapSlot{ position:relative; display:flex; min-height:280px; margin-bottom:20px; align-items:center; justify-content:center; overflow:hidden; border:2.5px solid var(--ink); border-radius:20px; background:linear-gradient(135deg,#eaf4ee,#dbeaf2); box-shadow:5px 5px 0 var(--line); }
+.comparisonMapSlot::before{ content:""; position:absolute; inset:0; opacity:.32; background-image:linear-gradient(rgba(27,33,29,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(27,33,29,.12) 1px,transparent 1px); background-size:28px 28px; }
+.comparisonMapGuide{ position:relative; z-index:1; padding:18px 22px; text-align:center; border:1.5px solid var(--line); border-radius:14px; background:rgba(255,255,255,.88); }
+.comparisonMapGuide strong{ font-family:var(--display); font-size:16px; }
+.comparisonMapGuide p{ margin-top:5px; color:var(--muted); font-size:12px; }
+.comparisonMapCanvas{ position:absolute; inset:0; z-index:0; }
+.comparisonMapTabs{ position:absolute; top:14px; left:14px; z-index:2; display:flex; gap:7px; padding:5px; border:1.5px solid var(--ink); border-radius:100px; background:rgba(255,255,255,.94); box-shadow:2px 2px 0 rgba(27,33,29,.18); }
+.comparisonMapTabs button{ padding:7px 13px; border:0; border-radius:100px; background:transparent; color:var(--ink); font-size:11px; font-weight:800; cursor:pointer; }
+.comparisonMapTabs button.comparisonMapTabActive{ background:var(--green-deep); color:#fff; }
+.comparisonDayLegend{ position:absolute; right:14px; bottom:14px; z-index:2; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:9px; max-width:70%; padding:8px 11px; border:1.5px solid var(--line); border-radius:100px; background:rgba(255,255,255,.94); box-shadow:2px 2px 0 rgba(27,33,29,.14); }
+.comparisonDayLegend span{ display:flex; align-items:center; gap:5px; color:var(--ink); font-size:10px; font-weight:800; white-space:nowrap; }
+.comparisonDayLegend i{ display:block; width:9px; height:9px; border-radius:50%; }
+.packageComparisonGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.packageChoiceCard{ position:relative; min-width:0; padding:22px; border:2.5px solid var(--ink); border-radius:20px; background:#fff; box-shadow:5px 5px 0 var(--line); cursor:pointer; transition:transform .15s ease, box-shadow .15s ease, outline-color .15s ease, border-color .15s ease, background-color .15s ease; }
+.packageChoiceCard:hover{ transform:translateY(-2px); }
+.selectedChoiceCard{ border-color:var(--green-deep); outline:5px solid rgba(79,157,106,.32); outline-offset:4px; background:#f3fbf5; box-shadow:9px 9px 0 var(--green); }
+.selectionStatus{ display:table; margin:0 0 14px auto; padding:7px 12px; border:1.5px solid #9aa39e; border-radius:999px; background:#fff; color:#68716c; font-size:12px; font-weight:900; line-height:1; }
+.selectionStatusActive{ border-color:var(--green-deep); background:var(--green-deep); color:#fff; box-shadow:2px 2px 0 var(--ink); }
+.recommendedChoiceCard{ position:relative; padding-top:52px; border:3px solid var(--green-deep); background:linear-gradient(180deg,var(--green-soft) 0,#fff 210px); box-shadow:7px 7px 0 var(--green); }
+.customChoiceCard{ border-color:#7d8781; background:#f7f8f7; box-shadow:4px 4px 0 #d8dcda; }
+.bestMatchRibbon{ position:absolute; top:0; right:0; left:0; padding:10px 16px; border-bottom:2px solid var(--green-deep); border-radius:16px 16px 0 0; background:var(--green); color:#fff; font-family:var(--display); font-size:12px; font-weight:800; letter-spacing:.02em; text-align:center; }
+.packageBadgeRow{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
+.packageBadge{ display:inline-block; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
+.accommodationBadge{ display:inline-flex; align-items:center; padding:5px 10px; border:1px solid rgba(47,111,74,.25); border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
+.recommendedBadge{ background:var(--green-deep); }
+.customBadge{ background:#67716c; }
+.packageChoiceHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; padding-bottom:15px; border-bottom:1px dashed var(--line); }
+.packageChoiceHead > div{ min-width:0; }
+.packageChoiceCard h3{ font-family:var(--display); font-size:18px; }
+.packageChoiceHead > strong{ flex:0 0 auto; color:var(--green-deep); font-family:var(--display); font-size:22px; white-space:nowrap; }
+.packageChoiceCard small{ font-family:inherit; font-size:12px; }
+.packageMeta{ margin:12px 0 18px; color:var(--muted); font-size:13px; }
+.comparisonDays{ display:grid; max-height:560px; gap:16px; overflow-y:auto; padding-right:7px; scrollbar-width:thin; scrollbar-color:var(--green) transparent; }
+.comparisonDays::-webkit-scrollbar{ width:7px; }
+.comparisonDays::-webkit-scrollbar-thumb{ border-radius:100px; background:var(--green); }
+.comparisonDay{ padding:15px; border:1.5px solid var(--line); border-radius:15px; background:rgba(255,255,255,.76); }
+.comparisonDayHead{ display:inline-flex; margin-bottom:12px; padding:5px 10px; border:1.5px solid var(--ink); border-radius:100px; background:#fff; font-family:var(--mono); font-size:11px; font-weight:800; }
+.comparisonDay ol{ display:grid; gap:11px; margin:0; padding:0; list-style:none; }
+.comparisonDay li{ display:grid; grid-template-columns:27px minmax(0,1fr); gap:9px; align-items:start; }
+.comparisonDay li > span{ display:flex; width:25px; height:25px; align-items:center; justify-content:center; border-radius:50%; background:var(--green); color:#fff; font-size:11px; font-weight:800; }
+.comparisonDay li strong{ display:block; color:var(--ink); font-size:13px; line-height:1.4; }
+.comparisonDay li p{ margin-top:2px; color:var(--muted); font-size:11px; }
+.packageAdvantages{ display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; padding-top:15px; border-top:1px dashed var(--green); }
+.packageAdvantages span{ padding:6px 9px; border-radius:100px; background:#fff; color:var(--green-deep); font-size:11px; font-weight:800; }
+.packageMessage{ padding:18px; border:2px dashed var(--line); border-radius:16px; background:#fff; color:var(--muted); }
+.bookingAction{ display:flex; align-items:center; justify-content:space-between; gap:18px; margin-top:22px; padding:18px 20px; border:2px solid var(--ink); border-radius:18px; background:#fff; box-shadow:5px 5px 0 var(--green-soft-2); }
+.bookingAction span{ color:var(--muted); font-size:13px; font-weight:700; }
+.bookingButtons{ display:flex; align-items:center; gap:10px; }
+.bookingAction button:disabled{ cursor:not-allowed; opacity:.5; transform:none; box-shadow:none; }
+
 @media (max-width: 1150px){
   .grid{ grid-template-columns: 1fr 1fr; }
   .summary{ grid-column: span 2; }
@@ -88,4 +143,22 @@
 @media (max-width: 720px){
   .grid{ grid-template-columns: 1fr; }
   .summary{ grid-column: span 1; }
+  .packageComparisonGrid{ grid-template-columns:1fr; }
+  .bookingAction{ align-items:stretch; flex-direction:column; }
+  .bookingButtons{ flex-direction:column; align-items:stretch; }
+  .bookingAction button{ justify-content:center; }
 }
+.bookedComparison{ width:100%; }
+.bookedComparisonGrid{ grid-template-columns:1fr; width:100%; }
+.bookedChoiceCard{ width:100%; max-width:none; padding:22px; cursor:default; }
+.bookedChoiceCard:hover{ transform:none; }
+.bookedChoiceCard.recommendedChoiceCard{ padding-top:22px; }
+.bookedChoiceCard .comparisonDays{ max-height:none; overflow:visible; padding-right:0; gap:12px; }
+.bookedChoiceCard .comparisonDay{ width:100%; padding:16px 18px 18px; }
+.bookedChoiceCard .comparisonDay ol{ grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; align-items:start; }
+.bookedChoiceCard .comparisonDay li{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; }
+.bookedChoiceCard .comparisonDay li > span{ position:relative; z-index:2; flex:0 0 25px; }
+.bookedChoiceCard .comparisonDay li > div{ width:100%; }
+.bookedChoiceCard .comparisonDay li strong{ text-align:center; }
+.bookedChoiceCard .comparisonDay li p{ text-align:center; }
+.bookedChoiceCard .comparisonDay li:not(:last-child)::after{ content:""; position:absolute; top:12px; left:calc(50% + 14px); width:calc(100% - 18px); height:1px; background:rgba(79,157,106,.32); z-index:1; }

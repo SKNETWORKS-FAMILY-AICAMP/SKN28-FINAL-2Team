@@ -15,6 +15,11 @@ from src.storage.mysql_repository import MySQLPlaceRepository
 
 
 DEFAULT_SEED = REPOSITORY_ROOT / "src" / "storage" / "seed" / "package_seed.sql"
+DEFAULT_COMPATIBILITY_MIGRATION = (
+    REPOSITORY_ROOT
+    / "generated_packages.100.json"
+    / "migrate_package_companion_tags_50.sql"
+)
 _CONTENT_ID = re.compile(
     r"\(\d+,\d+,(?:NULL|\d+),(?:NULL|\d+),'(?:tourism|restaurant|hotel)',(\d+),"
 )
@@ -24,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Load the initial travel package seed.")
     parser.add_argument("--env-file", type=Path, default=REPOSITORY_ROOT / ".env")
     parser.add_argument("--seed-file", type=Path, default=DEFAULT_SEED)
+    parser.add_argument(
+        "--compatibility-migration",
+        type=Path,
+        default=DEFAULT_COMPATIBILITY_MIGRATION,
+    )
     parser.add_argument(
         "--confirm-empty-database",
         action="store_true",
@@ -37,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         config = MySQLConfig.from_env()
         repository = MySQLPlaceRepository(config)
         seed_sql = args.seed_file.read_text(encoding="utf-8")
+        args.compatibility_migration.read_text(encoding="utf-8")
         content_ids = {int(value) for value in _CONTENT_ID.findall(seed_sql)}
         if not content_ids:
             raise RuntimeError("No package item content IDs were found in the seed file")
@@ -51,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         repository.apply_schema(args.seed_file)
+        repository.apply_schema(args.compatibility_migration)
         result = _verify_loaded_seed(repository)
         print(json.dumps({"status": "loaded", **result}, ensure_ascii=False, indent=2))
         return 0
@@ -92,6 +104,18 @@ def _missing_content_ids(connection, content_ids: set[int]) -> list[int]:
 
 def _verify_loaded_seed(repository: MySQLPlaceRepository) -> dict[str, int]:
     with repository.connect() as connection, connection.cursor() as cursor:
+        for table, required_columns in {
+            "travel_packages": {"companion", "tags"},
+            "package_items": {"tags"},
+        }.items():
+            cursor.execute(f"SHOW COLUMNS FROM `{table}`")
+            columns = {str(row[0]) for row in cursor.fetchall()}
+            missing = sorted(required_columns - columns)
+            if missing:
+                raise RuntimeError(
+                    f"Package seed is missing required {table} columns: "
+                    + ", ".join(missing)
+                )
         cursor.execute("SELECT COUNT(*) FROM travel_packages")
         package_count = int(cursor.fetchone()[0])
         cursor.execute("SELECT COUNT(*) FROM package_items")

@@ -23,7 +23,7 @@ build/
 dist/
 
 # Test, coverage, and tool caches
-/tests/
+/tests/results/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
