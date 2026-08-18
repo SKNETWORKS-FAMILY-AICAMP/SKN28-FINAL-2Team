@@ -433,7 +433,7 @@ export default function ReviewPage() {
             {isBooked
               ? '예약한 여행을 확인해보세요'
               : isItineraryOnlyView
-                ? '완성한 여행 일정을 확인해보세요'
+                ? '여행 일정을 확인해보세요'
                 : '나에게 맞는 여행을 선택해보세요'}
           </h1>
 
@@ -890,17 +890,17 @@ export default function ReviewPage() {
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
                   <div className={styles.packageComparisonHead}>
                     <span>
-                      {isItineraryOnlyView ? '완성한 여행' : '예약한 여행'}
+                      {isBookedCustom ? '예약한 여행' : '내 일정'}
                     </span>
 
                     <h2>
-                      {itinerary.title || '내가 만든 자유일정'}
+                      {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
                     </h2>
 
                     <p>
-                      {isItineraryOnlyView
-                        ? '완성한 자유일정입니다.'
-                        : '예약한 자유일정입니다.'}
+                      {isBookedCustom
+                        ? '내가 만든 일정 그대로 예약한 여행이에요.'
+                        : '완성한 일정을 확인해보세요.'}
                     </p>
                   </div>
 
@@ -952,32 +952,36 @@ export default function ReviewPage() {
                     >
                       <div className={styles.packageChoiceHead}>
                         <div>
-                          <span
-                            className={cx(
-                              styles.packageBadge,
-                              styles.customBadge
+                          <div className={styles.packageBadgeRow}>
+                            <span
+                              className={cx(
+                                styles.packageBadge,
+                                styles.customBadge
+                              )}
+                            >
+                              {isBookedCustom
+                                ? '자유일정 패키지'
+                                : '완성한 자유일정'}
+                            </span>
+
+                            {!isBookedCustom && itinerary.days?.length === 1 && (
+                              <span className={styles.freeBadge}>
+                                무료
+                              </span>
                             )}
-                          >
-                            {isItineraryOnlyView
-                              ? '완성한 자유일정'
-                              : '예약한 자유일정'}
-                          </span>
+                          </div>
 
                           <h3>
-                            {itinerary.title || '내가 만든 자유일정'}
+                            {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
                           </h3>
                         </div>
 
-                        <strong>
-                          {isItineraryOnlyView
-                            ? '무료'
-                            : formatPrice(itinerary.bookedPrice)
-                          }
-
-                          {!isItineraryOnlyView && (
+                        {isBookedCustom && (
+                          <strong>
+                            {formatPrice(itinerary.bookedPrice)}
                             <small> / 1인</small>
-                          )}
-                        </strong>
+                          </strong>
+                        )}
                       </div>
 
                       {itinerary.hotel && (

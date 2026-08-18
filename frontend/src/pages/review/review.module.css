@@ -137,7 +137,7 @@
 .packageMeta{ margin:12px 0; color:var(--muted); font-size:13px; }
 .accommodationInfo{ display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:12px 14px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:#fff; }
 .itineraryHotelInfo{ display:flex; align-items:center; gap:12px; margin:18px 0 0; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
-.bookedAccommodationInfo{ display:flex; align-items:center; gap:12px; margin:15px 0 16px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:var(--green-soft); }
+.bookedAccommodationInfo{ display:flex; align-items:center; gap:12px; margin:15px 0 16px; padding:14px 18px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:var(--green-soft); }
 .accommodationIcon{ display:grid; width:38px; height:38px; flex:0 0 38px; place-items:center; border-radius:11px; background:var(--green-soft); font-size:19px; }
 .itineraryHotelInfo .accommodationIcon{ background:#fff; }
 .accommodationCopy{ display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
@@ -162,7 +162,17 @@
 .bookingAction span{ color:var(--muted); font-size:13px; font-weight:700; }
 .bookingButtons{ display:flex; align-items:center; gap:10px; }
 .bookingAction button:disabled{ cursor:not-allowed; opacity:.5; transform:none; box-shadow:none; }
-
+.freeBadge{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 9px;
+  border-radius:100px;
+  background:var(--green-soft);
+  color:var(--green-deep);
+  font-size:11px;
+  font-weight:800;
+  border:1px solid rgba(47,111,74,.18);
+}
 @media (max-width: 1150px){
   .grid{ grid-template-columns: 1fr 1fr; }
   .summary{ grid-column: span 2; }
@@ -202,7 +212,7 @@
 .recommendReason p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
 .packageChoiceCard{ padding-top:22px; }
 .selectionStatus{ position:absolute; top:22px; right:22px; margin:0; z-index:2; }
-.packageChoiceHead{ min-height:82px; align-items:flex-start; padding-top:0; }
+.packageChoiceHead{ min-height:64px; align-items:flex-start; padding-top:0; }
 .packageChoiceHead > div{ padding-top:0; }
 .packageBadgeRow{ margin-top:0; margin-bottom:10px; }
-.packageChoiceHead > strong{ margin-top:5px; margin-right:120px; }
+.packageChoiceHead > strong{ margin-top:5px; margin-right:0px; }

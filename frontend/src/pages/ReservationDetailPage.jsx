@@ -169,7 +169,7 @@ export default function ReservationDetailPage() {
           <div className={styles.topRow}>
             <div>
               <div className={styles.productBadges}>
-                <span className={styles.productType}>{isCustom ? '자유패키지' : '여행사 패키지'}</span>
+                <span className={styles.productType}>{isCustom ? '자유패키지' : '탐나플랜 패키지'}</span>
               </div>
               <h2>{title}</h2>
               <p className={styles.sub}>{description}</p>
