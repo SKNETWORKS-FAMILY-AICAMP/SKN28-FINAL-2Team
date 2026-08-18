@@ -5,7 +5,7 @@ import { getItinerary } from '../api/itinerary'
 
 import { getPackageDetail, getPackages } from '../api/packageApi'
 import { cancelReservation, getReservation } from '../api/reservationApi'
-import AppHeader from './review/AppHeader.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import styles from './reservation/reservationDetail.module.css'
 import { won } from '../data/packages.js'
 
