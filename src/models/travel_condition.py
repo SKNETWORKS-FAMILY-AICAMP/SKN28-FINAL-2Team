@@ -29,9 +29,6 @@ class TravelCondition:
         if not 1 <= self.duration_days <= 30:
             raise ValueError("duration_days must be between 1 and 30")
 
-        if not self.preferred_visit_types:
-            raise ValueError("at least one preferred_visit_type is required")
-
         if self.companion_count is not None and self.companion_count < 0:
             raise ValueError("companion_count must be zero or greater")
 
@@ -100,7 +97,6 @@ class TravelCondition:
                 and str(exc).startswith(
                     (
                         "duration_days",
-                        "at least",
                         "companion_count",
                     )
                 )

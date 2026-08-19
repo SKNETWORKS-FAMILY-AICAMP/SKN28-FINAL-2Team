@@ -103,9 +103,9 @@ class FakePackageRepository:
 
 
 class NormalizationTests(unittest.TestCase):
-    def test_normalizes_nested_response_sorts_and_ignores_non_tourism_roles(self) -> None:
+    def test_normalizes_nested_response_sorts_and_includes_food_roles(self) -> None:
         itinerary = normalize_itinerary(_payload())
-        self.assertEqual([stop.content_id for stop in itinerary.tourism_stops], [1, 2])
+        self.assertEqual([stop.content_id for stop in itinerary.tourism_stops], [1, 2, 99])
 
     def test_normalizes_legacy_flat_response(self) -> None:
         itinerary = normalize_itinerary(
@@ -189,7 +189,7 @@ class PackageProfileTests(unittest.TestCase):
 
 
 class PackageScoringTests(unittest.TestCase):
-    def test_perfect_match_reaches_full_weighted_score(self) -> None:
+    def test_food_stop_is_included_in_overlap_scoring(self) -> None:
         itinerary = normalize_itinerary(_payload())
         itinerary = type(itinerary)(
             itinerary.duration_days,
@@ -209,11 +209,11 @@ class PackageScoringTests(unittest.TestCase):
 
         scored = score_package(itinerary, _package())
 
-        self.assertEqual(scored.score.exact_overlap, 50.0)
+        self.assertEqual(scored.score.exact_overlap, 36.67)
         self.assertEqual(scored.score.route_fit, 6.0)
         self.assertEqual(scored.score.profile_fit, 40.0)
         self.assertEqual(scored.score.nearby_fit, 4.0)
-        self.assertEqual(scored.score.total, 100.0)
+        self.assertEqual(scored.score.total, 86.67)
 
     def test_duration_mismatch_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "duration must match"):
@@ -234,7 +234,7 @@ class PackageRecommendationServiceTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["recommendations"][0]["package_id"], "PKG-A")
         self.assertEqual(result["recommendations"][0]["rank"], 1)
-        self.assertEqual(repository.requested_ids, [[1, 2]])
+        self.assertEqual(repository.requested_ids, [[1, 2, 99]])
 
     def test_no_candidates_has_explicit_status(self) -> None:
         result = PackageRecommendationService(FakePackageRepository([])).recommend(_payload())

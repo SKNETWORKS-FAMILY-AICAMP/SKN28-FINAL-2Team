@@ -226,8 +226,8 @@ class PackageRecommendationTests(unittest.TestCase):
                 "user_conditions": {
                         "total": 40,
                         "companion": 20,
-                        "theme": 15,
-                        "travel_style_and_season": 5,
+                        "place_category": 15,
+                        "season": 5,
                 },
                 "region_and_route": 10,
             },
