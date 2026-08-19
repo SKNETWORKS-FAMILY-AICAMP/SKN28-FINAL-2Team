@@ -1,7 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage.jsx'
 import ChatPage from './pages/ChatPage.jsx'
-import ItineraryPage from './pages/ItineraryPage.jsx'
 import ReviewPage from './pages/ReviewPage.jsx'
 import BookingPage from './pages/BookingPage.jsx'
 import PackagesPage from './pages/PackagesPage.jsx'
@@ -20,7 +19,6 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/chat" element={<ChatPage />} />
-      <Route path="/itinerary/:id" element={<ItineraryPage />} />
       <Route path="/review/:id" element={<ReviewPage />} />
       <Route path="/share/:token" element={<ReviewPage />} />
       <Route path="/booking" element={<BookingPage />} />

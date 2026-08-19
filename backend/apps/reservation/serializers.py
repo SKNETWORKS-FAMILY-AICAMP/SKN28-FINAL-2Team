@@ -126,7 +126,7 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 class ReservationItemSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
     accommodation = serializers.SerializerMethodField()
-    thumbnail_url = serializers.SerializerMethodField()
+
     class Meta:
         model = ReservationItem
         fields = (
@@ -139,51 +139,24 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "quantity",
             "option_date",
             "option_people",
-            "thumbnail_url",
             "accommodation",
             "schedule",
         )
 
-    def get_thumbnail_url(self, obj):
-        is_custom = (
-            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
-            or str(obj.package_id or "").upper().startswith("CUSTOM-")
-        )
-
-        if is_custom:
-            itinerary = obj.reservation.itinerary
-
-            if not itinerary:
-                return ""
-
-            for day in itinerary.days.all().order_by("day_number"):
-                first_item = (
-                    day.items
-                    .exclude(item_type="restaurant")
-                    .exclude(thumbnail="")
-                    .exclude(thumbnail__isnull=True)
-                    .order_by("order")
-                    .first()
-                )
-
-                if first_item:
-                    return first_item.thumbnail
-
-            return ""
-
-        package = (
-            Package.objects.using("travel")
-            .filter(
-                id=obj.package_db_id,
-                is_active=True,
+    def _get_package_db_id(self, obj):
+        if obj.package_db_id:
+            return obj.package_db_id
+        cache = getattr(self, "_package_db_id_cache", {})
+        key = obj.package_id
+        if key not in cache and key:
+            cache[key] = (
+                Package.objects.using("travel")
+                .filter(package_id=key, is_active=True)
+                .values_list("id", flat=True)
+                .first()
             )
-            .first()
-        )
-
-        if not package:
-            return ""
-
-        return PackageSerializer(package).data.get("thumbnail_url", "")
+            self._package_db_id_cache = cache
+        return cache.get(key)
 
     def get_accommodation(self, obj):
         is_custom = (
@@ -199,17 +172,14 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             itinerary_state = (itinerary.engine_state or {}).get("itinerary") or {}
             return itinerary_state.get("hotel")
 
-        package_db_id = obj.package_db_id
-        if not package_db_id and obj.package_id:
-            package_db_id = (
-                Package.objects.using("travel")
-                .filter(package_id=obj.package_id, is_active=True)
-                .values_list("id", flat=True)
-                .first()
-            )
+        package_db_id = self._get_package_db_id(obj)
 
         if not package_db_id:
             return None
+
+        accommodation_cache = getattr(self, "_accommodation_cache", {})
+        if package_db_id in accommodation_cache:
+            return accommodation_cache[package_db_id]
 
         from django.db import connections
 
@@ -235,17 +205,22 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             row = cursor.fetchone()
 
         if row is None:
+            accommodation_cache[package_db_id] = None
+            self._accommodation_cache = accommodation_cache
             return None
 
         title, addr1, addr2, latitude, longitude, content_id = row
         address = " ".join(part for part in (addr1, addr2) if part)
-        return {
+        result = {
             "content_id": content_id,
             "title": title or "숙소",
             "address": address,
             "latitude": latitude,
             "longitude": longitude,
         }
+        accommodation_cache[package_db_id] = result
+        self._accommodation_cache = accommodation_cache
+        return result
 
     def get_schedule(self, obj):
         if not self.context.get("include_schedule", True):
@@ -257,17 +232,14 @@ class ReservationItemSerializer(serializers.ModelSerializer):
         ):
             return []
 
-        package_db_id = obj.package_db_id
-        if not package_db_id and obj.package_id:
-            package_db_id = (
-                Package.objects.using("travel")
-                .filter(package_id=obj.package_id, is_active=True)
-                .values_list("id", flat=True)
-                .first()
-            )
+        package_db_id = self._get_package_db_id(obj)
 
         if not package_db_id:
             return []
+
+        schedule_cache = getattr(self, "_schedule_cache", {})
+        if package_db_id in schedule_cache:
+            return schedule_cache[package_db_id]
 
         from django.db import connections
 
@@ -331,13 +303,16 @@ class ReservationItemSerializer(serializers.ModelSerializer):
                 "thumbnail": thumbnail or "",
             })
 
-        return [
+        result = [
             {
                 "day": day_no,
                 "items": items,
             }
             for day_no, items in sorted(days.items())
         ]
+        schedule_cache[package_db_id] = result
+        self._schedule_cache = schedule_cache
+        return result
 
 
 class ReservationSerializer(serializers.ModelSerializer):
