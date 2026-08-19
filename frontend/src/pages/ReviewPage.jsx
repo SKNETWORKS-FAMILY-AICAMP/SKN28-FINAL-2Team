@@ -13,13 +13,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import { createShareLink, getItinerary, getPackageRecommendations, getSharedItinerary } from '../api/itinerary'
 
-import {
-  createShareLink,
-  getItinerary,
-  getPackageRecommendations,
-  getSharedItinerary,
-} from '../api/itinerary';
-
 const getCustomPackageThumbnail = (itinerary) => {
   const days = itinerary?.days || [];
 

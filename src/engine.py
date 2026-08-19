@@ -2188,16 +2188,44 @@ def _rebuild_day_slots_with_insertion(
         key=lambda stop: stop.get("sequence", 0),
     )
 
+    # 기존 slot의 candidate.place에는 image_url/thumbnail_url 등 썸네일
+    # 정보가 들어있다. 아래에서 day 전체를 스켈레톤으로 재구성하면서 이
+    # place 정보를 그대로 들고 있지 않으면, 이 day의 모든 항목(새로
+    # 추가되는 장소가 아닌 기존 장소들)이 썸네일을 잃어버리게 된다.
+    # content_id 기준으로 기존 place 정보를 미리 모아둔다.
+    existing_place_by_content_id: dict[int, dict[str, Any]] = {}
+    for existing_slot in state.slots:
+        if existing_slot.day != day_no:
+            continue
+        for existing_candidate in existing_slot.candidates:
+            if existing_candidate.content_id is not None:
+                existing_place_by_content_id[existing_candidate.content_id] = (
+                    existing_candidate.place or {}
+                )
+
     # 기존 stop들을 (content_id, title, role, 좌표) 스켈레톤으로 변환
     skeletons: list[dict[str, Any]] = []
     for stop in day_stops:
+        stop_content_id = stop.get("content_id")
+        existing_place = (
+            existing_place_by_content_id.get(int(stop_content_id))
+            if stop_content_id is not None
+            else None
+        ) or {}
         skeletons.append(
             {
-                "content_id": stop.get("content_id"),
+                "content_id": stop_content_id,
                 "title": stop.get("title"),
                 "role": stop.get("role") or "visit",
                 "latitude": stop.get("latitude"),
                 "longitude": stop.get("longitude"),
+                "thumbnail": (
+                    stop.get("image_url")
+                    or stop.get("thumbnail_url")
+                    or stop.get("thumbnail")
+                    or existing_place.get("image_url")
+                    or existing_place.get("thumbnail_url")
+                ),
             }
         )
 
@@ -2236,6 +2264,10 @@ def _rebuild_day_slots_with_insertion(
                     "title": skeleton.get("title"),
                     "latitude": skeleton.get("latitude"),
                     "longitude": skeleton.get("longitude"),
+                    # 기존에 갖고 있던 썸네일 정보를 유지한다.
+                    # (이게 없으면 day 재정렬 시 기존 장소들의
+                    # 이미지가 전부 사라져 버린다.)
+                    "image_url": skeleton.get("thumbnail") or "",
                 },
                 forced=True,
             )

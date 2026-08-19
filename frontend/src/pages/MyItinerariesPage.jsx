@@ -50,7 +50,7 @@ export default function MyItinerariesPage() {
           <h1>저장한 여행 일정</h1>
 
           <p>
-            지금까지 만든 일정을 다시 확인하고 이어서 편집할 수 있어요.
+            확정한 일정을 선택하면 전체 일정과 동선을 확인할 수 있어요.
           </p>
         </div>
 
