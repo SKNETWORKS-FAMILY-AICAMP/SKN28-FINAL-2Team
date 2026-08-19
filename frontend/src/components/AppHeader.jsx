@@ -2,7 +2,17 @@ import { Link } from 'react-router-dom'
 
 import AccountMenu from './AccountMenu.jsx'
 
+const defaultStyles = {
+  appnav: 'nav nav-inner',
+  logo: 'logo',
+  logoMark: 'logo-mark',
+  appLinks: 'nav-links',
+  appRight: 'nav-right',
+}
+
 export default function AppHeader({ styles }) {
+  styles = styles || defaultStyles
+
   return (
     <header className={styles.appnav}>
       <Link to="/" className={styles.logo}>
