@@ -945,21 +945,6 @@ export default function ReviewPage() {
               itinerary.status === 'confirmed' &&
               (isBookedCustom || isItineraryOnlyView) && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
-                  <div className={styles.packageComparisonHead}>
-                    <span>
-                      {isBookedCustom ? '예약한 여행' : '내 일정'}
-                    </span>
-
-                    <h2>
-                      {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
-                    </h2>
-
-                    <p>
-                      {isBookedCustom
-                        ? '내가 만든 일정 그대로 예약한 여행이에요.'
-                        : '완성한 일정을 확인해보세요.'}
-                    </p>
-                  </div>
                   
                   <div className={styles.comparisonMapSlot}>
                     <ComparisonRouteMap

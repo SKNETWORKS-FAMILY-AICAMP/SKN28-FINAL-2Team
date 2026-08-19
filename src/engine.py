@@ -7,8 +7,12 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from src.mappings.trip_feature_mapping import get_region_districts
-from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
+from .mappings.trip_feature_mapping import (
+    SLOT_ITINERARY_ROLES,
+    SLOT_TARGET_COLLECTIONS,
+    get_visit_area_type_mapping,
+    get_region_districts,
+)
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
 from .common.geo import haversine_km
