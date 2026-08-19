@@ -73,20 +73,6 @@ class CartItemSerializer(serializers.ModelSerializer):
 
         return PackageSerializer(package).data
 
-        package = (
-            Package.objects.using("travel")
-            .filter(
-                id=obj.package_db_id,
-                is_active=True,
-            )
-            .first()
-        )
-
-        if package is None:
-            return None
-
-        return PackageSerializer(package).data
-
 
 class CartSerializer(serializers.Serializer):
     items = CartItemSerializer(many=True)
@@ -428,4 +414,15 @@ class ReservationCreateSerializer(serializers.Serializer):
     payment_method = serializers.CharField(
         required=False,
         allow_blank=True,
+    )
+
+    start_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+    )
+
+    people_count = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=20,
     )

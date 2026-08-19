@@ -1,5 +1,8 @@
 from django.db import transaction
+from datetime import timedelta
+
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from drf_spectacular.utils import extend_schema
 
@@ -9,7 +12,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.package_recommendation.services import recommend_package_comparison
-from apps.travel.models import Itinerary, Package
+from apps.travel.models import Itinerary, ItineraryDay, ItineraryItem, Package
+from apps.travel.serializers import PackageSerializer
 
 from .models import CartItem, Reservation, ReservationItem
 from .serializers import (
@@ -20,6 +24,59 @@ from .serializers import (
     ReservationCreateSerializer,
     ReservationSerializer,
 )
+
+
+def create_package_itinerary(user, package, start_date=None, people_count=1):
+    start_date = start_date or (timezone.localdate() + timedelta(days=1))
+    duration_days = max(int(package.duration_days or 1), 1)
+    end_date = start_date + timedelta(days=duration_days - 1)
+    companion_count = max(int(people_count or 1), 1)
+
+    itinerary = Itinerary.objects.create(
+        user=user,
+        title=package.title,
+        subtitle='예약한 패키지 일정',
+        start_date=start_date,
+        end_date=end_date,
+        companion_type=Itinerary.CompanionType.SOLO,
+        companion_count=companion_count,
+        # Package는 travel DB에 있고 Itinerary는 기본 DB에 있으므로
+        # selected_package 외래키에 직접 할당하지 않는다.
+        selected_package=None,
+        status=Itinerary.Status.CONFIRMED,
+        engine_state={'itinerary': {'package_id': package.id, 'package_db_id': package.id}},
+    )
+
+    course = PackageSerializer(package).data.get('course') or []
+    course_by_day = {int(day.get('day') or index + 1): day for index, day in enumerate(course)}
+
+    for day_number in range(1, duration_days + 1):
+        day = ItineraryDay.objects.create(
+            itinerary=itinerary,
+            day_number=day_number,
+            date=start_date + timedelta(days=day_number - 1),
+        )
+        day_data = course_by_day.get(day_number, {})
+        for index, item in enumerate(day_data.get('items') or []):
+            item_type = {
+                'tourism': ItineraryItem.ItemType.SPOT,
+                'restaurant': ItineraryItem.ItemType.RESTAURANT,
+                'hotel': ItineraryItem.ItemType.ACCOMMODATION,
+                'accommodation': ItineraryItem.ItemType.ACCOMMODATION,
+                'activity': ItineraryItem.ItemType.ACTIVITY,
+                'shopping': ItineraryItem.ItemType.SHOPPING,
+            }.get(str(item.get('item_type') or '').lower(), ItineraryItem.ItemType.CUSTOM)
+            ItineraryItem.objects.create(
+                day=day,
+                order=int(item.get('sequence') or index),
+                item_type=item_type,
+                title=item.get('title') or '여행 장소',
+                description=item.get('address') or '',
+                latitude=item.get('latitude'),
+                longitude=item.get('longitude'),
+            )
+
+    return itinerary
 
 
 class CartAPIView(APIView):
@@ -237,6 +294,8 @@ class ReservationListCreateAPIView(ListAPIView):
         package_ids = data.get("package_ids")
         cart_item_ids = data.get("cart_item_ids")
         itinerary_id = data.get("itinerary_id")
+        start_date = data.get("start_date")
+        people_count = data.get("people_count") or 1
 
         # 확정한 자유일정은 기존 예약 화면과 Reservation 모델을 그대로
         # 사용한다. package/cart 식별자가 없는 경우에만 이 분기로 들어온다.
@@ -456,8 +515,25 @@ class ReservationListCreateAPIView(ListAPIView):
                 pk=itinerary_id,
                 user=request.user,
             )
+        elif package_ids:
+            first_package = next(
+                (
+                    item.get("package")
+                    for item in reservation_items_data
+                    if item.get("package") is not None
+                ),
+                None,
+            )
+            if first_package is not None:
+                itinerary = create_package_itinerary(
+                    request.user,
+                    first_package,
+                    start_date=start_date,
+                    people_count=people_count,
+                )
         elif cart_item_ids is not None:
             itinerary_ids = {
+
                 item["itinerary"].id
                 for item in reservation_items_data
                 if item.get("itinerary") is not None
