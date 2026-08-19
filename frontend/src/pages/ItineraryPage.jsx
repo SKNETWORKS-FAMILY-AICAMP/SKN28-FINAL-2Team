@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import styles from './itinerary/itinerary.module.css'
-import AppHeader from './itinerary/AppHeader.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import ChatPanel from './itinerary/ChatPanel.jsx'
 import ItineraryEditor from './itinerary/ItineraryEditor.jsx'
 import MapPanel from './itinerary/MapPanel.jsx'

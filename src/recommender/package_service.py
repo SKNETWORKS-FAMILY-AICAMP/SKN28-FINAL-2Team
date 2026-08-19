@@ -65,8 +65,8 @@ class PackageRecommendationService:
                     "user_conditions": {
                         "total": 40,
                         "companion": 20,
-                        "theme": 15,
-                        "travel_style_and_season": 5,
+                        "place_category": 15,
+                        "season": 5,
                     },
                     "region_and_route": 10,
                 },
@@ -174,7 +174,6 @@ def _serialize_recommendation(
         "package_id": package.package_id,
         "title": package.title,
         "summary": package.summary,
-        "thumbnail_url": package.thumbnail_url,
         "region": package.region,
         "duration_days": package.duration_days,
         "estimated_price": package.estimated_price,

@@ -147,6 +147,7 @@ class MySQLPlaceRepository:
         content_type_ids: Sequence[int] = (),
         cities: Sequence[str] = (),
         districts: Sequence[str] = (),
+        region_pairs: Sequence[tuple[str, str]] = (),
         route_eligible: bool | None = None,
         schedule_eligible: bool | None = None,
         requires_verification: bool | None = None,
@@ -156,15 +157,24 @@ class MySQLPlaceRepository:
 
         if limit <= 0:
             raise ValueError("limit must be greater than zero")
+
         conditions = ["sd.rag_eligible = TRUE"]
         parameters: list[Any] = []
 
         _append_in_filter(
-            conditions, parameters, "sd.document_type", datasets
+            conditions,
+            parameters,
+            "sd.document_type",
+            datasets,
         )
+
         _append_in_filter(
-            conditions, parameters, "p.content_type_id", content_type_ids
+            conditions,
+            parameters,
+            "p.content_type_id",
+            content_type_ids,
         )
+
         for column, value in (
             ("sd.route_eligible", route_eligible),
             ("sd.schedule_eligible", schedule_eligible),
@@ -185,23 +195,40 @@ class MySQLPlaceRepository:
                 [f"{prefix}:{value}" for value in values],
             )
 
-        _append_address_filter(conditions, parameters, cities)
-        _append_address_filter(conditions, parameters, districts)
+        # 기존 도시/읍면동 필터
+        _append_address_filter(conditions, parameters, cities )
+        _append_address_filter( conditions, parameters, districts,)
+
+        # 동부/서부/남부/북부 지역 필터
+        # city + district 조합을 하나의 쌍으로 처리한다.
+        _append_region_pair_filter(conditions, parameters, region_pairs,)
 
         sql = (
             "SELECT p.content_id "
             "FROM places AS p "
-            "JOIN place_search_documents AS sd ON sd.content_id = p.content_id "
+            "JOIN place_search_documents AS sd "
+            "ON sd.content_id = p.content_id "
             f"WHERE {' AND '.join(conditions)} "
             "ORDER BY p.content_id "
             "LIMIT %s"
         )
+
         parameters.append(limit)
+
         with self.connect() as connection:
             cursor = connection.cursor()
+
             try:
-                cursor.execute(sql, tuple(parameters))
-                return [int(row[0]) for row in cursor.fetchall()]
+                cursor.execute(
+                    sql,
+                    tuple(parameters),
+                )
+
+                return [
+                    int(row[0])
+                    for row in cursor.fetchall()
+                ]
+
             finally:
                 cursor.close()
 
@@ -373,7 +400,6 @@ def _append_json_tag_filter(
     conditions.append(f"({' OR '.join(clauses)})")
     parameters.extend(json.dumps(tag, ensure_ascii=False) for tag in tags)
 
-
 def _append_address_filter(
     conditions: list[str],
     parameters: list[Any],
@@ -381,12 +407,51 @@ def _append_address_filter(
 ) -> None:
     if not values:
         return
-    clauses: list[str] = []
+
+    clauses = [
+        "(p.addr1 LIKE %s OR p.addr2 LIKE %s)"
+        for _ in values
+    ]
+
+    conditions.append(f"({' OR '.join(clauses)})")
+
     for value in values:
-        clauses.append("(p.addr1 LIKE %s OR p.addr2 LIKE %s)")
         pattern = f"%{value}%"
         parameters.extend((pattern, pattern))
-    conditions.append(f"({' OR '.join(clauses)})")
+
+def _append_region_pair_filter(
+    conditions: list[str],
+    parameters: list[Any],
+    region_pairs: Sequence[tuple[str, str]],
+) -> None:
+    if not region_pairs:
+        return
+
+    pair_clauses: list[str] = []
+
+    for city, district in region_pairs:
+        city_clause = "(p.addr1 LIKE %s OR p.addr2 LIKE %s)"
+        district_clause = "(p.addr1 LIKE %s OR p.addr2 LIKE %s)"
+
+        pair_clauses.append(
+            f"({city_clause} AND {district_clause})"
+        )
+
+        city_pattern = f"%{city}%"
+        district_pattern = f"%{district}%"
+
+        parameters.extend(
+            (
+                city_pattern,
+                city_pattern,
+                district_pattern,
+                district_pattern,
+            )
+        )
+
+    conditions.append(
+        f"({' OR '.join(pair_clauses)})"
+    )
 
 
 def _has_aihub_mapping_tables(cursor: Any) -> bool:

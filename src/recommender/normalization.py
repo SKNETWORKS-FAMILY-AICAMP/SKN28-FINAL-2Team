@@ -5,7 +5,7 @@ from typing import Any
 from .models import ItineraryStop, NormalizedItinerary
 
 
-_TOURISM_ROLES = {"visit", "activity", "tourism", "spot", "attraction"}
+_TOURISM_ROLES = {"visit", "activity", "tourism", "spot", "attraction", "food", "shopping"}
 
 
 def normalize_itinerary(payload: dict[str, Any]) -> NormalizedItinerary:

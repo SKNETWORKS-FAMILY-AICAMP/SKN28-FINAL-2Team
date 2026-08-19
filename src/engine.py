@@ -11,6 +11,7 @@ from typing import Any, Sequence
 from .mappings.trip_feature_mapping import (
     SLOT_ITINERARY_ROLES,
     SLOT_TARGET_COLLECTIONS,
+    get_region_districts,
     get_visit_area_type_mapping,
 )
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
@@ -467,6 +468,7 @@ class ItineraryEngine:
                         recommendation_scopes=("default",),
                         route_eligible=True,
                         schedule_eligible=True,
+                        region_pairs=get_region_districts(new_condition.region),
                     ),
                     top_k=3,
                 )
@@ -477,30 +479,27 @@ class ItineraryEngine:
                         replacement_name,
                     )
 
-                    recommended_place = (
-                        _candidate_to_recommendation(
+                    if replacement_place is not None:
+                        recommended_place = _candidate_to_recommendation(
                             SlotCandidate(
                                 content_id=replacement_place.content_id,
                                 title=replacement_place.title,
                                 final_score=1.0,
-                                similarity_score=(
-                                    getattr(
-                                        replacement_place,
-                                        "similarity_score",
-                                        None,
-                                    )
+                                similarity_score=getattr(
+                                    replacement_place,
+                                    "similarity_score",
+                                    None,
                                 ),
                                 place=replacement_place.to_dict(),
                                 forced=True,
                             )
                         )
-                    )
 
-                    print(
-                        "[revise] 직접 검색한 교체 후보:",
-                        recommended_place["title"],
-                        recommended_place["content_id"],
-                    )
+                        print(
+                            "[revise] 직접 검색한 교체 후보:",
+                            recommended_place["title"],
+                            recommended_place["content_id"],
+                        )
 
             # ----------------------------------------------------------
             # 3. 장소를 확보했으면 기존 일반 edit 로직으로 내려가지 않고
@@ -519,6 +518,32 @@ class ItineraryEngine:
                         else None
                     ),
                     user_text=user_text,
+                )
+
+            if delta.remove_must_visit_places:
+                recommendations = self._build_chat_recommendations(
+                    state,
+                    delta,
+                    user_text,
+                    location_hint=_location_hint_for_day(
+                        state,
+                        delta.target_day,
+                    ),
+                )
+                return ChatUpdateResult(
+                    mode="recommend",
+                    state=ItineraryState(
+                        condition=state.condition,
+                        slots=state.slots,
+                        itinerary=state.itinerary,
+                        used_content_ids=set(state.used_content_ids),
+                        recommendations=recommendations,
+                    ),
+                    message=(
+                        f"'{delta.add_must_visit_places[0]}'을(를) 찾지 못했어요. "
+                        "대신 근처 후보를 찾아봤어요."
+                    ),
+                    recommendations=recommendations,
                 )
 
         affected_roles = set(infer_affected_slots(delta))
@@ -633,6 +658,7 @@ class ItineraryEngine:
         user_text: str,
         *,
         limit: int = 3,
+        location_hint: dict[str, float] | None = None,
     ) -> list[dict[str, Any]]:
         affected_roles = list(dict.fromkeys(infer_affected_slots(delta)))
         role = affected_roles[0] if affected_roles else "food"
@@ -644,7 +670,7 @@ class ItineraryEngine:
             "target_collections": list(SLOT_TARGET_COLLECTIONS.get(role, ())),
             "itinerary_roles": list(SLOT_ITINERARY_ROLES.get(role, ())),
             "stay_minutes": _DEFAULT_STAY_MINUTES_BY_ROLE.get(role),
-            "location_hint": None,
+            "location_hint": location_hint,
         }
 
         condition_for_search = apply_delta(state.condition, delta)
@@ -931,6 +957,7 @@ class ItineraryEngine:
                 recommendation_scopes=("default",),
                 route_eligible=True,
                 schedule_eligible=True,
+                region_pairs=get_region_districts(condition.region),
             ),
             top_k=top_k,
         )
@@ -991,6 +1018,7 @@ class ItineraryEngine:
                     target_collections=("restaurants",),
                     route_eligible=True,
                     schedule_eligible=True,
+                    region_pairs=get_region_districts(condition.region),
                 ),
                 top_k=FOOD_CANDIDATE_POOL_TOP_K,
             )
@@ -1023,6 +1051,7 @@ class ItineraryEngine:
                     target_collections=("shopping",),
                     route_eligible=True,
                     schedule_eligible=True,
+                    region_pairs=get_region_districts(condition.region),
                 ),
                 top_k=SHOPPING_CANDIDATE_POOL_TOP_K,
             )
@@ -1112,6 +1141,7 @@ class ItineraryEngine:
             itinerary_roles=tuple(slot_template["itinerary_roles"]),
             route_eligible=True,
             schedule_eligible=True,
+            region_pairs=get_region_districts(condition.region),
         )
 
         response = container.retrieval_service.search_places(
@@ -1640,7 +1670,9 @@ class ItineraryEngine:
 
             response = self._container.retrieval_service.search_places(
                 place_name,
-                filters=PlaceSearchFilters(),
+                filters=PlaceSearchFilters(
+                    region_pairs=get_region_districts(condition.region),
+                ),
                 top_k=3,
             )
 
@@ -1651,6 +1683,8 @@ class ItineraryEngine:
                 response.places,
                 place_name,
             )
+            if match is None:
+                continue
 
             role = _infer_role_from_tags(match.tags)
 
@@ -2001,7 +2035,11 @@ def _scope_affected_keys(
 
     named_places = [
         place
-        for place in (*delta.add_excluded_places, *delta.add_must_visit_places)
+        for place in (
+            *delta.add_excluded_places,
+            *delta.add_must_visit_places,
+            *delta.remove_must_visit_places,
+        )
         if place and place.strip()
     ]
 
@@ -2153,13 +2191,36 @@ def _bucket_by_role(pool: Sequence[RetrievedPlace]) -> dict[str, list[RetrievedP
     return buckets
 
 
-def _best_name_match(places: Sequence[RetrievedPlace], name: str) -> RetrievedPlace:
+def _best_name_match(
+    places: Sequence[RetrievedPlace],
+    name: str,
+) -> RetrievedPlace | None:
     normalized_name = _normalize_title(name)
     for place in places:
         normalized_title = _normalize_title(place.title)
         if normalized_name in normalized_title or normalized_title in normalized_name:
             return place
-    return places[0]
+    return None
+
+
+def _location_hint_for_day(
+    state: ItineraryState,
+    day_no: int | None,
+) -> dict[str, float] | None:
+    coordinates = [
+        (stop.get("latitude"), stop.get("longitude"))
+        for day in state.itinerary.get("days", [])
+        if day_no is None or day.get("day") == day_no
+        for stop in day.get("stops", [])
+        if stop.get("latitude") is not None and stop.get("longitude") is not None
+    ]
+    if not coordinates:
+        return None
+
+    return {
+        "latitude": sum(float(latitude) for latitude, _ in coordinates) / len(coordinates),
+        "longitude": sum(float(longitude) for _, longitude in coordinates) / len(coordinates),
+    }
 
 
 def _group_slots_by_day(slots: list[ItinerarySlot]) -> list[dict[str, Any]]:

@@ -50,6 +50,7 @@ class PlaceSearchService:
             content_type_ids=filters.content_type_ids,
             cities=filters.cities,
             districts=filters.districts,
+            region_pairs=filters.region_pairs,
             route_eligible=filters.route_eligible,
             schedule_eligible=filters.schedule_eligible,
             requires_verification=filters.requires_verification,

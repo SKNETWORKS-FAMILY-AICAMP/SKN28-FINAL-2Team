@@ -13,6 +13,7 @@ class TravelCondition:
     local_transport: LocalTransport
     preferred_visit_types: tuple[VisitPreference, ...]
     companion_count: int | None = None
+    region: str | None = None
     age_group: str | None = None
     purpose_codes: tuple[str, ...] = ()
     pace: Pace | None = None
@@ -55,6 +56,7 @@ class TravelCondition:
                 companion_count=_optional_int(
                     value.get("companion_count")
                 ),
+                region=str(value.get("region") or "").strip() or None,
                 age_group=str(value.get("age_group") or "").strip() or None,
                 purpose_codes=_string_tuple(
                     value.get("purpose_codes")
@@ -119,6 +121,7 @@ class TravelCondition:
                 for item in self.preferred_visit_types
             ],
             "companion_count": self.companion_count,
+            "region": self.region,
             "age_group": self.age_group,
             "purpose_codes": list(self.purpose_codes),
             "pace": self.pace.value if self.pace else None,
@@ -180,6 +183,7 @@ class ConditionDelta:
     add_preferred_visit_types: tuple[VisitPreference, ...] = ()
     remove_preferred_visit_types: tuple[VisitPreference, ...] = ()
     duration_days: int | None = None
+    region: str | None = None
     party_type: PartyType | None = None
     local_transport: LocalTransport | None = None
     pace: Pace | None = None
@@ -222,6 +226,7 @@ class ConditionDelta:
             duration_days=_optional_int(
                 value.get("duration_days")
             ),
+            region=str(value.get("region") or "").strip() or None,
             party_type=(
                 PartyType(value["party_type"])
                 if value.get("party_type")
@@ -294,6 +299,8 @@ def apply_delta(
     }
     if delta.duration_days is not None:
         updates["duration_days"] = delta.duration_days
+    if delta.region is not None:
+        updates["region"] = delta.region
     if delta.party_type is not None:
         updates["party_type"] = delta.party_type
     if delta.local_transport is not None:

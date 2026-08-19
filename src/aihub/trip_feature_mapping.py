@@ -1,4 +1,5 @@
 """
+
 통합 조회의 행 기준은 ``travel_id``로 두고, 사람 검색을 위해 ``traveler_id``도
 함께 보존한다. 현재 적재본에서는 두 ID가 1:1이지만 동반자·방문·이동 테이블은
 모두 ``travel_id``로 연결된다.
@@ -8,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Final, Iterable, Literal
-from src.models.enums import PartyType, VisitPreference
 
 
 CompanionType = Literal["solo", "friend", "couple", "family"]
@@ -86,16 +86,6 @@ ACCOMPANY_LABEL_FALLBACK: Final[dict[str, CompanionType]] = {
     "부모 동반 여행": "family",
     "3대 동반 여행(친척 포함)": "family",
 }
-AIHUB_PARTY_LABELS: Final[dict[str, PartyType]] = {
-    "나홀로 여행": PartyType.SOLO,
-    "2인 여행(가족 외)": PartyType.NON_FAMILY_TWO,
-    "3인 이상 여행(가족 외)": PartyType.NON_FAMILY_GROUP,
-    "2인 가족 여행": PartyType.FAMILY_TWO,
-    "3인 이상 가족 여행(친척 포함)": PartyType.FAMILY_GROUP,
-    "자녀 동반 여행": PartyType.WITH_CHILDREN,
-    "부모 동반 여행": PartyType.WITH_PARENTS,
-    "3대 동반 여행(친척 포함)": PartyType.THREE_GENERATIONS,
-}
 
 # 한 여행에 여러 관계가 섞이면 일정 제약이 큰 유형을 대표값으로 선택한다.
 COMPANION_TYPE_PRIORITY: Final[tuple[CompanionType, ...]] = (
@@ -163,59 +153,6 @@ TSY_LABELS: Final[dict[str, str]] = {
     "7": "도시 선호 매우선호",
 }
 
-# ---------------------------------------------------------------------------
-# 제주 여행 지역: 사용자 region -> 검색용 district
-# ---------------------------------------------------------------------------
-
-REGION_DISTRICTS: Final[dict[str, tuple[tuple[str, str], ...]]] = {
-    "east": (
-        ("제주시", "조천읍"), ("제주시", "구좌읍"), ("제주시", "우도면"), ("제주시", "종달동"),
-        ("서귀포시", "성산읍"), ("서귀포시", "표선면"), ("서귀포시", "성읍"), ("서귀포시", "신풍하동"),
-    ),
-
-    "west": (
-        ("제주시", "애월읍"), ("제주시", "한림읍"), ("제주시", "한림북동"), ("제주시", "한경면"),
-        ("제주시", "청수동"), ("제주시", "금악동"), ("서귀포시", "대정읍"), ("서귀포시", "안덕면"),
-        ("서귀포시", "동광본동"),
-    ),
-
-    "south": (
-        ("서귀포시", "남원읍"), ("서귀포시", "강정동"), ("서귀포시", "대포동"), ("서귀포시", "동홍동"),
-        ("서귀포시", "명동"), ("서귀포시", "법환동"), ("서귀포시", "보목동"), ("서귀포시", "상예동"),
-        ("서귀포시", "상효동"), ("서귀포시", "색달동"), ("서귀포시", "서귀동"), ("서귀포시", "서호동"),
-        ("서귀포시", "서홍동"), ("서귀포시", "서흥동"), ("서귀포시", "신효동"), ("서귀포시", "영남동"),
-        ("서귀포시", "중동"), ("서귀포시", "중문동"), ("서귀포시", "토평동"), ("서귀포시", "하예동"),
-        ("서귀포시", "하예하동"), ("서귀포시", "하원동"), ("서귀포시", "하효동"), ("서귀포시", "호근동"),
-        ("서귀포시", "회수동"),
-    ),
-
-    "north": (
-        ("제주시", "가문동"), ("제주시", "건입동"), ("제주시", "구남동"), ("제주시", "내도동"),
-        ("제주시", "노형동"), ("제주시", "도남동"), ("제주시", "도두이동"), ("제주시", "도두일동"),
-        ("제주시", "도련일동"), ("제주시", "봉개동"), ("제주시", "사라봉동"), ("제주시", "삼도이동"),
-        ("제주시", "삼도일동"), ("제주시", "삼양삼동"), ("제주시", "삼양이동"), ("제주시", "삼양일동"),
-        ("제주시", "선돌목동"), ("제주시", "아라일동"), ("제주시", "연동"), ("제주시", "연무정동"),
-        ("제주시", "영평동"), ("제주시", "오등동"), ("제주시", "오라삼동"), ("제주시", "오라이동"),
-        ("제주시", "오라일동"), ("제주시", "외도이동"), ("제주시", "외도일동"), ("제주시", "용담삼동"),
-        ("제주시", "용담이동"), ("제주시", "용담일동"), ("제주시", "이도이동"), ("제주시", "이도일동"),
-        ("제주시", "이호이동"), ("제주시", "이호일동"), ("제주시", "일도이동"), ("제주시", "일도일동"),
-        ("제주시", "진동"), ("제주시", "첨단동"), ("제주시", "탑동"), ("제주시", "하귀동"),
-        ("제주시", "해안동"), ("제주시", "화북1동"), ("제주시", "화북이동"), ("제주시", "화북일동"),
-        ("제주시", "회천동"),
-    ),
-}
-
-
-def get_region_districts(
-    region: str | None,
-) -> tuple[tuple[str, str], ...]:
-    if not region:
-        return ()
-
-    return REGION_DISTRICTS.get(
-        str(region).strip().lower(),
-        (),
-    )
 
 # ---------------------------------------------------------------------------
 # 방문 유형: Code B의 VIS 그룹 -> 기존 RAG 슬롯/컬렉션
@@ -224,17 +161,9 @@ def get_region_districts(
 
 SLOT_TARGET_COLLECTIONS: Final[dict[SlotRole, tuple[str, ...]]] = {
     "visit": ("attractions",),
-    "activity": ("activities", "experience", "attractions"),
+    "activity": ("activities", "attractions"),
     "food": ("restaurants",),
     "shopping": ("shopping",),
-}
-
-
-SLOT_ITINERARY_ROLES: Final[dict[SlotRole, tuple[str, ...]]] = {
-    "visit": ("visit",),
-    "activity": ("activity", "experience", "visit"),
-    "food": ("meal", "cafe_break"),
-    "shopping": ("shopping", "market_visit"),
 }
 
 
@@ -244,7 +173,6 @@ class VisitAreaTypeMapping:
     normalized_type: str
     slot_role: SlotRole | None
     target_collections: tuple[str, ...]
-    itinerary_roles: tuple[str, ...]
     include_in_rag: bool = True
 
 
@@ -255,38 +183,14 @@ def _visit_mapping(
     *,
     include_in_rag: bool = True,
 ) -> VisitAreaTypeMapping:
-    collections = (
-        SLOT_TARGET_COLLECTIONS[slot_role]
-        if slot_role else ()
-    )
-
-    roles = (
-        SLOT_ITINERARY_ROLES[slot_role]
-        if slot_role else ()
-    )
-
+    collections = SLOT_TARGET_COLLECTIONS[slot_role] if slot_role else ()
     return VisitAreaTypeMapping(
         code_name=code_name,
         normalized_type=normalized_type,
         slot_role=slot_role,
         target_collections=collections,
-        itinerary_roles=roles,
         include_in_rag=include_in_rag,
     )
-
-
-VISIT_TYPE_CODES: Final[dict[VisitPreference, tuple[str, ...]]] = {
-    VisitPreference.NATURE: ("1",),
-    VisitPreference.HISTORY: ("2",),
-    VisitPreference.CULTURE: ("3",),
-    VisitPreference.MARKET_SHOPPING: ("4", "10"),
-    VisitPreference.LEISURE: ("5",),
-    VisitPreference.THEME_PARK: ("6",),
-    VisitPreference.TRAIL: ("7",),
-    VisitPreference.FESTIVAL: ("8",),
-    VisitPreference.FOOD_CAFE: ("11",),
-    VisitPreference.EXPERIENCE: ("13",),
-}
 
 
 # slot_role은 similarity.py의 _template_role()과 일치시켰다.
@@ -296,9 +200,9 @@ VISIT_AREA_TYPE_MAPPINGS: Final[dict[str, VisitAreaTypeMapping]] = {
     "3": _visit_mapping("문화 시설", "culture", "visit"),
     "4": _visit_mapping("상업지구", "market_shopping", "shopping"),
     "5": _visit_mapping("레저/스포츠 관련 시설", "leisure", "activity"),
-    "6": _visit_mapping("테마시설", "theme_park", "activity"),
+    "6": _visit_mapping("테마시설", "theme_park", "visit"),
     "7": _visit_mapping("산책로/둘레길", "trail", "visit"),
-    "8": _visit_mapping("지역 축제/행사", "festival", "activity"),
+    "8": _visit_mapping("지역 축제/행사", "festival", "visit"),
     "9": _visit_mapping("역/터미널/휴게소", "transit", None, include_in_rag=False),
     "10": _visit_mapping("상점", "market_shopping", "shopping"),
     "11": _visit_mapping("식당/카페", "food_cafe", "food"),
@@ -311,17 +215,11 @@ VISIT_AREA_TYPE_MAPPINGS: Final[dict[str, VisitAreaTypeMapping]] = {
 }
 
 
-VIS_TO_SLOT_ROLE: Final[dict[str, SlotRole]] = {
-    code: mapping.slot_role
-    for code, mapping in VISIT_AREA_TYPE_MAPPINGS.items()
-    if mapping.slot_role is not None
-}
-
 def get_visit_area_type_mapping(
     visit_area_type_cd: str | int | None,
 ) -> VisitAreaTypeMapping | None:
+    """visit_area_type_cd의 해석 및 RAG 슬롯 연결 정보를 반환한다."""
 
     if visit_area_type_cd is None:
         return None
     return VISIT_AREA_TYPE_MAPPINGS.get(str(visit_area_type_cd).strip())
-
