@@ -10,6 +10,7 @@ const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
   const { itineraries, loading, refresh, remove } = useItineraries();
+
   useEffect(() => {
     refresh().catch((err) => {
       console.error("내 일정 최신 목록 조회 실패", err);

@@ -85,6 +85,7 @@ export function ItineraryProvider({ children }) {
         loading,
         refresh: loadItineraries,
         removeItinerary,
+        remove: removeItinerary,
         patch,
         regenerate,
         revise,
