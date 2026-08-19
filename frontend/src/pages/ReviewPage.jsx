@@ -13,7 +13,36 @@ import { useEffect, useRef, useState } from 'react'
 
 import { createShareLink, getItinerary, getPackageRecommendations, getSharedItinerary } from '../api/itinerary'
 
-const formatPrice = (value) => `${Number(value || 0).toLocaleString('ko-KR')}원`
+import {
+  createShareLink,
+  getItinerary,
+  getPackageRecommendations,
+  getSharedItinerary,
+} from '../api/itinerary';
+
+const getCustomPackageThumbnail = (itinerary) => {
+  const days = itinerary?.days || [];
+
+  for (const day of days) {
+    const firstItem = (day.items || []).find(
+      (item) =>
+        item.item_type !== 'restaurant' &&
+        item.thumbnail
+    );
+
+    if (firstItem) {
+      return firstItem.thumbnail;
+    }
+  }
+
+  return '';
+};
+
+const getCustomItineraryTitle = (itinerary) =>
+  `${itinerary?.durationLabel || ''} ${itinerary?.companionTypeDisplay || ''}`.trim();
+
+const formatPrice = (value) =>
+  `${Number(value || 0).toLocaleString('ko-KR')}원`;
 
 const formatCustomPrice = (customPackage) =>
   customPackage?.pricing_basis === 'free_day_trip' ? '무료' : formatPrice(customPackage?.price_per_person)
@@ -227,7 +256,7 @@ export default function ReviewPage() {
         packages: [
           {
             id: `custom-${itinerary.id}`,
-            name: itinerary.title || '내가 만든 일정',
+            name: getCustomItineraryTitle(itinerary),
             description: '대화로 완성한 일정 그대로 여행하는 자유일정이에요.',
             price: customPackage.price_per_person,
             thumbnail: '🧭',
@@ -574,7 +603,9 @@ export default function ReviewPage() {
                           <span className={cx(styles.packageBadge, styles.customBadge)}>내가 만든 일정</span>
                         </div>
 
-                        <h3>{itinerary.title || '내가 확정한 일정 그대로'}</h3>
+                        <h3>
+                          {getCustomItineraryTitle(itinerary)}
+                        </h3>
                       </div>
                       {packageComparison.custom_package && (
                         <strong>

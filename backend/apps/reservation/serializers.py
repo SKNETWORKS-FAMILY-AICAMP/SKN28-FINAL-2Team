@@ -126,7 +126,7 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 class ReservationItemSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
     accommodation = serializers.SerializerMethodField()
-
+    thumbnail_url = serializers.SerializerMethodField()
     class Meta:
         model = ReservationItem
         fields = (
@@ -139,15 +139,17 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "quantity",
             "option_date",
             "option_people",
+            "thumbnail_url",
             "accommodation",
             "schedule",
         )
-
     def _get_package_db_id(self, obj):
         if obj.package_db_id:
             return obj.package_db_id
+
         cache = getattr(self, "_package_db_id_cache", {})
         key = obj.package_id
+
         if key not in cache and key:
             cache[key] = (
                 Package.objects.using("travel")
@@ -155,8 +157,51 @@ class ReservationItemSerializer(serializers.ModelSerializer):
                 .values_list("id", flat=True)
                 .first()
             )
-            self._package_db_id_cache = cache
+
+        self._package_db_id_cache = cache
         return cache.get(key)
+
+    def get_thumbnail_url(self, obj):
+        is_custom = (
+            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
+            or str(obj.package_id or "").upper().startswith("CUSTOM-")
+        )
+
+        if is_custom:
+            itinerary = obj.reservation.itinerary
+
+            if not itinerary:
+                return ""
+
+            for day in itinerary.days.all().order_by("day_number"):
+                first_item = (
+                    day.items
+                    .exclude(item_type="restaurant")
+                    .exclude(thumbnail="")
+                    .exclude(thumbnail__isnull=True)
+                    .order_by("order")
+                    .first()
+                )
+
+                if first_item:
+                    return first_item.thumbnail
+
+            return ""
+
+        package = (
+            Package.objects.using("travel")
+            .filter(
+                id=obj.package_db_id,
+                is_active=True,
+            )
+            .first()
+        )
+
+        if not package:
+            return ""
+
+        return PackageSerializer(package).data.get("thumbnail_url", "")
+
 
     def get_accommodation(self, obj):
         is_custom = (
