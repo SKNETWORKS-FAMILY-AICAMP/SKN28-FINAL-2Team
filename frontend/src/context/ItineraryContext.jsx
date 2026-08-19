@@ -61,7 +61,9 @@ export function ItineraryProvider({ children }) {
   // 일정 삭제
   async function remove(id) {
     await deleteItinerary(id);
-    await loadItineraries();
+
+    const data = await getItineraries();
+    setItineraries(data);
   }
 
   // 일정 재생성
