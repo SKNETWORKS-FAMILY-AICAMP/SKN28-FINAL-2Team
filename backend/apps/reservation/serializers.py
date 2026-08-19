@@ -30,15 +30,48 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     def get_package_detail(self, obj):
         if obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY:
+            thumbnail_url = ""
+
+            itinerary = obj.itinerary
+
+            if itinerary:
+                for day in itinerary.days.all().order_by("day_number"):
+                    first_item = (
+                        day.items
+                        .exclude(item_type="restaurant")
+                        .exclude(thumbnail="")
+                        .exclude(thumbnail__isnull=True)
+                        .order_by("order")
+                        .first()
+                    )
+
+                    if first_item:
+                        thumbnail_url = first_item.thumbnail
+                        break
+
             return {
                 "id": f"custom-{obj.itinerary_id}",
                 "package_id": f"CUSTOM-{obj.itinerary_id}",
                 "name": obj.product_name or "Custom itinerary package",
                 "description": "확정한 일정 그대로 예약하는 자유패키지입니다.",
                 "price": obj.unit_price,
-                "thumbnail_url": "",
+                "thumbnail_url": thumbnail_url,
                 "isCustom": True,
             }
+
+        package = (
+            Package.objects.using("travel")
+            .filter(
+                id=obj.package_db_id,
+                is_active=True,
+            )
+            .first()
+        )
+
+        if package is None:
+            return None
+
+        return PackageSerializer(package).data
 
         package = (
             Package.objects.using("travel")
