@@ -11,6 +11,7 @@ from src.mappings.trip_feature_mapping import get_region_districts
 from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
+from .common.geo import haversine_km
 from .llm import LLMService, create_llm_service
 from .models import ConditionDelta, ItinerarySlot, ItineraryState, SlotAddRequest, SlotCandidate, TravelCondition, apply_delta, infer_affected_slots
 
@@ -314,7 +315,7 @@ class ItineraryEngine:
         # --------------------------------------------------------------
         if delta.mode == "recommend":
             print("[revise] mode == recommend -> 일정 미변경, 후보만 조회")
-            recommendations = self._build_chat_recommendations(state, delta, user_text)
+            recommendations = self._build_route_aware_recommendations(state, delta, user_text)
             next_state = ItineraryState(
                 condition=state.condition,
                 slots=state.slots,
@@ -469,10 +470,11 @@ class ItineraryEngine:
             #    장소가 대신 채워질 수 있었다. 그러면 사용자는 자기가
             #    요청한 장소가 왜 안 들어갔는지 알 방법이 없었다.
             #
-            #    대신 일정은 건드리지 않고(mode="recommend"), 같은
-            #    role로 "근처" 후보를 검색해서 채팅으로 보여준다.
-            #    "근처" 기준점은 target_day에 이미 있는 stop들의 좌표
-            #    평균이다 (target_day가 없으면 일정 전체 stop 평균).
+            #    대신 일정은 건드리지 않고(mode="recommend"), 동선을
+            #    고려한 "근처" 후보를 검색해서 채팅으로 보여준다
+            #    (_build_route_aware_recommendations 참고 - 바꾸려는
+            #    슬롯을 알면 그 앞/뒤 장소 사이 우회 거리로, 모르면
+            #    day 전체에서 가장 우회가 적은 위치 기준으로 정렬한다).
             #    사용자가 그중 하나를 골라 "OOO를 N일차에 추가해줘"라고
             #    다시 말하면 기존 recommend 흐름 그대로 반영된다.
             # ----------------------------------------------------------
@@ -482,12 +484,10 @@ class ItineraryEngine:
                 not_found_name,
             )
 
-            location_hint = _location_hint_for_day(state, delta.target_day)
-            nearby_recommendations = self._build_chat_recommendations(
+            nearby_recommendations = self._build_route_aware_recommendations(
                 state,
                 delta,
                 user_text,
-                location_hint=location_hint,
             )
 
             next_state = ItineraryState(
@@ -674,6 +674,61 @@ class ItineraryEngine:
             print(f"    thumbnail={recommendation['thumbnail']}")
 
         return recommendations
+
+    def _build_route_aware_recommendations(
+        self,
+        state: ItineraryState,
+        delta: ConditionDelta,
+        user_text: str,
+        *,
+        limit: int = 3,
+    ) -> list[dict[str, Any]]:
+        """`_build_chat_recommendations()`를 "동선 인지" 버전으로 감싼다.
+
+        예전에는 "day 전체 stop 좌표 평균"을 기준점으로 근처 후보를
+        찾았다. 그러면 1일차 2번째 슬롯(카페)을 바꾸려는데, 6번째
+        슬롯 근처의 카페가 "평균 위치와 가깝다"는 이유로 추천될 수
+        있었다 - 사용자가 원하는 "① -> 후보 -> ③" 동선과는 무관한
+        기준이었다.
+
+        여기서는:
+        1) delta.remove_must_visit_places로 "바꾸려는 대상"이 기존
+           일정의 어느 (day, sequence)인지 먼저 찾는다.
+        2) 그 슬롯을 알면, 슬롯의 바로 앞/뒤 장소를 기준점으로 검색하고
+           (_anchor_location_hint), 결과도 그 앞/뒤 장소 사이 우회
+           거리로 다시 정렬한다 (_rerank_recommendations_by_route).
+        3) 특정 슬롯을 모르면(예: "1일차 카페 추천해줘") day 전체를
+           기준으로 하되, 정렬은 "그 day 어딘가에 넣었을 때 가장 우회가
+           적은 위치" 기준으로 한다.
+        """
+
+        target_key: tuple[int, int] | None = None
+        if delta.remove_must_visit_places:
+            target_key = _find_stop_key_by_name(
+                state,
+                delta.remove_must_visit_places[0],
+                delta.target_day,
+            )
+
+        anchor_day = target_key[0] if target_key else delta.target_day
+        anchor_sequence = target_key[1] if target_key else None
+
+        location_hint = _anchor_location_hint(state, anchor_day, anchor_sequence)
+
+        recommendations = self._build_chat_recommendations(
+            state,
+            delta,
+            user_text,
+            limit=limit,
+            location_hint=location_hint,
+        )
+
+        return _rerank_recommendations_by_route(
+            recommendations,
+            state=state,
+            day_no=anchor_day,
+            target_sequence=anchor_sequence,
+        )
  
     # ------------------------------------------------------------------
     # AIHub 이동 패턴 / RAG 후보군 조회
@@ -2097,24 +2152,18 @@ def _rebuild_day_slots_with_insertion(
     return remaining_slots, changed_keys, changed_slot_payloads
 
 
-def _location_hint_for_day(
+def _day_stop_coords(
     state: "ItineraryState", day_no: int | None
-) -> dict[str, float] | None:
-    """"근처" 검색의 기준점(위도/경도)을 만든다.
+) -> list[tuple[int, float, float]]:
+    """day_no의 stop들을 (sequence, latitude, longitude)로, sequence
+    오름차순 정렬해서 반환한다. day_no가 None이면 일정 전체 stop을
+    (day, sequence)를 무시하고 좌표만 모은다 (호출부에서 day_no가 없는
+    경우는 "day 평균" 용도로만 쓰고, 순서 기반 로직에는 안 쓴다).
 
-    사용자가 지목한 장소를 못 찾았을 때, 아예 위치 필터 없이 검색하면
-    "근처"가 아니라 그냥 전체 검색이 되어버린다. 그래서 target_day에
-    이미 있는 stop들의 좌표 평균을 기준점으로 쓴다 (target_day가 없으면
-    일정 전체 stop 평균).
-
-    좌표가 있는 stop이 하나도 없으면(예: 아직 route 최적화 전이라
-    latitude/longitude가 안 붙은 경우) None을 반환한다. 이 경우 호출부는
-    기존처럼 위치 필터 없이 검색하게 된다 (select_candidates는
-    location_hint가 None이면 거리로 거르지 않는다).
+    좌표가 없는 stop은 건너뛴다.
     """
 
-    lats: list[float] = []
-    lngs: list[float] = []
+    coords: list[tuple[int, float, float]] = []
 
     for day in state.itinerary.get("days", []):
         if day_no is not None and day.get("day") != day_no:
@@ -2122,18 +2171,234 @@ def _location_hint_for_day(
         for stop in day.get("stops", []):
             lat = stop.get("latitude")
             lng = stop.get("longitude")
-            if lat is None or lng is None:
+            sequence = stop.get("sequence")
+            if lat is None or lng is None or sequence is None:
                 continue
-            lats.append(float(lat))
-            lngs.append(float(lng))
+            coords.append((int(sequence), float(lat), float(lng)))
 
-    if not lats or not lngs:
+    coords.sort(key=lambda item: item[0])
+    return coords
+
+
+def _find_stop_key_by_name(
+    state: "ItineraryState", name: str, day_no: int | None = None
+) -> tuple[int, int] | None:
+    """이름으로 기존 일정 안의 stop을 찾아 (day, sequence)를 반환한다.
+
+    "헬로효주 대신 제주당으로 바꿔줘"처럼 교체 대상(헬로효주)은 이미
+    일정에 있는 stop이므로, 그 stop의 정확한 위치를 알아야 "그 자리
+    앞뒤 장소 사이"로 후보를 좁힐 수 있다. 못 찾으면 None.
+    """
+
+    normalized_name = _normalize_title(name)
+    if not normalized_name:
         return None
 
+    for day in state.itinerary.get("days", []):
+        if day_no is not None and day.get("day") != day_no:
+            continue
+        for stop in day.get("stops", []):
+            title = _normalize_title(str(stop.get("title") or ""))
+            if not title:
+                continue
+            if normalized_name in title or title in normalized_name:
+                sequence = stop.get("sequence")
+                day_value = day.get("day")
+                if sequence is None or day_value is None:
+                    continue
+                return (int(day_value), int(sequence))
+
+    return None
+
+
+def _neighbor_coords_for_sequence(
+    day_coords: list[tuple[int, float, float]], sequence: int
+) -> tuple[tuple[float, float] | None, tuple[float, float] | None]:
+    """정렬된 day_coords에서 sequence 바로 앞/뒤 stop의 좌표를 찾는다.
+
+    sequence가 그 day의 첫 slot이면 prev는 None, 마지막 slot이면
+    next는 None (출발지/도착지 취급은 호출부에서 필요하면 처리).
+    """
+
+    prev_coord: tuple[float, float] | None = None
+    next_coord: tuple[float, float] | None = None
+
+    for seq, lat, lng in day_coords:
+        if seq < sequence:
+            prev_coord = (lat, lng)
+        elif seq > sequence and next_coord is None:
+            next_coord = (lat, lng)
+
+    return prev_coord, next_coord
+
+
+def _detour_km(
+    prev_coord: tuple[float, float] | None,
+    next_coord: tuple[float, float] | None,
+    candidate_coord: tuple[float, float],
+) -> float | None:
+    """prev -> candidate -> next로 갔을 때, prev -> next 직행 대비 얼마나
+    더 돌아가는지(km)를 계산한다.
+
+    prev/next 중 하나가 없으면(맨 앞/맨 뒤에 넣는 경우) 있는 쪽까지의
+    단순 거리로 근사한다. 둘 다 없으면 비교 기준이 없으므로 None.
+    """
+
+    d_prev_cand = (
+        haversine_km(prev_coord[0], prev_coord[1], candidate_coord[0], candidate_coord[1])
+        if prev_coord
+        else None
+    )
+    d_cand_next = (
+        haversine_km(candidate_coord[0], candidate_coord[1], next_coord[0], next_coord[1])
+        if next_coord
+        else None
+    )
+
+    if d_prev_cand is not None and d_cand_next is not None:
+        d_prev_next = haversine_km(
+            prev_coord[0], prev_coord[1], next_coord[0], next_coord[1]
+        )
+        baseline = d_prev_next if d_prev_next is not None else 0.0
+        return d_prev_cand + d_cand_next - baseline
+
+    if d_prev_cand is not None:
+        return d_prev_cand
+
+    if d_cand_next is not None:
+        return d_cand_next
+
+    return None
+
+
+def _best_detour_km_in_day(
+    day_coords: list[tuple[int, float, float]],
+    candidate_coord: tuple[float, float],
+) -> float | None:
+    """day_coords의 모든 삽입 위치(맨 앞/사이/맨 뒤) 중, candidate를
+    넣었을 때 가장 우회가 적은 값을 찾는다.
+
+    사용자가 특정 슬롯을 지정하지 않고 "1일차 카페 추천해줘"라고 했을
+    때 쓴다 - 어디에 넣을지는 아직 안 정했으니, "이 day 어딘가에 넣는다면
+    가장 자연스러운 후보가 뭔가"를 판단하는 용도.
+    """
+
+    if not day_coords:
+        return None
+
+    points: list[tuple[float, float] | None] = (
+        [None] + [(lat, lng) for _, lat, lng in day_coords] + [None]
+    )
+
+    best: float | None = None
+
+    for i in range(len(points) - 1):
+        cost = _detour_km(points[i], points[i + 1], candidate_coord)
+        if cost is None:
+            continue
+        if best is None or cost < best:
+            best = cost
+
+    return best
+
+
+def _anchor_location_hint(
+    state: "ItineraryState", day_no: int | None, target_sequence: int | None
+) -> dict[str, float] | None:
+    """"근처" 검색의 기준점(위도/경도)을 만든다.
+
+    target_sequence가 있으면(특정 슬롯을 바꾸는 경우) 그 슬롯의 바로
+    앞/뒤 장소 좌표 평균을 기준점으로 쓴다. 이렇게 해야 예를 들어 1일차
+    6개 장소 중 2번째를 바꾸는데, 6번째 장소 근처의 카페가 "가깝다"는
+    이유로 걸러지지 않고 먼저 걸러지는 문제를 막을 수 있다.
+
+    target_sequence가 없으면(day 전체에서 아무 위치에나 추가하는 경우)
+    기존처럼 day 전체 stop 좌표 평균을 쓴다.
+
+    좌표가 있는 stop이 하나도 없으면 None (호출부는 위치 필터 없이
+    검색하게 된다).
+    """
+
+    if day_no is None:
+        return None
+
+    day_coords = _day_stop_coords(state, day_no)
+    if not day_coords:
+        return None
+
+    if target_sequence is not None:
+        prev_coord, next_coord = _neighbor_coords_for_sequence(
+            day_coords, target_sequence
+        )
+        neighbor_points = [p for p in (prev_coord, next_coord) if p is not None]
+        if neighbor_points:
+            return {
+                "latitude": sum(p[0] for p in neighbor_points) / len(neighbor_points),
+                "longitude": sum(p[1] for p in neighbor_points) / len(neighbor_points),
+            }
+
     return {
-        "latitude": sum(lats) / len(lats),
-        "longitude": sum(lngs) / len(lngs),
+        "latitude": sum(lat for _, lat, _ in day_coords) / len(day_coords),
+        "longitude": sum(lng for _, _, lng in day_coords) / len(day_coords),
     }
+
+
+def _rerank_recommendations_by_route(
+    recommendations: list[dict[str, Any]],
+    *,
+    state: "ItineraryState",
+    day_no: int | None,
+    target_sequence: int | None,
+) -> list[dict[str, Any]]:
+    """추천 후보를 "day 평균 위치와 가까운 순"이 아니라 "기존 동선에
+    넣었을 때 우회가 가장 적은 순"으로 다시 정렬한다.
+
+    - target_sequence가 있으면: 그 슬롯의 앞/뒤 장소 사이에 넣었을 때의
+      우회 거리만 본다 (예: "2번째 카페 바꿔줘").
+    - target_sequence가 없으면: 그 day의 모든 삽입 위치 중 가장 우회가
+      적은 값을 본다 (예: "1일차 카페 추천해줘").
+
+    day_no가 없거나, day에 좌표 있는 stop이 하나도 없으면(예: 새로
+    만드는 날짜) 재정렬하지 않고 원래 순서를 그대로 둔다. 좌표가 없는
+    추천 후보도 마찬가지로 순서를 그대로 두되, 좌표가 있는 후보들
+    뒤로 보낸다 (우회 거리를 모르는 후보를 우선순위 있는 것처럼
+    보여주지 않기 위해서).
+    """
+
+    if day_no is None:
+        return recommendations
+
+    day_coords = _day_stop_coords(state, day_no)
+    if not day_coords:
+        return recommendations
+
+    scored: list[tuple[float, int, dict[str, Any]]] = []
+    unscored: list[dict[str, Any]] = []
+
+    for index, recommendation in enumerate(recommendations):
+        lat = recommendation.get("latitude")
+        lng = recommendation.get("longitude")
+        if lat is None or lng is None:
+            unscored.append(recommendation)
+            continue
+
+        candidate_coord = (float(lat), float(lng))
+
+        if target_sequence is not None:
+            prev_coord, next_coord = _neighbor_coords_for_sequence(
+                day_coords, target_sequence
+            )
+            cost = _detour_km(prev_coord, next_coord, candidate_coord)
+        else:
+            cost = _best_detour_km_in_day(day_coords, candidate_coord)
+
+        if cost is None:
+            unscored.append(recommendation)
+        else:
+            scored.append((cost, index, recommendation))
+
+    scored.sort(key=lambda item: (item[0], item[1]))
+    return [recommendation for _, _, recommendation in scored] + unscored
 
 
 def _scope_affected_keys(
