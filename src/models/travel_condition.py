@@ -22,6 +22,7 @@ class TravelCondition:
     local_transport: LocalTransport
     preferred_visit_types: tuple[VisitPreference, ...]
     companion_count: int
+    region: str | None = None
     age_group: str | None = None
 
     purpose_codes: tuple[str, ...] = ()
@@ -33,6 +34,7 @@ class TravelCondition:
     must_visit_places: tuple[str, ...] = ()
     excluded_places: tuple[str, ...] = ()
     mobility_constraints: tuple[str, ...] = ()
+    
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any]) -> "TravelCondition":
@@ -40,10 +42,9 @@ class TravelCondition:
             duration_days=_optional_int(value.get("duration_days")) or 1,
             party_type=PartyType(value["party_type"]),
             local_transport=LocalTransport(value["local_transport"]),
-            preferred_visit_types=_visit_type_tuple(
-                value.get("preferred_visit_types")
-            ),
+            preferred_visit_types=_visit_type_tuple(value.get("preferred_visit_types")),
             companion_count=_optional_int(value.get("companion_count")) or 0,
+            region=str(value.get("region") or "").strip() or None,
             age_group=str(value.get("age_group") or "").strip() or None,
             purpose_codes=_string_tuple(value.get("purpose_codes")),
             pace=Pace(value["pace"]) if value.get("pace") else None,
@@ -53,8 +54,7 @@ class TravelCondition:
             accommodation_address=value.get("accommodation_address"),
             must_visit_places=_string_tuple(value.get("must_visit_places")),
             excluded_places=_string_tuple(value.get("excluded_places")),
-            mobility_constraints=_string_tuple(
-                value.get("mobility_constraints")
+            mobility_constraints=_string_tuple(value.get("mobility_constraints")
             ),
         )
 
@@ -67,6 +67,7 @@ class TravelCondition:
                 preference.value
                 for preference in self.preferred_visit_types
             ],
+            "region": self.region,
             "companion_count": self.companion_count,
             "purpose_codes": list(self.purpose_codes),
             "pace": self.pace.value if self.pace else None,
@@ -116,6 +117,7 @@ class ConditionDelta:
     add_preferred_visit_types: tuple[VisitPreference, ...] = ()
     remove_preferred_visit_types: tuple[VisitPreference, ...] = ()
     duration_days: int | None = None
+    region: str | None = None
     party_type: PartyType | None = None
     local_transport: LocalTransport | None = None
     pace: Pace | None = None
@@ -161,6 +163,7 @@ class ConditionDelta:
                 value.get("remove_preferred_visit_types")
             ),
             duration_days=_optional_int(value.get("duration_days")),
+            region=str(value.get("region") or "").strip() or None,
             party_type=PartyType(value["party_type"])
             if value.get("party_type")
             else None,
@@ -213,6 +216,8 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
     }
     if delta.duration_days is not None:
         updates["duration_days"] = delta.duration_days
+    if delta.region is not None:
+        updates["region"] = delta.region
     if delta.party_type is not None:
         updates["party_type"] = delta.party_type
     if delta.local_transport is not None:
