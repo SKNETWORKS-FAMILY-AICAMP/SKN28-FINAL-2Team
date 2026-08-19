@@ -1,0 +1,83 @@
+name: Roll back production backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_definition:
+        description: "Rollback target (example: tourmain-prod-backend:42)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      ECS_CLUSTER: tourmain-production
+      ECS_SERVICE: tourmain-backend
+      API_BASE_URL: https://d9mejd7qkrml.cloudfront.net
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate rollback target
+        shell: bash
+        env:
+          TARGET_TASK_DEFINITION: ${{ inputs.task_definition }}
+        run: |
+          TARGET_FAMILY=$(aws ecs describe-task-definition \
+            --task-definition "$TARGET_TASK_DEFINITION" \
+            --query 'taskDefinition.family' \
+            --output text)
+          if [[ "$TARGET_FAMILY" != "tourmain-prod-backend" ]]; then
+            echo "Only tourmain-prod-backend task definitions can be deployed" >&2
+            exit 1
+          fi
+
+      - name: Roll back backend with blue/green deployment
+        shell: bash
+        env:
+          TARGET_TASK_DEFINITION: ${{ inputs.task_definition }}
+        run: |
+          CURRENT_TASK_DEFINITION=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$TARGET_TASK_DEFINITION" > /dev/null
+
+          if ! {
+            aws ecs wait services-stable \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE" &&
+            curl --fail --silent --show-error \
+              --retry 5 --retry-delay 5 --retry-all-errors \
+              "${API_BASE_URL%/}/ready/" > /dev/null;
+          }; then
+            aws ecs update-service \
+              --cluster "$ECS_CLUSTER" \
+              --service "$ECS_SERVICE" \
+              --task-definition "$CURRENT_TASK_DEFINITION" > /dev/null
+            aws ecs wait services-stable \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE"
+            exit 1
+          fi
+
+          echo "Rolled back from $CURRENT_TASK_DEFINITION to $TARGET_TASK_DEFINITION" \
+            >> "$GITHUB_STEP_SUMMARY"

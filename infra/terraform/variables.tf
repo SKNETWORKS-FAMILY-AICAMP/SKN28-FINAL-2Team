@@ -23,13 +23,13 @@ variable "enable_rds_bootstrap" {
 }
 
 variable "backend_desired_count" {
-  description = "Backend ECS task count after secrets, DB, and RAG are ready."
+  description = "Highly available backend ECS task count spread across two Availability Zones."
   type        = number
-  default     = 1
+  default     = 2
 
   validation {
-    condition     = var.backend_desired_count >= 0 && var.backend_desired_count <= 2
-    error_message = "backend_desired_count must be between 0 and 2."
+    condition     = var.backend_desired_count >= 2 && var.backend_desired_count <= 4
+    error_message = "backend_desired_count must be between 2 and 4 for production high availability."
   }
 }
 
