@@ -210,9 +210,3 @@
 .recommendReason{ margin:14px 0 18px; padding:12px 14px; border-radius:12px; background:#f3fbf5; border:1px solid rgba(47,111,74,.18); }
 .recommendReason strong{ display:block; margin-bottom:5px; color:var(--green-deep); font-size:12px; font-weight:800; }
 .recommendReason p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
-.packageChoiceCard{ padding-top:22px; }
-.selectionStatus{ position:absolute; top:22px; right:22px; margin:0; z-index:2; }
-.packageChoiceHead{ min-height:64px; align-items:flex-start; padding-top:0; }
-.packageChoiceHead > div{ padding-top:0; }
-.packageBadgeRow{ margin-top:0; margin-bottom:10px; }
-.packageChoiceHead > strong{ margin-top:5px; margin-right:0px; }
