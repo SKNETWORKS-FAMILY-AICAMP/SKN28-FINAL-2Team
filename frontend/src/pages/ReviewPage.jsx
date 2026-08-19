@@ -781,17 +781,6 @@ export default function ReviewPage() {
         isBookedStored &&
         packageComparison?.stored_package && (
           <section className={cx(styles.packageComparison, styles.bookedComparison)}>
-            <div className={styles.packageComparisonHead}>
-              <span>예약한 여행</span>
-
-              <h2>
-                {packageComparison.stored_package.title ??
-                  packageComparison.stored_package.name}
-              </h2>
-
-              <p>예약한 추천 패키지의 일정입니다.</p>
-            </div>
-
             <div className={styles.reviewActions}>
               {showToast && (
                 <div className={styles.toast}>
