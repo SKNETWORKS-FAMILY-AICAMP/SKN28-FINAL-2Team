@@ -19,7 +19,7 @@ export async function getReservation(id) {
 }
 
 export async function createReservation(paymentMethod, options = {}) {
-  const { packageIds, cartItemIds, itineraryId } = options
+  const { packageIds, cartItemIds, itineraryId, startDate, peopleCount } = options
 
   try {
     const { data } = await api.post('/reservations/', {
@@ -31,6 +31,11 @@ export async function createReservation(paymentMethod, options = {}) {
         ? { cart_item_ids: cartItemIds }
         : {}),
       ...(itineraryId ? { itinerary_id: itineraryId } : {}),
+      // 전체 패키지를 바로 예약할 때(package_ids 경로)만 의미가 있다.
+      // LLM 일정 예약은 itinerary.start_date/companion_count를 백엔드가
+      // 알아서 쓰므로 굳이 안 보내도 된다.
+      ...(startDate ? { start_date: startDate } : {}),
+      ...(peopleCount ? { people_count: peopleCount } : {}),
     })
     return data
   } catch (error) {

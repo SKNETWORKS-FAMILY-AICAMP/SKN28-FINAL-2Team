@@ -28,7 +28,7 @@
 .backLink:hover{ color: var(--ink); }
 
 /* ---------- shell ---------- */
-.shell{ margin-top:26px; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:22px; align-items:start; }
+.shell{ margin-top:26px; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:22px; align-items:stretch; }
 
 /* package list */
 .card{ background:#fff; border:2.5px solid var(--ink); border-radius:20px; padding:22px; box-shadow: 5px 5px 0 var(--green-soft-2); }
@@ -61,8 +61,25 @@
 .visibility{ display:flex; align-items:center; gap:8px; font-size:12.5px; color: var(--muted); }
 .visibility b{ color: var(--ink); }
 
+/* trip info (여행 기간 / 여행 인원) */
+
+.tripInfoCard{ margin-top:18px; }
+.tripInfoRow{ display:flex; align-items:flex-start; gap:18px; padding:10px 45px; }
+.tripInfoRow:not(:last-child){ border-bottom:1px solid var(--line); }
+.tripInfoIcon{ width:30px; height:30px; border-radius:10px; background:var(--bg-soft); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.tripInfoBody{ flex:1; min-width:0; }
+.tripInfoLabel{ font-size:11.5px; color:var(--muted); font-weight:600; margin-bottom:4px; }
+.tripInfoValue{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13.5px; font-weight:700; color:var(--ink); }
+.tripInfoBadge{ padding:3px 9px; border-radius:100px; background:var(--green-soft); color:var(--green-deep); font-size:10.5px; font-weight:700; }
+.tripInfoDatePicker{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.tripInfoDatePicker input[type="date"]{ font-family:inherit; font-size:13px; font-weight:700; color:var(--ink); border:1.5px solid var(--line); border-radius:9px; padding:6px 9px; background:#fff; }
+.tripInfoPeopleStepper{ display:inline-flex; align-items:center; gap:9px; }
+.tripInfoPeopleStepper button{ width:24px; height:24px; border-radius:8px; border:1.5px solid var(--line); background:#fff; cursor:pointer; font-weight:700; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; }
+.tripInfoPeopleStepper button:hover{ border-color:var(--ink); }
+.tripInfoHint{ margin-top:2px; font-size:11px; color:var(--muted); }
+
 /* payment summary */
-.paySummary{ position:sticky; top:84px; }
+.paySummary{ position:sticky; top:84px; height:100%; display:flex; flex-direction:column; justify-content:center; }
 .payRow{ display:flex; justify-content:space-between; gap:14px; padding:7px 0; font-size:13px; }
 .payRow .k{ color: var(--muted); }
 .payRow .v{ font-weight:700; }

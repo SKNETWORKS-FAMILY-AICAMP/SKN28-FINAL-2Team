@@ -249,6 +249,13 @@ export default function ReviewPage() {
       state: {
         bookingSource: 'custom-itinerary',
         itineraryId: itinerary.id,
+        // 여행 정보(기간/인원) 카드를 BookingPage에서 그리려면 필요하다.
+        // itinerary는 이미 확정돼 있으므로 날짜/인원은 여기서 고정이고
+        // BookingPage에서 수정할 수 없다.
+        startDate: itinerary.startDate,
+        endDate: itinerary.endDate,
+        companionCount: itinerary.companionCount,
+        companionTypeDisplay: itinerary.companionTypeDisplay,
         packages: [
           {
             id: `custom-${itinerary.id}`,
@@ -774,6 +781,16 @@ export default function ReviewPage() {
         isBookedStored &&
         packageComparison?.stored_package && (
           <section className={cx(styles.packageComparison, styles.bookedComparison)}>
+            <div className={styles.packageComparisonHead}>
+              <span>예약한 여행</span>
+
+              <h2>
+                {packageComparison.stored_package.title ??
+                  packageComparison.stored_package.name}
+              </h2>
+
+              <p>예약한 추천 패키지의 일정입니다.</p>
+            </div>
 
             <div className={styles.reviewActions}>
               {showToast && (
@@ -850,35 +867,6 @@ export default function ReviewPage() {
                     <small> / 1인</small>
                   </strong>
                 </div>
-
-                {packageComparison.stored_package.hotel && (
-                  <div className={styles.bookedAccommodationInfo}>
-                    <span className={styles.accommodationIcon} aria-hidden="true">
-                      🛏
-                    </span>
-
-                    <span className={styles.accommodationCopy}>
-                      <small>
-                        탐나 플랜 숙소 ·{' '}
-                        {packageComparison.stored_package.hotel.nights ?? 1}박
-                      </small>
-
-                      <strong>
-                        {packageComparison.stored_package.hotel.title}
-                      </strong>
-
-                      {packageComparison.stored_package.hotel.address && (
-                        <em>
-                          {packageComparison.stored_package.hotel.address}
-                        </em>
-                      )}
-                    </span>
-
-                    <span className={styles.accommodationIncluded}>
-                      숙박 포함
-                    </span>
-                  </div>
-                )}
 
                 <ComparisonDays
                   days={
