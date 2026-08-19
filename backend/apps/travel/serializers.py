@@ -9,7 +9,7 @@ def _csv_values(value):
         for item in str(value or "").split(",")
         if item.strip()
     }
-    
+
 
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
@@ -18,6 +18,7 @@ class PackageSerializer(serializers.ModelSerializer):
 
     accommodation_included = serializers.SerializerMethodField()
     accommodation_name = serializers.SerializerMethodField()
+    hotel = serializers.SerializerMethodField()
     style = serializers.SerializerMethodField()
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
@@ -28,7 +29,7 @@ class PackageSerializer(serializers.ModelSerializer):
         fields = (
             "id", "package_id", "name", "description", "price", "region", "duration_days",
             "companion", "tags",
-            "thumbnail_url", "accommodation_included", "accommodation_name",
+            "thumbnail_url", "accommodation_included", "accommodation_name", "hotel",
             "style", "style_display", "course", "is_active",
         )
 
@@ -47,6 +48,7 @@ class PackageSerializer(serializers.ModelSerializer):
                 """,
                 [obj.id],
             )
+
             return bool(cursor.fetchone()[0])
 
     def get_accommodation_name(self, obj):
@@ -62,15 +64,84 @@ class PackageSerializer(serializers.ModelSerializer):
                 WHERE pi.package_db_id = %s
                   AND pi.item_type = 'hotel'
                 ORDER BY
-                    CASE WHEN pi.day_no IS NULL THEN 999 ELSE pi.day_no END,
-                    CASE WHEN pi.sequence IS NULL THEN 999 ELSE pi.sequence END
+                    CASE
+                        WHEN pi.day_no IS NULL THEN 999
+                        ELSE pi.day_no
+                    END,
+                    CASE
+                        WHEN pi.sequence IS NULL THEN 999
+                        ELSE pi.sequence
+                    END
                 LIMIT 1
                 """,
                 [obj.id],
             )
+
             row = cursor.fetchone()
 
         return row[0] if row and row[0] else ""
+
+    def get_hotel(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.content_id,
+                    p.title,
+                    p.addr1,
+                    p.addr2,
+                    p.latitude,
+                    p.longitude
+                FROM package_items pi
+                LEFT JOIN places p
+                    ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.item_type = 'hotel'
+                ORDER BY
+                    CASE
+                        WHEN pi.day_no IS NULL THEN 999
+                        ELSE pi.day_no
+                    END,
+                    CASE
+                        WHEN pi.sequence IS NULL THEN 999
+                        ELSE pi.sequence
+                    END
+                LIMIT 1
+                """,
+                [obj.id],
+            )
+
+            row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        (
+            content_id,
+            title,
+            addr1,
+            addr2,
+            latitude,
+            longitude,
+        ) = row
+
+        return {
+            "content_id": content_id,
+            "title": title or "",
+            "address": " ".join(
+                part
+                for part in [addr1, addr2]
+                if part
+            ),
+            "latitude": latitude,
+            "longitude": longitude,
+            "nights": max(
+                int(obj.duration_days or 1) - 1,
+                0,
+            ),
+        }
 
     def get_style(self, obj):
         companions = _csv_values(obj.companion)
@@ -97,7 +168,11 @@ class PackageSerializer(serializers.ModelSerializer):
             "activity": "액티비티",
             "food": "맛집여행",
         }
-        return labels.get(self.get_style(obj), "")
+
+        return labels.get(
+            self.get_style(obj),
+            "",
+        )
 
     def get_thumbnail_url(self, obj):
         from django.db import connections
@@ -105,26 +180,29 @@ class PackageSerializer(serializers.ModelSerializer):
         with connections["travel"].cursor() as cursor:
             cursor.execute(
                 """
-                SELECT COALESCE(NULLIF(img.image_url, ''), img.thumbnail_url)
+                SELECT COALESCE(
+                    NULLIF(img.image_url, ''),
+                    img.thumbnail_url
+                )
                 FROM package_items pi
                 JOIN place_images img
-                ON img.content_id = pi.content_id
+                    ON img.content_id = pi.content_id
                 WHERE pi.package_db_id = %s
-                AND pi.item_type = 'tourism'
-                AND (
-                    img.thumbnail_url IS NOT NULL
-                    OR img.image_url IS NOT NULL
-                )
+                  AND pi.item_type = 'tourism'
+                  AND (
+                      img.thumbnail_url IS NOT NULL
+                      OR img.image_url IS NOT NULL
+                  )
                 ORDER BY
-                CASE
-                    WHEN pi.day_no IS NULL THEN 999
-                    ELSE pi.day_no
-                END,
-                CASE
-                    WHEN pi.sequence IS NULL THEN 999
-                    ELSE pi.sequence
-                END,
-                img.display_order
+                    CASE
+                        WHEN pi.day_no IS NULL THEN 999
+                        ELSE pi.day_no
+                    END,
+                    CASE
+                        WHEN pi.sequence IS NULL THEN 999
+                        ELSE pi.sequence
+                    END,
+                    img.display_order
                 LIMIT 1
                 """,
                 [obj.id],
@@ -133,7 +211,7 @@ class PackageSerializer(serializers.ModelSerializer):
             row = cursor.fetchone()
 
         return row[0] if row else ""
-    
+
     def get_course(self, obj):
         from django.db import connections
 
@@ -154,7 +232,7 @@ class PackageSerializer(serializers.ModelSerializer):
                 LEFT JOIN places p
                     ON p.content_id = pi.content_id
                 WHERE pi.package_db_id = %s
-                AND pi.day_no IS NOT NULL
+                  AND pi.day_no IS NOT NULL
                 ORDER BY pi.day_no, pi.sequence
                 """,
                 [obj.id],
@@ -175,14 +253,19 @@ class PackageSerializer(serializers.ModelSerializer):
             latitude,
             longitude,
         ) in rows:
-            course_by_day.setdefault(day_no, []).append(
+            course_by_day.setdefault(
+                day_no,
+                [],
+            ).append(
                 {
                     "sequence": sequence,
                     "item_type": item_type,
                     "content_id": content_id,
                     "title": title or f"장소 {content_id}",
                     "address": " ".join(
-                        part for part in [addr1, addr2] if part
+                        part
+                        for part in [addr1, addr2]
+                        if part
                     ),
                     "latitude": latitude,
                     "longitude": longitude,
@@ -194,8 +277,11 @@ class PackageSerializer(serializers.ModelSerializer):
                 "day": day_no,
                 "items": items,
             }
-            for day_no, items in sorted(course_by_day.items())
+            for day_no, items in sorted(
+                course_by_day.items()
+            )
         ]
+
 
 class PackageListSerializer(PackageSerializer):
     class Meta(PackageSerializer.Meta):
@@ -204,51 +290,114 @@ class PackageListSerializer(PackageSerializer):
             for field in PackageSerializer.Meta.fields
             if field != "course"
         )
-    
+
+
 class ItineraryItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItineraryItem
         fields = (
-            "id", "order", "time", "item_type", "title", "description",
-            "thumbnail", "spot", "restaurant", "accommodation",
-            "latitude", "longitude", "memo",
+            "id",
+            "order",
+            "time",
+            "item_type",
+            "title",
+            "description",
+            "thumbnail",
+            "spot",
+            "restaurant",
+            "accommodation",
+            "latitude",
+            "longitude",
+            "memo",
         )
 
+
 class ItineraryDaySerializer(serializers.ModelSerializer):
-    items = ItineraryItemSerializer(many=True, required=False)
+    items = ItineraryItemSerializer(
+        many=True,
+        required=False,
+    )
 
     class Meta:
         model = ItineraryDay
-        fields = ("id", "day_number", "date", "items")
+        fields = (
+            "id",
+            "day_number",
+            "date",
+            "items",
+        )
+
 
 class ItinerarySerializer(serializers.ModelSerializer):
-    title = serializers.CharField(required=False,allow_blank=True)
-    days = ItineraryDaySerializer(many=True, required=False)
+    title = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+    days = ItineraryDaySerializer(
+        many=True,
+        required=False,
+    )
+
     duration_label = serializers.ReadOnlyField()
-    # style은 더 이상 choices로 제한된 카테고리가 아니라 자유 입력 텍스트이므로
-    # 별도의 "표시용" 값이 없다. style 값 자체를 그대로 노출한다.
-    style_display = serializers.CharField(source="style", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
+
+    style_display = serializers.CharField(
+        source="style",
+        read_only=True,
+    )
+
+    status_display = serializers.CharField(
+        source="get_status_display",
+        read_only=True,
+    )
+
+    companion_type_display = serializers.CharField(
+        source="get_companion_type_display",
+        read_only=True,
+    )
+
     booked_product_type = serializers.SerializerMethodField()
     booked_package_db_id = serializers.SerializerMethodField()
     booked_price = serializers.SerializerMethodField()
     hotel = serializers.SerializerMethodField()
 
-
     class Meta:
         model = Itinerary
+
         fields = (
-            "id", "title", "subtitle", "start_date", "end_date",
-            "companion_type", "companion_type_display",
-            "companion_count",  "age_group", "style", "style_display",
-            "selected_package", "status", "status_display", "is_public",
-            "share_token", "duration_label", "days",
-            "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price",
-            "hotel"
+            "id",
+            "title",
+            "subtitle",
+            "start_date",
+            "end_date",
+            "companion_type",
+            "companion_type_display",
+            "companion_count",
+            "age_group",
+            "style",
+            "style_display",
+            "selected_package",
+            "status",
+            "status_display",
+            "is_public",
+            "share_token",
+            "duration_label",
+            "days",
+            "created_at",
+            "updated_at",
+            "booked_product_type",
+            "booked_package_db_id",
+            "booked_price",
+            "hotel",
         )
-        read_only_fields = ("id", "share_token", "created_at", "updated_at")
+
+        read_only_fields = (
+            "id",
+            "share_token",
+            "created_at",
+            "updated_at",
+        )
 
     def get_booked_product_type(self, obj):
         reservation = (
@@ -268,7 +417,6 @@ class ItinerarySerializer(serializers.ModelSerializer):
             return None
 
         return item.product_type
-
 
     def get_booked_package_db_id(self, obj):
         reservation = (
@@ -309,42 +457,80 @@ class ItinerarySerializer(serializers.ModelSerializer):
         return item.price
 
     def get_hotel(self, obj):
-        itinerary_state = (obj.engine_state or {}).get("itinerary") or {}
+        itinerary_state = (
+            obj.engine_state or {}
+        ).get("itinerary") or {}
+
         return itinerary_state.get("hotel")
 
     def create(self, validated_data):
-        days_data = validated_data.pop("days", [])
-        itinerary = Itinerary.objects.create(**validated_data)
-        self._sync_days(itinerary, days_data)
+        days_data = validated_data.pop(
+            "days",
+            [],
+        )
+
+        itinerary = Itinerary.objects.create(
+            **validated_data
+        )
+
+        self._sync_days(
+            itinerary,
+            days_data,
+        )
+
         return itinerary
 
-
     def update(self, instance, validated_data):
-        days_data = validated_data.pop("days", None)
+        days_data = validated_data.pop(
+            "days",
+            None,
+        )
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         instance.save()
 
         if days_data is not None:
-            self._sync_days(instance, days_data)
+            self._sync_days(
+                instance,
+                days_data,
+            )
 
         return instance
 
     @staticmethod
     def _sync_days(itinerary, days_data):
-        """전달된 days/items로 전체를 교체 """
+        """전달된 days/items로 전체를 교체"""
+
         if not days_data:
             return
 
         itinerary.days.all().delete()
 
         for day_data in days_data:
-            items_data = day_data.pop("items", [])
-            day = ItineraryDay.objects.create(itinerary=itinerary, **day_data)
-            for idx, item_data in enumerate(items_data):
-                item_data.setdefault("order", idx)
-                ItineraryItem.objects.create(day=day, **item_data)
+            items_data = day_data.pop(
+                "items",
+                [],
+            )
+
+            day = ItineraryDay.objects.create(
+                itinerary=itinerary,
+                **day_data,
+            )
+
+            for idx, item_data in enumerate(
+                items_data
+            ):
+                item_data.setdefault(
+                    "order",
+                    idx,
+                )
+
+                ItineraryItem.objects.create(
+                    day=day,
+                    **item_data,
+                )
 
 
 class ItineraryRouteSerializer(serializers.Serializer):
@@ -357,9 +543,6 @@ class ItineraryRouteSerializer(serializers.Serializer):
     points = serializers.ListField(
         child=serializers.DictField(),
     )
-    path = serializers.ListField(
-        child=serializers.DictField(),
-    )
 
     path = serializers.ListField(
         child=serializers.DictField(),
@@ -369,6 +552,7 @@ class ItineraryRouteSerializer(serializers.Serializer):
 class ItineraryShareSerializer(serializers.Serializer):
     share_token = serializers.UUIDField()
     share_path = serializers.CharField()
+
 
 class ItineraryRevisionSerializer(serializers.Serializer):
     message = serializers.CharField()

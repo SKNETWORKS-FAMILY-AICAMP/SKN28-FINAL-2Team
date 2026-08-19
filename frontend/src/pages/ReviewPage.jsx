@@ -774,16 +774,6 @@ export default function ReviewPage() {
         isBookedStored &&
         packageComparison?.stored_package && (
           <section className={cx(styles.packageComparison, styles.bookedComparison)}>
-            <div className={styles.packageComparisonHead}>
-              <span>예약한 여행</span>
-
-              <h2>
-                {packageComparison.stored_package.title ??
-                  packageComparison.stored_package.name}
-              </h2>
-
-              <p>예약한 추천 패키지의 일정입니다.</p>
-            </div>
 
             <div className={styles.reviewActions}>
               {showToast && (
@@ -843,7 +833,7 @@ export default function ReviewPage() {
                         styles.recommendedBadge
                       )}
                     >
-                      예약한 추천 패키지
+                      여행사 패키지
                     </span>
 
                     <h3>
@@ -860,6 +850,35 @@ export default function ReviewPage() {
                     <small> / 1인</small>
                   </strong>
                 </div>
+
+                {packageComparison.stored_package.hotel && (
+                  <div className={styles.bookedAccommodationInfo}>
+                    <span className={styles.accommodationIcon} aria-hidden="true">
+                      🛏
+                    </span>
+
+                    <span className={styles.accommodationCopy}>
+                      <small>
+                        탐나 플랜 숙소 ·{' '}
+                        {packageComparison.stored_package.hotel.nights ?? 1}박
+                      </small>
+
+                      <strong>
+                        {packageComparison.stored_package.hotel.title}
+                      </strong>
+
+                      {packageComparison.stored_package.hotel.address && (
+                        <em>
+                          {packageComparison.stored_package.hotel.address}
+                        </em>
+                      )}
+                    </span>
+
+                    <span className={styles.accommodationIncluded}>
+                      숙박 포함
+                    </span>
+                  </div>
+                )}
 
                 <ComparisonDays
                   days={
@@ -933,7 +952,7 @@ export default function ReviewPage() {
                               )}
                             >
                               {isBookedCustom
-                                ? '자유일정 패키지'
+                                ? '자유 패키지'
                                 : '완성한 자유일정'}
                             </span>
 
