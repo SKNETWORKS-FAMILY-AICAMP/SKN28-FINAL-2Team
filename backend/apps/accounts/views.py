@@ -1,7 +1,9 @@
+from django.conf import settings
+
 from drf_spectacular.utils import extend_schema
 
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,9 +11,34 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from .serializers import ErrorSerializer, LogoutSerializer, SocialLoginSerializer, KakaoLoginSerializer, TokenPairSerializer, UserMeSerializer
+from .models import User
 
 
 from .services import google_login, kakao_login, get_kakao_access_token
+
+
+class DevLoginAPIView(APIView):
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not settings.DEBUG:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        user, _ = User.objects.get_or_create(
+            email="developer@local.test",
+            defaults={
+                "nickname": "개발 사용자",
+                "provider": "google",
+                "provider_id": "local-development-user",
+            },
+        )
+        refresh = RefreshToken.for_user(user)
+
+        return Response(
+            {"access": str(refresh.access_token), "refresh": str(refresh)},
+            status=status.HTTP_200_OK,
+        )
 
 class GoogleLoginAPIView(APIView):
 

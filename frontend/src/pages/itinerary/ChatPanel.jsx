@@ -26,6 +26,7 @@ export default function ChatPanel({ onRevised }) {
   const [isRevising, setIsRevising] = useState(false);
   const bodyRef = useRef(null);
 
+  
 
   useEffect(() => {
     const fetchItinerary = async () => {
@@ -178,9 +179,9 @@ export default function ChatPanel({ onRevised }) {
                 </>
               )}
 
-              {message.options && message.options.length > 0 && (
+              {m.options && m.options.length > 0 && (
                 <div className={styles.suggestList}>
-                  {message.options.slice(0, 3).map((opt) => (
+                  {m.options.slice(0, 3).map((opt) => (
                     <div
                       key={opt.content_id ?? opt.title}
                       className={styles.suggestCard}

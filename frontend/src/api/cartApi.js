@@ -14,7 +14,9 @@ export async function addToCart(packageId, options = {}) {
     const { data } = await api.post('/cart/', {
       product_type: options.productType || 'stored_package',
       ...(packageId != null && { package_id: packageId }),
-      ...(options.itineraryId != null && { itinerary_id: options.itineraryId }),
+      ...(options.itineraryId != null && {
+        itinerary_id: options.itineraryId,
+      }),
     })
     return data
   } catch (error) {

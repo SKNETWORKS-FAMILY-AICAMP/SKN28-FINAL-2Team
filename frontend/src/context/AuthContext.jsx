@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { API_BASE_URL } from '../api/config.js'
 
 const AuthContext = createContext(null)
+const DEV_AUTO_LOGIN = import.meta.env.DEV
+  && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(API_BASE_URL)
 
 const normalizeUser = (user) => ({
   id: user.id,
@@ -19,14 +21,28 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const restoreLogin = async () => {
-      const accessToken = localStorage.getItem('accessToken')
-
-      if (!accessToken) {
-        setLoading(false)
-        return
-      }
+      let accessToken = localStorage.getItem('accessToken')
 
       try {
+        if (!accessToken && DEV_AUTO_LOGIN) {
+          const response = await fetch(`${API_BASE_URL}/api/accounts/dev-login/`, {
+            method: 'POST',
+          })
+          const tokens = await response.json()
+
+          if (!response.ok) {
+            throw new Error(tokens.detail || '개발 로그인에 실패했습니다.')
+          }
+
+          localStorage.setItem('accessToken', tokens.access)
+          localStorage.setItem('refreshToken', tokens.refresh)
+          accessToken = tokens.access
+        }
+
+        if (!accessToken) {
+          return
+        }
+
         const response = await fetch(
           `${API_BASE_URL}/api/accounts/me/`,
           {

@@ -346,27 +346,6 @@ footer .flinks{ display:flex; gap:20px; }
 footer .flinks a{ color: var(--muted); font-size:13px; }
 footer .flinks a:hover{ color: var(--ink); }
 
-@media (max-width: 880px){
-  .hero-grid{ grid-template-columns: 1fr; }
-  .flow{ grid-template-columns: 1fr 1fr; gap:28px 0; }
-  .flow::before{ display:none; }
-  .feature-grid{ grid-template-columns:1fr; }
-  .pkg-grid{ grid-template-columns:1fr; }
-  .usage-chat-grid,.usage-booking-grid,.usage-product-grid{ grid-template-columns:1fr; }
-  .usage-demo-tabs{ grid-template-columns:1fr; }
-  .usage-demo-stage{ padding:14px; }
-  .nav-links{ display:none; }
-  .it-shell{ grid-template-columns:1fr; }
-  .it-side{ border-right:none; border-bottom:1px solid var(--line); }
-  .itinerary-head{ flex-direction:column; align-items:flex-start; }
-}
 
-.landing-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.landing-main {
-  flex: 1;
-}
+.landing-page { min-height: 100vh; display: flex; flex-direction: column; }
+.landing-main { flex: 1;}

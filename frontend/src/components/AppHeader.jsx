@@ -7,6 +7,7 @@ import styles from './AppHeader.module.css'
 export default function AppHeader({ variant = 'app' }) {
   const navigate = useNavigate()
   const { isLoggedIn } = useAuth()
+
   const isMain = variant === 'main'
 
   const handleStart = () => {
@@ -17,6 +18,7 @@ export default function AppHeader({ variant = 'app' }) {
 
     sessionStorage.removeItem('travel-chat-page')
     sessionStorage.removeItem('travel-chat-column')
+
     navigate('/chat')
   }
 
@@ -24,7 +26,11 @@ export default function AppHeader({ variant = 'app' }) {
     <header className={styles.nav}>
       <div className={styles.navInner}>
         <Link to="/" className={styles.logo}>
-          <img src={tamnplanLogo} alt="탐나플랜" className={styles.logoImage} />
+          <img
+            src={tamnplanLogo}
+            alt="탐나플랜"
+            className={styles.logoImage}
+          />
         </Link>
 
         <nav className={styles.navLinks}>
@@ -43,6 +49,7 @@ export default function AppHeader({ variant = 'app' }) {
 
         <div className={styles.navRight}>
           <AccountMenu />
+
           {isMain && (
             <button
               type="button"
