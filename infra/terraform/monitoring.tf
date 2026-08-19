@@ -97,6 +97,31 @@ resource "aws_cloudwatch_metric_alarm" "alb_target_5xx" {
   tags = local.common_tags
 }
 
+resource "aws_cloudwatch_metric_alarm" "alb_green_target_5xx" {
+  alarm_name                = "tourmain-alb-green-target-5xx"
+  alarm_description         = "Blue/green backend target returned at least five 5xx responses in five minutes"
+  alarm_actions             = [aws_sns_topic.alerts.arn]
+  ok_actions                = []
+  insufficient_data_actions = []
+
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "HTTPCode_Target_5XX_Count"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 5
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = aws_lb.backend.arn_suffix
+    TargetGroup  = aws_lb_target_group.backend_green.arn_suffix
+  }
+
+  tags = local.common_tags
+}
+
 locals {
   ecs_alarm_services = {
     backend = aws_ecs_service.backend.name
@@ -187,8 +212,10 @@ resource "aws_cloudwatch_dashboard" "production" {
           view   = "timeSeries"
           metrics = [
             ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.backend.arn_suffix, { label = "Requests" }],
-            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.backend.arn_suffix, "TargetGroup", aws_lb_target_group.backend.arn_suffix, { label = "Target 5xx" }],
-            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", aws_lb.backend.arn_suffix, "TargetGroup", aws_lb_target_group.backend.arn_suffix, { label = "Unhealthy targets", stat = "Maximum", yAxis = "right" }],
+            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.backend.arn_suffix, "TargetGroup", aws_lb_target_group.backend.arn_suffix, { label = "Blue target 5xx" }],
+            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.backend.arn_suffix, "TargetGroup", aws_lb_target_group.backend_green.arn_suffix, { label = "Green target 5xx" }],
+            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", aws_lb.backend.arn_suffix, "TargetGroup", aws_lb_target_group.backend.arn_suffix, { label = "Blue unhealthy", stat = "Maximum", yAxis = "right" }],
+            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", aws_lb.backend.arn_suffix, "TargetGroup", aws_lb_target_group.backend_green.arn_suffix, { label = "Green unhealthy", stat = "Maximum", yAxis = "right" }],
           ]
           yAxis = {
             left  = { min = 0 }

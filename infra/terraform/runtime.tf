@@ -279,6 +279,33 @@ resource "aws_lb_target_group" "backend" {
   }
 }
 
+resource "aws_lb_target_group" "backend_green" {
+  name        = "tourmain-production-api-green"
+  port        = 8000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.production.id
+
+  deregistration_delay = 30
+
+  health_check {
+    enabled             = true
+    path                = "/health/"
+    protocol            = "HTTP"
+    matcher             = "200-399"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  tags = local.common_tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 resource "aws_lb_listener" "backend_http" {
   load_balancer_arn = aws_lb.backend.arn
   port              = 80
@@ -288,6 +315,49 @@ resource "aws_lb_listener" "backend_http" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.backend.arn
   }
+}
+
+resource "aws_lb_listener_rule" "backend_production" {
+  listener_arn = aws_lb_listener.backend_http.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  # ECS swaps this rule between the blue and green target groups after each deployment.
+  lifecycle {
+    ignore_changes = [action]
+  }
+}
+
+resource "aws_iam_role" "ecs_load_balancer" {
+  name = "tourmain-prod-ecs-load-balancer"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_load_balancer" {
+  role       = aws_iam_role.ecs_load_balancer.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForLoadBalancers"
 }
 
 resource "aws_ecs_task_definition" "chroma" {
@@ -503,11 +573,31 @@ resource "aws_ecs_service" "backend" {
   desired_count   = var.backend_desired_count
   launch_type     = "FARGATE"
 
+  availability_zone_rebalancing = "ENABLED"
+
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
   health_check_grace_period_seconds  = 120
 
   deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  deployment_configuration {
+    strategy             = "BLUE_GREEN"
+    bake_time_in_minutes = 10
+  }
+
+  deployment_controller {
+    type = "ECS"
+  }
+
+  alarms {
+    alarm_names = [
+      aws_cloudwatch_metric_alarm.alb_target_5xx.alarm_name,
+      aws_cloudwatch_metric_alarm.alb_green_target_5xx.alarm_name,
+    ]
     enable   = true
     rollback = true
   }
@@ -522,6 +612,12 @@ resource "aws_ecs_service" "backend" {
     target_group_arn = aws_lb_target_group.backend.arn
     container_name   = "backend"
     container_port   = 8000
+
+    advanced_configuration {
+      alternate_target_group_arn = aws_lb_target_group.backend_green.arn
+      production_listener_rule   = aws_lb_listener_rule.backend_production.arn
+      role_arn                   = aws_iam_role.ecs_load_balancer.arn
+    }
   }
 
   tags = local.common_tags
@@ -531,5 +627,8 @@ resource "aws_ecs_service" "backend" {
     ignore_changes = [task_definition]
   }
 
-  depends_on = [aws_lb_listener.backend_http]
+  depends_on = [
+    aws_iam_role_policy_attachment.ecs_load_balancer,
+    aws_lb_listener_rule.backend_production,
+  ]
 }

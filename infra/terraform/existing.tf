@@ -216,7 +216,7 @@ resource "aws_db_instance" "production" {
   db_subnet_group_name   = aws_db_subnet_group.production.name
   vpc_security_group_ids = [aws_security_group.production["rds"].id]
   publicly_accessible    = false
-  multi_az               = false
+  multi_az               = true
   network_type           = "IPV4"
 
   parameter_group_name = "default.mysql8.4"
@@ -435,6 +435,12 @@ resource "aws_iam_role_policy" "github_deploy" {
         Resource = aws_ecs_service.backend.id
       },
       {
+        Sid      = "ReadRDSRecoveryPoint"
+        Effect   = "Allow"
+        Action   = "rds:DescribeDBInstances"
+        Resource = "*"
+      },
+      {
         Sid    = "PassBackendTaskRoles"
         Effect = "Allow"
         Action = "iam:PassRole"
@@ -445,6 +451,17 @@ resource "aws_iam_role_policy" "github_deploy" {
         Condition = {
           StringEquals = {
             "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      },
+      {
+        Sid      = "PassECSLoadBalancerRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = aws_iam_role.ecs_load_balancer.arn
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs.amazonaws.com"
           }
         }
       },

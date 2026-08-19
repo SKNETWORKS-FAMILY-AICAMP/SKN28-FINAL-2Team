@@ -207,6 +207,21 @@ jobs:
       - name: Run migrations and data readiness checks
         shell: bash
         run: |
+          DB_ROLLBACK_TIME=$(aws rds describe-db-instances \
+            --db-instance-identifier tourmain-mysql \
+            --query 'DBInstances[0].LatestRestorableTime' \
+            --output text)
+          if [[ -z "$DB_ROLLBACK_TIME" || "$DB_ROLLBACK_TIME" == "None" ]]; then
+            echo "RDS point-in-time recovery is not available" >&2
+            exit 1
+          fi
+          echo "DB_ROLLBACK_TIME=$DB_ROLLBACK_TIME" >> "$GITHUB_ENV"
+          {
+            echo "### Database rollback point"
+            echo "- RDS: \`tourmain-mysql\`"
+            echo "- Restore to: \`$DB_ROLLBACK_TIME\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
           NETWORK_CONFIGURATION=$(aws ecs describe-services \
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE" \

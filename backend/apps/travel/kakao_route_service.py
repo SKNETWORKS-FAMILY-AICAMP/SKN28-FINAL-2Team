@@ -254,3 +254,4 @@ def get_kakao_day_route_path(
         )
 
     return _extract_path_from_route(route)
+    return _extract_path_from_route(route)
