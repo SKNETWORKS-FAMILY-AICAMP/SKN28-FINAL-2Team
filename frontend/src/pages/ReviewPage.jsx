@@ -21,6 +21,24 @@ import {
   getSharedItinerary,
 } from '../api/itinerary';
 
+const getCustomPackageThumbnail = (itinerary) => {
+  const days = itinerary?.days || [];
+
+  for (const day of days) {
+    const firstItem = (day.items || []).find(
+      (item) =>
+        item.item_type !== 'restaurant' &&
+        item.thumbnail
+    );
+
+    if (firstItem) {
+      return firstItem.thumbnail;
+    }
+  }
+
+  return '';
+};
+
 
 const formatPrice = (value) =>
   `${Number(value || 0).toLocaleString('ko-KR')}원`;
@@ -255,6 +273,7 @@ export default function ReviewPage() {
             name: itinerary.title || '내가 만든 일정',
             description: '대화로 완성한 일정 그대로 여행하는 자유일정이에요.',
             price: customPackage.price_per_person,
+            thumbnailUrl: getCustomPackageThumbnail(itinerary),
             thumbnail: '🧭',
             isCustom: true,
             durationLabel: itinerary.duration_label,
