@@ -82,16 +82,34 @@ export default function MyItinerariesPage() {
                   style={{
                     flex: 1,
                     display: "flex",
+                    gap: "22px",
                     textDecoration: "none",
                     color: "inherit",
                   }}
                 >
-                  <div className={styles.listThumb}>🌴</div>
+                  <div className={styles.listThumb}>
+                    {it.thumbnailUrl ? (
+                      <img
+                        src={it.thumbnailUrl}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          borderRadius: "12px",
+                        }}
+                      />
+                    ) : (
+                      '🌴'
+                    )}
+                  </div>
 
-                  <div className={styles.listInfo}>
-                    <h5>
-                      {it.durationLabel} {it.companionTypeDisplay} 여행
-                    </h5>
+                  <div className={styles.listInfo}> 
+                    <h5> 
+                      {it.bookedProductType === "stored_package" && it.bookedPackageName 
+                        ? it.bookedPackageName 
+                        : `${it.durationLabel} ${it.companionTypeDisplay}`} 
+                    </h5> 
 
                     <p>
                       {it.styleDisplay?.replace("여행", "")} · {it.startDate} ~ {it.endDate} ·{" "}

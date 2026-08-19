@@ -310,9 +310,7 @@ export default function BookingPage() {
             <h2>예약이 확정됐어요 🎉</h2>
 
             <p>
-              {confirmedTitle} 예약이 완료됐어요.
-              <br />
-              "예약 내역"에서 언제든 다시 확인할 수 있어요.
+              예약 내역에서 언제든 다시 확인할 수 있어요.
             </p>
 
             <div className={styles.successMeta}>
