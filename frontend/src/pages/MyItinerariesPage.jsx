@@ -10,6 +10,7 @@ const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
   const { itineraries, loading, refresh, remove } = useItineraries();
+
   useEffect(() => {
     refresh().catch((err) => {
       console.error("내 일정 최신 목록 조회 실패", err);
@@ -49,7 +50,7 @@ export default function MyItinerariesPage() {
           <h1>저장한 여행 일정</h1>
 
           <p>
-            확정한 일정을 선택하면 전체 일정과 동선을 확인할 수 있어요.
+            지금까지 만든 일정을 다시 확인하고 이어서 편집할 수 있어요.
           </p>
         </div>
 
@@ -90,7 +91,7 @@ export default function MyItinerariesPage() {
 
                     <p>
                       {it.styleDisplay?.replace("여행", "")} · {it.startDate} ~ {it.endDate} ·{" "}
-                      {it.companionCount}명
+                      {it.durationLabel} · {it.companionCount}명
                     </p>
                   </div>
                 </Link>

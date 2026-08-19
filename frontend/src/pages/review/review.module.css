@@ -17,16 +17,6 @@
 .xs{ padding:6px 12px; font-size:11.5px; }
 .wide{ width:100%; justify-content:center; padding-top:15px; padding-bottom:15px; font-size:16px; }
 
-/* ---------- app header ---------- */
-.appnav{ height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; border-bottom: 1px solid var(--line); background:#fff; position:sticky; top:0; z-index:20; }
-.logo{ display:flex; align-items:center; gap:9px; font-family: var(--display); font-size:19px; font-weight:700; letter-spacing:-0.01em; }
-.logoMark{ width:30px; height:30px; border-radius:50%; background: var(--green); border: 2.5px solid var(--ink); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.appLinks{ display:flex; align-items:center; gap:26px; }
-.appLinks a{ font-size:14px; font-weight:600; color: var(--muted); }
-.appLinks a:hover{ color: var(--ink); }
-.appRight{ display:flex; align-items:center; gap:16px; }
-.avatar{ width:34px; height:34px; border-radius:50%; background: var(--green-soft); border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-size:15px; }
-
 /* ---------- page head ---------- */
 .wrap{ max-width:1220px; margin:0 auto; padding: 34px 32px 60px; }
 .pageHead{ text-align:center; margin-bottom:26px; }
@@ -76,31 +66,13 @@
 .summaryRow .v{ font-weight:700; }
 .summaryDivider{ height:1px; background: var(--line); margin: 10px 0; }
 .summaryLabel{ font-size:11.5px; color: var(--muted); margin-bottom:4px; }
-.toast{
-  position:absolute;
-  right:92px;
-  bottom:calc(100% + 10px);
-  background:#fff;
-  color:#333;
-  border:1px solid #e5e7eb;
-  border-radius:10px;
-  padding:8px 14px;
-  font-size:13px;
-  font-weight:600;
-  white-space:nowrap;
-  box-shadow:0 4px 10px rgba(0,0,0,.08);
-  z-index:10;
-  animation:fadeInOut 2s ease forwards;
-}
-@keyframes fadeInOut{
-  0%{opacity:0;}
-  15%{opacity:1;}
-  85%{opacity:1;}
-  100%{opacity:0;}
-}
+
+.toast{ position:absolute; top:-45px; left:0; background:#fff; color:#333; border:1px solid #e5e7eb; 
+        border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; white-space:nowrap; box-shadow:0 4px 10px rgba(0,0,0,.08); z-index:10; animation:fadeInOut 2s ease forwards; }
+@keyframes fadeInOut{ 0%{opacity:0;transform:translateY(8px);} 15%{opacity:1;transform:translateY(0);} 85%{opacity:1;} 100%{opacity:0;transform:translateY(-8px);} }
 
 .packageComparison{ margin-top:28px; }
-.packageComparisonHead{ margin-bottom:18px; }
+.packageComparisonHead{width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;}
 .packageComparisonHead span{ color:var(--green-deep); font-size:12px; font-weight:800; }
 .packageComparisonHead h2{ margin-top:4px; font-family:var(--display); font-size:21px; }
 .packageComparisonHead p{ margin-top:6px; color:var(--muted); font-size:13px; }
@@ -137,7 +109,7 @@
 .packageMeta{ margin:12px 0; color:var(--muted); font-size:13px; }
 .accommodationInfo{ display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:12px 14px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:#fff; }
 .itineraryHotelInfo{ display:flex; align-items:center; gap:12px; margin:18px 0 0; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:15px; background:var(--green-soft); }
-.bookedAccommodationInfo{ display:flex; align-items:center; gap:12px; margin:15px 0 16px; padding:14px 18px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:var(--green-soft); }
+.bookedAccommodationInfo{ display:flex; align-items:center; gap:12px; margin:15px 0 16px; padding:13px 15px; border:1.5px solid rgba(47,111,74,.3); border-radius:14px; background:var(--green-soft); }
 .accommodationIcon{ display:grid; width:38px; height:38px; flex:0 0 38px; place-items:center; border-radius:11px; background:var(--green-soft); font-size:19px; }
 .itineraryHotelInfo .accommodationIcon{ background:#fff; }
 .accommodationCopy{ display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
@@ -162,17 +134,7 @@
 .bookingAction span{ color:var(--muted); font-size:13px; font-weight:700; }
 .bookingButtons{ display:flex; align-items:center; gap:10px; }
 .bookingAction button:disabled{ cursor:not-allowed; opacity:.5; transform:none; box-shadow:none; }
-.freeBadge{
-  display:inline-flex;
-  align-items:center;
-  padding:5px 9px;
-  border-radius:100px;
-  background:var(--green-soft);
-  color:var(--green-deep);
-  font-size:11px;
-  font-weight:800;
-  border:1px solid rgba(47,111,74,.18);
-}
+
 @media (max-width: 1150px){
   .grid{ grid-template-columns: 1fr 1fr; }
   .summary{ grid-column: span 2; }
@@ -199,20 +161,13 @@
 .bookedChoiceCard .comparisonDay li strong{ text-align:center; }
 .bookedChoiceCard .comparisonDay li p{ text-align:center; }
 .bookedChoiceCard .comparisonDay li:not(:last-child)::after{ content:""; position:absolute; top:12px; left:calc(50% + 14px); width:calc(100% - 18px); height:1px; background:rgba(79,157,106,.32); z-index:1; }
-.reviewActions {
-  position: relative;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 18px;
-}
+.reviewActions { position: relative; display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 18px; }
 .recommendReason{ margin:14px 0 18px; padding:12px 14px; border-radius:12px; background:#f3fbf5; border:1px solid rgba(47,111,74,.18); }
 .recommendReason strong{ display:block; margin-bottom:5px; color:var(--green-deep); font-size:12px; font-weight:800; }
 .recommendReason p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
 .packageChoiceCard{ padding-top:22px; }
 .selectionStatus{ position:absolute; top:22px; right:22px; margin:0; z-index:2; }
-.packageChoiceHead{ min-height:64px; align-items:flex-start; padding-top:0; }
+.packageChoiceHead{ min-height:82px; align-items:flex-start; padding-top:0; }
 .packageChoiceHead > div{ padding-top:0; }
 .packageBadgeRow{ margin-top:0; margin-bottom:10px; }
-.packageChoiceHead > strong{ margin-top:5px; margin-right:0px; }
+.packageChoiceHead > strong{ margin-top:5px; margin-right:120px; }

@@ -4,8 +4,6 @@ import { getRoadRoute } from '../../api/itinerary';
 import styles from './review.module.css';
 
 const validPoint = (point) =>
-  point?.latitude != null &&
-  point?.longitude != null &&
   Number.isFinite(Number(point?.latitude)) &&
   Number.isFinite(Number(point?.longitude));
 
@@ -38,13 +36,20 @@ export default function ComparisonRouteMap({
   const [customRoutes, setCustomRoutes] = useState([]);
   const [storedRoutes, setStoredRoutes] = useState([]);
 
-
   // 이미 조회한 경로를 다시 요청하지 않기 위한 key
   const loadedCustomKeyRef = useRef(null);
   const loadedStoredKeyRef = useRef(null);
 
   // 컴포넌트가 사라진 뒤 state 변경 방지
   const mountedRef = useRef(true);
+  
+  const [activeProduct, setActiveProduct] = useState(
+    mode === 'custom'
+      ? 'custom'
+      : mode === 'stored' || storedDays.length > 0 || validPoint(storedHotel)
+        ? 'stored'
+        : 'custom'
+  );
 
   const currentProduct =
     mode === 'stored'
@@ -105,7 +110,7 @@ export default function ComparisonRouteMap({
           '추천 패키지 실제 도로 경로 조회 실패:',
           error
         );
-      }
+      } 
     };
 
     const loadCustomRoute = async () => {
@@ -116,7 +121,7 @@ export default function ComparisonRouteMap({
       }
 
       loadedCustomKeyRef.current = key;
-
+    
 
       try {
         const routes = await getRoadRoute(
@@ -135,7 +140,7 @@ export default function ComparisonRouteMap({
           '자유일정 실제 도로 경로 조회 실패:',
           error
         );
-      }
+      } 
     };
 
     if (currentProduct === 'stored') {
