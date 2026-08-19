@@ -586,7 +586,7 @@ resource "aws_ecs_service" "backend" {
 
   deployment_configuration {
     strategy             = "BLUE_GREEN"
-    bake_time_in_minutes = 10
+    bake_time_in_minutes = 3
   }
 
   deployment_controller {
