@@ -290,6 +290,13 @@ export default function ReviewPage() {
       state: {
         bookingSource: 'custom-itinerary',
         itineraryId: itinerary.id,
+        // 여행 정보(기간/인원) 카드를 BookingPage에서 그리려면 필요하다.
+        // itinerary는 이미 확정돼 있으므로 날짜/인원은 여기서 고정이고
+        // BookingPage에서 수정할 수 없다.
+        startDate: itinerary.startDate,
+        endDate: itinerary.endDate,
+        companionCount: itinerary.companionCount,
+        companionTypeDisplay: itinerary.companionTypeDisplay,
         packages: [
           {
             id: `custom-${itinerary.id}`,
@@ -933,6 +940,7 @@ export default function ReviewPage() {
                   </div>
                 )}
                 
+
                 <ComparisonDays
                   days={
                     packageComparison.stored_package.days ??
