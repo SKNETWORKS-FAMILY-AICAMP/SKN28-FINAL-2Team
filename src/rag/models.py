@@ -23,6 +23,7 @@ class PlaceSearchFilters:
     content_type_ids: Sequence[int] = ()
     cities: Sequence[str] = ()
     districts: Sequence[str] = ()
+    region_pairs: Sequence[tuple[str, str]] = ()
     route_eligible: bool | None = None
     schedule_eligible: bool | None = None
     requires_verification: bool | None = None

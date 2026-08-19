@@ -7,11 +7,8 @@ from pathlib import Path
 import re
 from typing import Any, Sequence
 
-from .mappings.trip_feature_mapping import (
-    SLOT_ITINERARY_ROLES,
-    SLOT_TARGET_COLLECTIONS,
-    get_visit_area_type_mapping,
-)
+from src.mappings.trip_feature_mapping import get_region_districts
+from .mappings.trip_feature_mapping import   SLOT_ITINERARY_ROLES, SLOT_TARGET_COLLECTIONS, VIS_TO_SLOT_ROLE
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
 from .llm import LLMService, create_llm_service
@@ -122,6 +119,11 @@ class ChatUpdateResult:
 
     mode="no_change" 일 때는 사용자의 메시지에서 아무 변경 신호도 찾지 못한
     경우다 (기존 delta.is_empty() 케이스).
+
+    mode="recommend"는 사용자가 이름으로 지목한 장소를 찾지 못했을 때도
+    쓰인다. 이 경우 itinerary는 그대로 두고, 같은 role의 "근처" 후보를
+    대신 보여준다 (recommendations가 빈 리스트일 수도 있다 - 근처에도
+    추천할 게 전혀 없는 경우).
     """
 
     mode: str
@@ -183,7 +185,6 @@ class ItineraryEngine:
         container = self._container
 
         condition = container.llm_service.extract_travel_condition(user_text)
-
         # ------------------------------------------------------------
         # 1) 기본 여행 조건을 추출한다.
         #    슬롯 구조는 RAG 후보를 확인한 뒤
@@ -391,6 +392,7 @@ class ItineraryEngine:
                         recommendation_scopes=("default",),
                         route_eligible=True,
                         schedule_eligible=True,
+                        region_pairs=get_region_districts(new_condition.region),
                     ),
                     top_k=3,
                 )
@@ -401,30 +403,42 @@ class ItineraryEngine:
                         replacement_name,
                     )
 
-                    recommended_place = (
-                        _candidate_to_recommendation(
-                            SlotCandidate(
-                                content_id=replacement_place.content_id,
-                                title=replacement_place.title,
-                                final_score=1.0,
-                                similarity_score=(
-                                    getattr(
-                                        replacement_place,
-                                        "similarity_score",
-                                        None,
-                                    )
-                                ),
-                                place=replacement_place.to_dict(),
-                                forced=True,
+                    if replacement_place is None:
+                        # 검색은 됐지만 이름이 실제로 일치하는 후보가
+                        # 없었다. 의미 기반 검색 1등 결과를 엉뚱하게
+                        # "replacement_name"인 것처럼 강제로 쓰지 않고,
+                        # recommended_place를 None으로 남겨서 아래
+                        # "4. not_found 반환" 단계에서 사용자에게
+                        # 못 찾았다고 알려주도록 한다.
+                        print(
+                            "[revise] 이름이 일치하는 후보를 찾지 못함:",
+                            replacement_name,
+                        )
+                    else:
+                        recommended_place = (
+                            _candidate_to_recommendation(
+                                SlotCandidate(
+                                    content_id=replacement_place.content_id,
+                                    title=replacement_place.title,
+                                    final_score=1.0,
+                                    similarity_score=(
+                                        getattr(
+                                            replacement_place,
+                                            "similarity_score",
+                                            None,
+                                        )
+                                    ),
+                                    place=replacement_place.to_dict(),
+                                    forced=True,
+                                )
                             )
                         )
-                    )
 
-                    print(
-                        "[revise] 직접 검색한 교체 후보:",
-                        recommended_place["title"],
-                        recommended_place["content_id"],
-                    )
+                        print(
+                            "[revise] 직접 검색한 교체 후보:",
+                            recommended_place["title"],
+                            recommended_place["content_id"],
+                        )
 
             # ----------------------------------------------------------
             # 3. 장소를 확보했으면 기존 일반 edit 로직으로 내려가지 않고
@@ -444,7 +458,65 @@ class ItineraryEngine:
                     ),
                     user_text=user_text,
                 )
-                
+
+            # ----------------------------------------------------------
+            # 4. 여기까지 왔는데도 recommended_place가 없다는 건, 사용자가
+            #    이름으로 지목한 장소를 최근 추천 후보에서도, 직접 검색
+            #    에서도 찾지 못했다는 뜻이다.
+            #
+            #    예전에는 이 경우 그냥 아래 일반 edit 경로(전체 role
+            #    재검색)로 흘러들어가서, 사용자가 요청한 이름과 무관한
+            #    장소가 대신 채워질 수 있었다. 그러면 사용자는 자기가
+            #    요청한 장소가 왜 안 들어갔는지 알 방법이 없었다.
+            #
+            #    대신 일정은 건드리지 않고(mode="recommend"), 같은
+            #    role로 "근처" 후보를 검색해서 채팅으로 보여준다.
+            #    "근처" 기준점은 target_day에 이미 있는 stop들의 좌표
+            #    평균이다 (target_day가 없으면 일정 전체 stop 평균).
+            #    사용자가 그중 하나를 골라 "OOO를 N일차에 추가해줘"라고
+            #    다시 말하면 기존 recommend 흐름 그대로 반영된다.
+            # ----------------------------------------------------------
+            not_found_name = delta.add_must_visit_places[0]
+            print(
+                "[revise] 요청한 장소를 찾지 못함 -> 근처 후보 추천으로 대체:",
+                not_found_name,
+            )
+
+            location_hint = _location_hint_for_day(state, delta.target_day)
+            nearby_recommendations = self._build_chat_recommendations(
+                state,
+                delta,
+                user_text,
+                location_hint=location_hint,
+            )
+
+            next_state = ItineraryState(
+                condition=state.condition,
+                slots=state.slots,
+                itinerary=state.itinerary,
+                used_content_ids=set(state.used_content_ids),
+                recommendations=nearby_recommendations,
+            )
+
+            if nearby_recommendations:
+                message = (
+                    f"'{not_found_name}'을(를) 찾지 못했어요. "
+                    "대신 근처 후보를 몇 곳 찾아봤어요. "
+                    "마음에 드는 곳이 있으면 이름으로 말씀해주세요."
+                )
+            else:
+                message = (
+                    f"'{not_found_name}'을(를) 찾지 못했고, 근처에서도 "
+                    "추천할 만한 곳을 찾지 못했어요. "
+                    "다른 이름이나 조건으로 다시 말씀해 주시겠어요?"
+                )
+
+            return ChatUpdateResult(
+                mode="recommend",
+                state=next_state,
+                message=message,
+                recommendations=nearby_recommendations,
+            )
 
         affected_roles = set(infer_affected_slots(delta))
         print("[revise] affected_roles :", affected_roles)
@@ -558,6 +630,7 @@ class ItineraryEngine:
         user_text: str,
         *,
         limit: int = 3,
+        location_hint: dict[str, float] | None = None,
     ) -> list[dict[str, Any]]:
         affected_roles = list(dict.fromkeys(infer_affected_slots(delta)))
         role = affected_roles[0] if affected_roles else "food"
@@ -569,7 +642,11 @@ class ItineraryEngine:
             "target_collections": list(SLOT_TARGET_COLLECTIONS.get(role, ())),
             "itinerary_roles": list(SLOT_ITINERARY_ROLES.get(role, ())),
             "stay_minutes": _DEFAULT_STAY_MINUTES_BY_ROLE.get(role),
-            "location_hint": None,
+            # location_hint가 있으면 select_candidates()가 haversine 거리로
+            # "근처" 후보를 우선하고, radius_km 밖의 후보는 아예 제외한다
+            # (planner/planner.py 참고). 없으면 기존처럼 거리 필터 없이
+            # 검색한다.
+            "location_hint": location_hint,
         }
 
         condition_for_search = apply_delta(state.condition, delta)
@@ -853,6 +930,7 @@ class ItineraryEngine:
                 recommendation_scopes=("default",),
                 route_eligible=True,
                 schedule_eligible=True,
+                region_pairs=get_region_districts(condition.region),
             ),
             top_k=top_k,
         )
@@ -912,6 +990,7 @@ class ItineraryEngine:
                 target_collections=("restaurants",),
                 route_eligible=True,
                 schedule_eligible=True,
+                region_pairs=get_region_districts(condition.region),
             ),
             top_k=FOOD_CANDIDATE_POOL_TOP_K,
         )
@@ -928,6 +1007,7 @@ class ItineraryEngine:
                 target_collections=("shopping",),
                 route_eligible=True,
                 schedule_eligible=True,
+                region_pairs=get_region_districts(condition.region),
             ),
             top_k=SHOPPING_CANDIDATE_POOL_TOP_K,
         )
@@ -1028,6 +1108,7 @@ class ItineraryEngine:
             itinerary_roles=tuple(slot_template["itinerary_roles"]),
             route_eligible=True,
             schedule_eligible=True,
+            region_pairs=get_region_districts(condition.region),
         )
 
         response = container.retrieval_service.search_places(
@@ -1569,6 +1650,11 @@ class ItineraryEngine:
                 place_name,
             )
 
+            if match is None:
+                # 검색 결과에 이름이 일치하는 후보가 없다 -> 엉뚱한 장소를
+                # must-visit인 것처럼 강제로 끼워넣지 않고 건너뛴다.
+                continue
+
             role = _infer_role_from_tags(match.tags)
 
             # ------------------------------------------------------------
@@ -1838,6 +1924,218 @@ def _itinerary_stops_by_key(itinerary: dict[str, Any]) -> dict[tuple[int, int], 
     return stops_by_key
 
 
+def _find_anchor_stop_key(
+    itinerary: dict[str, Any],
+    anchor_name: str,
+    target_day: int | None,
+) -> tuple[int, int] | None:
+    """"A 다음/앞에" 요청에서 기준이 되는 A를 실제 일정에서 찾는다.
+
+    target_day가 주어지면 해당 day에서만 찾는다. 못 찾으면 target_day
+    제한을 풀고 다시 시도한다 (사용자가 A만 언급하고 day를 착각했을 수도
+    있으므로, 완전히 실패로 처리하기 전에 한 번 더 시도).
+    """
+
+    normalized_anchor = _normalize_title(anchor_name)
+    if not normalized_anchor:
+        return None
+
+    stops_by_key = _itinerary_stops_by_key(itinerary)
+
+    def _search(day_filter: int | None) -> tuple[int, int] | None:
+        for (day_no, sequence), stop in stops_by_key.items():
+            if day_filter is not None and day_no != day_filter:
+                continue
+            stop_title = _normalize_title(str(stop.get("title") or ""))
+            if not stop_title:
+                continue
+            if normalized_anchor in stop_title or stop_title in normalized_anchor:
+                return (day_no, sequence)
+        return None
+
+    result = _search(target_day)
+    if result is not None:
+        return result
+    if target_day is not None:
+        return _search(None)
+    return None
+
+
+def _resolve_time_period_index(
+    day_stops: list[dict[str, Any]],
+    time_period: str,
+) -> int:
+    """시간대(아침/점심/오후/저녁) 요청을 해당 day의 삽입 인덱스(0-based)로
+    변환한다. day_stops는 sequence 오름차순으로 정렬되어 있어야 한다.
+
+    규칙 (문서의 "배치 규칙"을 그대로 코드화):
+    - morning : 그 날 첫 스톱 앞
+    - lunch   : 그 날 첫 food 슬롯(보통 점심) 앞
+    - afternoon : 첫 food 슬롯(점심) 바로 뒤
+    - evening : 마지막 food 슬롯(보통 저녁) 앞, food가 없으면 맨 뒤
+    """
+
+    if not day_stops:
+        return 0
+
+    food_indexes = [
+        index
+        for index, stop in enumerate(day_stops)
+        if stop.get("role") == "food"
+    ]
+
+    if time_period == "morning":
+        return 0
+
+    if time_period == "lunch":
+        return food_indexes[0] if food_indexes else len(day_stops) // 2
+
+    if time_period == "afternoon":
+        return food_indexes[0] + 1 if food_indexes else len(day_stops) // 2 + 1
+
+    if time_period == "evening":
+        return food_indexes[-1] if food_indexes else len(day_stops)
+
+    return len(day_stops)
+
+
+def _rebuild_day_slots_with_insertion(
+    *,
+    state: ItineraryState,
+    updated_slots: list[ItinerarySlot],
+    day_no: int,
+    insert_index: int,
+    new_candidate: SlotCandidate,
+    new_role: str,
+) -> tuple[list[ItinerarySlot], set[tuple[int, int]], list[dict[str, Any]]]:
+    """지정된 day 안에서 insert_index 위치에 new_candidate를 끼워넣고,
+    그 day 전체의 sequence를 1부터 다시 매긴다.
+
+    "A 다음에 B" 같은 순서 요청은 LLM에게 판단을 맡기면 안 되므로, 이
+    함수가 최종 순서를 코드 레벨에서 확정한다. 기존 stop들은 각각
+    forced=True인 단일 후보로 다시 만들어서 changed_slots로 넘기므로,
+    LLM(revise_itinerary)은 지정된 content_id 순서를 그대로 유지한 채
+    start_time/end_time/notes만 자연스럽게 채운다.
+    """
+
+    stops_by_key = _itinerary_stops_by_key(state.itinerary)
+    day_stops = sorted(
+        (stop for (day, _seq), stop in stops_by_key.items() if day == day_no),
+        key=lambda stop: stop.get("sequence", 0),
+    )
+
+    # 기존 stop들을 (content_id, title, role, 좌표) 스켈레톤으로 변환
+    skeletons: list[dict[str, Any]] = []
+    for stop in day_stops:
+        skeletons.append(
+            {
+                "content_id": stop.get("content_id"),
+                "title": stop.get("title"),
+                "role": stop.get("role") or "visit",
+                "latitude": stop.get("latitude"),
+                "longitude": stop.get("longitude"),
+            }
+        )
+
+    new_place = new_candidate.place or {}
+    new_skeleton = {
+        "content_id": new_candidate.content_id,
+        "title": new_candidate.title,
+        "role": new_role,
+        "latitude": new_place.get("latitude"),
+        "longitude": new_place.get("longitude"),
+        "_new": True,
+    }
+
+    insert_at = max(0, min(insert_index, len(skeletons)))
+    skeletons.insert(insert_at, new_skeleton)
+
+    remaining_slots = [slot for slot in updated_slots if slot.day != day_no]
+
+    new_day_slots: list[ItinerarySlot] = []
+    changed_keys: set[tuple[int, int]] = set()
+    changed_slot_payloads: list[dict[str, Any]] = []
+
+    for sequence, skeleton in enumerate(skeletons, start=1):
+        role = skeleton["role"]
+
+        if skeleton.get("_new"):
+            candidate = new_candidate
+        else:
+            candidate = SlotCandidate(
+                content_id=int(skeleton["content_id"]),
+                title=skeleton.get("title") or "",
+                final_score=1.0,
+                similarity_score=1.0,
+                place={
+                    "content_id": skeleton.get("content_id"),
+                    "title": skeleton.get("title"),
+                    "latitude": skeleton.get("latitude"),
+                    "longitude": skeleton.get("longitude"),
+                },
+                forced=True,
+            )
+
+        slot = ItinerarySlot(
+            day=day_no,
+            sequence=sequence,
+            role=role,
+            target_collections=tuple(SLOT_TARGET_COLLECTIONS.get(role, ())),
+            itinerary_roles=tuple(SLOT_ITINERARY_ROLES.get(role, ())),
+            stay_minutes=_DEFAULT_STAY_MINUTES_BY_ROLE.get(role, 90),
+            location_hint=None,
+            query="chat_recommendation_insert",
+            candidates=[candidate],
+        )
+
+        new_day_slots.append(slot)
+        changed_keys.add((day_no, sequence))
+        changed_slot_payloads.append(slot.to_dict())
+
+    remaining_slots.extend(new_day_slots)
+
+    return remaining_slots, changed_keys, changed_slot_payloads
+
+
+def _location_hint_for_day(
+    state: "ItineraryState", day_no: int | None
+) -> dict[str, float] | None:
+    """"근처" 검색의 기준점(위도/경도)을 만든다.
+
+    사용자가 지목한 장소를 못 찾았을 때, 아예 위치 필터 없이 검색하면
+    "근처"가 아니라 그냥 전체 검색이 되어버린다. 그래서 target_day에
+    이미 있는 stop들의 좌표 평균을 기준점으로 쓴다 (target_day가 없으면
+    일정 전체 stop 평균).
+
+    좌표가 있는 stop이 하나도 없으면(예: 아직 route 최적화 전이라
+    latitude/longitude가 안 붙은 경우) None을 반환한다. 이 경우 호출부는
+    기존처럼 위치 필터 없이 검색하게 된다 (select_candidates는
+    location_hint가 None이면 거리로 거르지 않는다).
+    """
+
+    lats: list[float] = []
+    lngs: list[float] = []
+
+    for day in state.itinerary.get("days", []):
+        if day_no is not None and day.get("day") != day_no:
+            continue
+        for stop in day.get("stops", []):
+            lat = stop.get("latitude")
+            lng = stop.get("longitude")
+            if lat is None or lng is None:
+                continue
+            lats.append(float(lat))
+            lngs.append(float(lng))
+
+    if not lats or not lngs:
+        return None
+
+    return {
+        "latitude": sum(lats) / len(lats),
+        "longitude": sum(lngs) / len(lngs),
+    }
+
+
 def _scope_affected_keys(
     state: ItineraryState, delta: ConditionDelta
 ) -> set[tuple[int, int]] | None:
@@ -1848,8 +2146,8 @@ def _scope_affected_keys(
     두 가지뿐이다:
 
     1. 사용자가 실제 일정에 있는 장소 이름을 직접 언급함
-       (delta.add_excluded_places / add_must_visit_places 중 하나가
-       현재 stop의 title과 일치)
+       (delta.add_excluded_places / add_must_visit_places / remove_must_visit_places
+       중 하나가 현재 stop의 title과 일치)
     2. 사용자가 특정 일차를 명시함 (delta.target_day)
 
     두 근거 모두 없으면 "이 스타일 전체를 바꿔줘" 같은 진짜 폭넓은 요청일
@@ -1862,7 +2160,11 @@ def _scope_affected_keys(
 
     named_places = [
         place
-        for place in (*delta.add_excluded_places, *delta.add_must_visit_places)
+        for place in (
+            *delta.add_excluded_places,
+            *delta.add_must_visit_places,
+            *delta.remove_must_visit_places,
+        )
         if place and place.strip()
     ]
 
@@ -2014,13 +2316,24 @@ def _bucket_by_role(pool: Sequence[RetrievedPlace]) -> dict[str, list[RetrievedP
     return buckets
 
 
-def _best_name_match(places: Sequence[RetrievedPlace], name: str) -> RetrievedPlace:
+def _best_name_match(places: Sequence[RetrievedPlace], name: str) -> RetrievedPlace | None:
+    """검색 결과 중 실제로 이름이 일치하는 후보만 반환한다.
+
+    이전에는 이름이 하나도 일치하지 않으면 그냥 검색 1등 결과
+    (``places[0]``)를 반환했다. 이러면 의미 기반 검색이 엉뚱한 장소를
+    상위로 올렸을 때, 사용자가 요청하지도 않은 장소가 "요청한 장소"인
+    것처럼 조용히 강제 삽입(``forced=True``)되는 문제가 있었다.
+
+    이름이 부분적으로도 일치하는 후보가 하나도 없으면 ``None``을 반환하니,
+    호출부는 반드시 ``None``을 "해당 이름의 장소를 찾지 못함"으로 처리해야
+    한다 (엉뚱한 장소를 대신 쓰면 안 된다).
+    """
     normalized_name = _normalize_title(name)
     for place in places:
         normalized_title = _normalize_title(place.title)
         if normalized_name in normalized_title or normalized_title in normalized_name:
             return place
-    return places[0]
+    return None
 
 
 def _group_slots_by_day(slots: list[ItinerarySlot]) -> list[dict[str, Any]]:

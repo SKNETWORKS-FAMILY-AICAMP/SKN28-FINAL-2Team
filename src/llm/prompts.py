@@ -26,6 +26,7 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비�
   "preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 1개 이상을 담은 배열,
   "companion_count": 정수 또는 null,
   "age_group": 문자열 또는 null,
+  "region": "east" | "west" | "south" | "north" 또는 null,
   "pace": {PACE_VALUES} 중 하나 또는 null,
   "must_visit_places": 문자열 배열 (없으면 []),
   "excluded_places": 문자열 배열 (없으면 [])
@@ -37,6 +38,14 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비�
 - "맛집" -> ["food_cafe"]
 - "트래킹" -> ["trail"]
 여러 스타일이 언급되면 해당하는 값을 모두 포함하세요.
+
+지역(region) 추출 규칙:
+- "동부", "제주 동쪽", "제주 동부", "동쪽 지역" -> "east"
+- "서부", "제주 서쪽", "제주 서부", "서쪽 지역" -> "west"
+- "남부", "제주 남쪽", "제주 남부", "서귀포 쪽" -> "south"
+- "북부", "제주 북쪽", "제주 북부", "제주시 쪽" -> "north"
+- 사용자가 여행 지역을 명시하지 않았으면 null
+- 지역을 임의로 추측하지 마세요.
 
 나이대(age_group) 추출 규칙:
 - "20대" -> "20s"
@@ -252,6 +261,7 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   "add_preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 값을 담은 배열,
   "remove_preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 값을 담은 배열,
   "duration_days": 정수 또는 null,
+  "region": "east" | "west" | "south" | "north" 또는 null,
   "party_type": {PARTY_TYPE_VALUES} 중 하나 또는 null,
   "local_transport": {LOCAL_TRANSPORT_VALUES} 중 하나 또는 null,
   "pace": {PACE_VALUES} 중 하나 또는 null,
@@ -278,6 +288,23 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   요청했을 때만 해야 하는, 되돌리기 어려운 동작입니다. mode="recommend"일 때는
   affected_slots/add_must_visit_places 등 다른 필드는 어떤 종류의 후보를
   찾아야 하는지 알려주는 용도로만 채우고, 실제로 일정에 반영되지는 않습니다.
+
+"region" 판단 규칙:
+
+- 사용자가 여행 지역을 새로 지정하거나 변경한 경우에만 region을 채우세요.
+- "동부", "제주 동쪽", "제주 동부", "동쪽 지역" -> "east"
+- "서부", "제주 서쪽", "제주 서부", "서쪽 지역" -> "west"
+- "남부", "제주 남쪽", "제주 남부", "남쪽 지역" -> "south"
+- "북부", "제주 북쪽", "제주 북부", "북쪽 지역" -> "north"
+- 여행 지역 변경이나 지정 요청이 없으면 반드시 null로 두세요.
+- 지역을 임의로 추측하지 마세요.
+- 지역을 변경해달라는 명확한 요청이면 mode="edit"로 판단하세요.
+
+예:
+- "동부로 바꿔줘" -> mode="edit", region="east"
+- "서부 위주로 바꿔줘" -> mode="edit", region="west"
+- "남부로 여행하고 싶어" -> mode="edit", region="south"
+- "북부 쪽으로 바꿔줘" -> mode="edit", region="north"
 
 "target_day" 판단 규칙:
 
