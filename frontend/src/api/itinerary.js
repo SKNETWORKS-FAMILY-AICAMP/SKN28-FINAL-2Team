@@ -49,8 +49,10 @@ export const getItineraries = async () => {
 
     bookedProductType: item.booked_product_type,
     bookedPackageDbId: item.booked_package_db_id,
+    bookedPackageName: item.booked_package_name,
     bookedPrice: item.booked_price,
 
+    thumbnailUrl: item.thumbnail_url,
     hotel: item.hotel || null,
   }));
 };

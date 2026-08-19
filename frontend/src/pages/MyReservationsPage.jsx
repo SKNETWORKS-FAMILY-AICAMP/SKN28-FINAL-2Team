@@ -43,12 +43,19 @@ export default function MyReservationsPage() {
             reservations.map((reservation) => {
               const firstItem = reservation.items?.[0]
               const extraCount = Math.max((reservation.items?.length || 0) - 1, 0)
-              const itemSummary = firstItem
-                ? `${firstItem.name}${extraCount ? ` 외 ${extraCount}개` : ''}`
-                : '예약한 여행 상품'
+
               const isCustom =
                 firstItem?.product_type === 'custom_itinerary' ||
                 String(firstItem?.package_id || '').toUpperCase().startsWith('CUSTOM-')
+
+              const itemSummary = firstItem
+                ? isCustom
+                  ? firstItem.name
+                      .replace(/(재미있는|힐링|신나는|여유로운|즐거운|맛집|하고 싶어|여행 하고 싶어)/g, '')
+                      .replace(/\s+/g, ' ')
+                      .trim()
+                  : `${firstItem.name}${extraCount ? ` 외 ${extraCount}개` : ''}`
+                : '예약한 여행 상품'
 
               return (
                 <Link
@@ -57,11 +64,23 @@ export default function MyReservationsPage() {
                   className={styles.listItem}
                 >
                   <div className={styles.listThumb}>
-                    {isCustom ? '🏝️' : '🧳'}
+                    {firstItem?.thumbnail_url ? (
+                      <img
+                        src={firstItem.thumbnail_url}
+                        alt={itemSummary}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          borderRadius: "12px",
+                        }}
+                      />
+                    ) : (
+                      isCustom ? '🏝️' : '🧳'
+                    )}
                   </div>
                   <div className={styles.listInfo}>
-                    <h5>예약 #{reservation.id}</h5>
-                    <p>{itemSummary}</p>
+                    <h5>{itemSummary}</h5>
                     <span className={cx(styles.badge, badgeStyle(reservation.status))}>
                       {reservation.status_display}
                     </span>

@@ -233,9 +233,10 @@ class ItinerarySerializer(serializers.ModelSerializer):
     companion_type_display = serializers.CharField(source="get_companion_type_display", read_only=True)
     booked_product_type = serializers.SerializerMethodField()
     booked_package_db_id = serializers.SerializerMethodField()
+    booked_package_name = serializers.SerializerMethodField()
     booked_price = serializers.SerializerMethodField()
     hotel = serializers.SerializerMethodField()
-
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Itinerary
@@ -246,7 +247,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
             "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price",
-            "hotel"
+            "booked_package_name", "hotel", "thumbnail_url"
         )
         read_only_fields = ("id", "share_token", "created_at", "updated_at")
 
@@ -289,6 +290,25 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
         return item.package_db_id
 
+    def get_booked_package_name(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not reservation:
+            return None
+
+        item = reservation.items.first()
+
+        if not item:
+            return None
+
+        return item.name
+
     def get_booked_price(self, obj):
         reservation = (
             obj.reservations
@@ -311,6 +331,53 @@ class ItinerarySerializer(serializers.ModelSerializer):
     def get_hotel(self, obj):
         itinerary_state = (obj.engine_state or {}).get("itinerary") or {}
         return itinerary_state.get("hotel")
+
+    def get_thumbnail_url(self, obj):
+        reservation = (
+            obj.reservations
+            .filter(status="confirmed")
+            .prefetch_related("items")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if reservation:
+            item = reservation.items.first()
+
+            if (
+                item
+                and item.product_type == "stored_package"
+                and item.package_db_id
+            ):
+                package = (
+                    Package.objects.using("travel")
+                    .filter(
+                        id=item.package_db_id,
+                        is_active=True,
+                    )
+                    .first()
+                )
+
+                if package:
+                    return PackageSerializer(package).data.get(
+                        "thumbnail_url",
+                        "",
+                    )
+
+        for day in obj.days.all().order_by("day_number"):
+            first_item = (
+                day.items
+                .exclude(item_type="restaurant")
+                .exclude(thumbnail="")
+                .exclude(thumbnail__isnull=True)
+                .order_by("order")
+                .first()
+            )
+
+            if first_item:
+                return first_item.thumbnail
+
+        return ""
 
     def create(self, validated_data):
         days_data = validated_data.pop("days", [])
