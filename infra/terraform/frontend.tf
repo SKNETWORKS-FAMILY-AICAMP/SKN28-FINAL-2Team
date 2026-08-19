@@ -78,7 +78,7 @@ resource "aws_cloudfront_function" "spa_rewrite" {
   runtime = "cloudfront-js-2.0"
   comment = "Serve index.html for React Router paths"
   publish = true
-  code    = <<-JS
+  code = replace(<<-JS
     function handler(event) {
       var request = event.request;
       var uri = request.uri;
@@ -90,6 +90,7 @@ resource "aws_cloudfront_function" "spa_rewrite" {
       return request;
     }
   JS
+  , "\r\n", "\n")
 }
 
 resource "aws_cloudfront_distribution" "frontend" {

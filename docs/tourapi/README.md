@@ -18,7 +18,7 @@
 | TourAPI 원본 | `data/raw/korea_tour_openapi_jeju_places.csv` |
 | LCLS 코드 | `data/raw/korea_tour_openapi_lcls_codes.csv` |
 | RAG 문서 | `data/processed/jeju_place_rag_documents.json` |
-| 벡터 저장 위치 | Docker `chroma-data:/data` 또는 persistent 모드 `data/vectorstore/` |
+| 벡터 저장 위치 | `data/vectorstore/` |
 | 벡터 manifest | `data/vectorstore/chromadb_manifest.json` |
 | 분류·제외 규칙 | `src/tourapi/configs/place_rules.json` |
 | MySQL 스키마 | `src/storage/sql/mysql_schema.sql` |
@@ -54,8 +54,6 @@ TourAPI 테이블과 `aihub_` 테이블의 이름은 겹치지 않으며 장소 
 두 데이터의 관계를 같은 DB 안에서 참조합니다.
 
 인증정보가 담긴 `.env`는 Git에 커밋하지 않습니다.
-Docker MySQL과 ChromaDB 실행 방법은 [Docker 로컬 DB 개발 환경](../db_docker.md)을
-참고합니다.
 
 ## 실행 순서
 
@@ -91,15 +89,14 @@ python -m scripts.indexing.build_tourapi_vector_index --prune
 ## 검증
 
 ```powershell
-python -B -m unittest tests.test_embeddings_cli -v
+python -B -m unittest discover -s tests/tourapi -p "test_*.py"
 python -m scripts.crawler.crawl_products --plan-only
 python -m scripts.indexing.build_tourapi_vector_index --dry-run
 ```
 
-2026-07-27 Docker 환경에서 MySQL 원본 장소 2,124건과 Chroma 벡터 2,102건을
-실제 적재했습니다. MySQL의 RAG 대상 ID와 Chroma ID가 모두 일치하고,
-저장된 벡터 최근접 검색과 MySQL 상세정보 연결이 정상임을 확인했습니다.
-새로운 OpenAI 호출은 유효한 인증정보와 외부 서비스 연결이 필요합니다.
+구조 이전 후 TourAPI 테스트 41개와 벡터 입력 dry-run이 통과했습니다.
+실제 TourAPI, MySQL, OpenAI 호출은 유효한 인증정보와 외부 서비스 연결이
+있어야 최종 확인할 수 있습니다.
 
 ## 관련 문서
 
@@ -108,4 +105,3 @@ python -m scripts.indexing.build_tourapi_vector_index --dry-run
 - [여행 일정 LLM용 장소 검색 API](../rag_api.md)
 - [파이프라인 정리 및 검증 기록](SIMreadme.md)
 - [AIHub 전처리·매핑 파이프라인](../aihub/README.md)
-- [Docker 로컬 DB 개발 환경](../db_docker.md)

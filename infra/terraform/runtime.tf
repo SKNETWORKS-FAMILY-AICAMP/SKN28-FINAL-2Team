@@ -204,28 +204,6 @@ resource "aws_iam_role" "ecs_task" {
   tags = local.common_tags
 }
 
-resource "aws_iam_role" "ecs_load_balancer" {
-  name = "tourmain-prod-ecs-load-balancer"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
-
-  tags = local.common_tags
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_load_balancer" {
-  role       = aws_iam_role.ecs_load_balancer.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForLoadBalancers"
-}
-
 resource "aws_ecs_cluster" "production" {
   name = "tourmain-production"
 
@@ -339,27 +317,6 @@ resource "aws_lb_listener" "backend_http" {
   }
 }
 
-resource "aws_lb_listener_rule" "backend_test" {
-  listener_arn = aws_lb_listener.backend_http.arn
-  priority     = 10
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend_green.arn
-  }
-
-  condition {
-    http_header {
-      http_header_name = "X-Tourmain-Deployment"
-      values           = ["green"]
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [action]
-  }
-}
-
 resource "aws_lb_listener_rule" "backend_production" {
   listener_arn = aws_lb_listener.backend_http.arn
   priority     = 100
@@ -375,9 +332,32 @@ resource "aws_lb_listener_rule" "backend_production" {
     }
   }
 
+  # ECS swaps this rule between the blue and green target groups after each deployment.
   lifecycle {
     ignore_changes = [action]
   }
+}
+
+resource "aws_iam_role" "ecs_load_balancer" {
+  name = "tourmain-prod-ecs-load-balancer"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_load_balancer" {
+  role       = aws_iam_role.ecs_load_balancer.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForLoadBalancers"
 }
 
 resource "aws_ecs_task_definition" "chroma" {
@@ -594,7 +574,6 @@ resource "aws_ecs_service" "backend" {
   launch_type     = "FARGATE"
 
   availability_zone_rebalancing = "ENABLED"
-  wait_for_steady_state          = true
 
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
@@ -605,23 +584,19 @@ resource "aws_ecs_service" "backend" {
     rollback = true
   }
 
+  deployment_configuration {
+    strategy             = "BLUE_GREEN"
+    bake_time_in_minutes = 3
+  }
+
   deployment_controller {
     type = "ECS"
   }
 
-  deployment_configuration {
-    strategy = upper(var.backend_deployment_strategy)
-    bake_time_in_minutes = upper(var.backend_deployment_strategy) == "BLUE_GREEN" ? (
-      var.backend_blue_green_bake_time_minutes
-    ) : null
-  }
-
   alarms {
     alarm_names = [
-      aws_cloudwatch_metric_alarm.alb_unhealthy_targets.alarm_name,
-      aws_cloudwatch_metric_alarm.alb_unhealthy_targets_green.alarm_name,
       aws_cloudwatch_metric_alarm.alb_target_5xx.alarm_name,
-      aws_cloudwatch_metric_alarm.alb_target_5xx_green.alarm_name,
+      aws_cloudwatch_metric_alarm.alb_green_target_5xx.alarm_name,
     ]
     enable   = true
     rollback = true
@@ -641,7 +616,6 @@ resource "aws_ecs_service" "backend" {
     advanced_configuration {
       alternate_target_group_arn = aws_lb_target_group.backend_green.arn
       production_listener_rule   = aws_lb_listener_rule.backend_production.arn
-      test_listener_rule         = aws_lb_listener_rule.backend_test.arn
       role_arn                   = aws_iam_role.ecs_load_balancer.arn
     }
   }
@@ -656,6 +630,5 @@ resource "aws_ecs_service" "backend" {
   depends_on = [
     aws_iam_role_policy_attachment.ecs_load_balancer,
     aws_lb_listener_rule.backend_production,
-    aws_lb_listener_rule.backend_test,
   ]
 }

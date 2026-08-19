@@ -23,35 +23,13 @@ variable "enable_rds_bootstrap" {
 }
 
 variable "backend_desired_count" {
-  description = "Backend ECS task count. Production high availability requires at least two tasks."
+  description = "Highly available backend ECS task count spread across two Availability Zones."
   type        = number
   default     = 2
 
   validation {
-    condition     = var.backend_desired_count >= 0 && var.backend_desired_count <= 4
-    error_message = "backend_desired_count must be between 0 and 4."
-  }
-}
-
-variable "backend_deployment_strategy" {
-  description = "ECS deployment strategy. Use ROLLING for the first load balancer migration, then BLUE_GREEN."
-  type        = string
-  default     = "BLUE_GREEN"
-
-  validation {
-    condition     = contains(["ROLLING", "BLUE_GREEN"], upper(var.backend_deployment_strategy))
-    error_message = "backend_deployment_strategy must be ROLLING or BLUE_GREEN."
-  }
-}
-
-variable "backend_blue_green_bake_time_minutes" {
-  description = "Minutes to keep both backend revisions after production traffic shifts."
-  type        = number
-  default     = 5
-
-  validation {
-    condition     = var.backend_blue_green_bake_time_minutes >= 1 && var.backend_blue_green_bake_time_minutes <= 30
-    error_message = "backend_blue_green_bake_time_minutes must be between 1 and 30."
+    condition     = var.backend_desired_count >= 2 && var.backend_desired_count <= 4
+    error_message = "backend_desired_count must be between 2 and 4 for production high availability."
   }
 }
 

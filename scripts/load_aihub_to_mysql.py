@@ -10,10 +10,12 @@ import sys
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
+SRC_ROOT = REPOSITORY_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from src.aihub.storage import (
+from tour_recommender.aihub.storage import (
+    DEFAULT_AIHUB_DATABASE,
     DELETE_ORDER,
     EXPECTED_COLUMNS,
     TABLE_FILES,
@@ -29,13 +31,14 @@ from src.aihub.storage import (
     validate_database,
     validate_input_files,
 )
-from src.common.env import load_env_file
+from tour_recommender.utils.config import load_env_file
 
 
 DEFAULT_DATA_ROOT = REPOSITORY_ROOT / "data" / "processed" / "aihub"
 DEFAULT_SCHEMA_FILE = REPOSITORY_ROOT / "sql" / "aihub_schema.sql"
 
 __all__ = [
+    "DEFAULT_AIHUB_DATABASE",
     "DEFAULT_DATA_ROOT",
     "DEFAULT_SCHEMA_FILE",
     "DELETE_ORDER",

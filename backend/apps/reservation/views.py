@@ -570,4 +570,4 @@ class ReservationCancelAPIView(APIView):
                 context={"include_schedule": False},
             ).data,
             status=status.HTTP_200_OK,
-            )
+        )

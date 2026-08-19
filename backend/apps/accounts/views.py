@@ -8,15 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from .serializers import (
-    ErrorSerializer,
-    LogoutSerializer,
-    SocialLoginSerializer,
-    KakaoLoginSerializer,
-    TokenPairSerializer,
-    UserMeSerializer,
-)
-from .services import google_login, kakao_login, get_kakao_access_token
+from .serializers import ErrorSerializer, LogoutSerializer, SocialLoginSerializer, KakaoLoginSerializer, TokenPairSerializer, UserMeSerializer
 
 
 from .services import google_login, kakao_login, get_kakao_access_token

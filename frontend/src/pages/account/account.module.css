@@ -92,23 +92,8 @@
 .detailTotal{ font-weight:800; color: var(--green-deep); font-size:15px; }
 .detailError{ margin-top:10px; padding:10px 12px; background:#FBE7E5; color:#C0392B; border-radius:10px; font-size:12.5px; font-weight:600; }
 
-.cancelBtn{
-  display:block;
-  width:fit-content;
-  min-width:100px;
-  height:36px;
-  margin:18px 0 0 auto;
-  padding:0 18px;
-  border-radius:10px;
-  border:2px solid #C0392B;
-  background:#fff;
-  color:#C0392B;
-  font-family: var(--display);
-  font-weight:700;
-  font-size:12px;
-  cursor:pointer;
-  transition: background .15s ease;
-}
+.cancelBtn{ display:block; width:fit-content; min-width:100px; height:36px; margin:18px 0 0 auto; padding:0 18px;
+  border-radius:10px; border:2px solid #C0392B; background:#fff; color:#C0392B; font-family: var(--display); font-weight:700; font-size:12px; cursor:pointer; transition: background .15s ease; }
 .cancelBtn:hover{ background:#FBE7E5; }
 .cancelBtn:disabled{ opacity:.6; cursor:not-allowed; }
 .cancelledNotice{ margin-top:14px; text-align:center; font-size:12.5px; color: var(--muted); }

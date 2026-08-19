@@ -435,6 +435,12 @@ resource "aws_iam_role_policy" "github_deploy" {
         Resource = aws_ecs_service.backend.id
       },
       {
+        Sid      = "ReadRDSRecoveryPoint"
+        Effect   = "Allow"
+        Action   = "rds:DescribeDBInstances"
+        Resource = "*"
+      },
+      {
         Sid    = "PassBackendTaskRoles"
         Effect = "Allow"
         Action = "iam:PassRole"

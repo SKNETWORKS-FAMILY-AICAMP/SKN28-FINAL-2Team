@@ -29,7 +29,7 @@ const normalizePackage = (pkg) => ({
   isActive: pkg.is_active,
 })
 
-export default function MapPanel({ itineraryId, activeDay, refreshKey }) {
+export default function MapPanel({ itineraryId, activeDay }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const overlaysRef = useRef([])
@@ -70,7 +70,7 @@ export default function MapPanel({ itineraryId, activeDay, refreshKey }) {
     }
 
     loadRoute()
-  }, [itineraryId, refreshKey])
+  }, [itineraryId])
 
   useEffect(() => {
   if (!itineraryId) return
