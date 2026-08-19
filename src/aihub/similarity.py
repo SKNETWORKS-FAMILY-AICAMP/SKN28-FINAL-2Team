@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from src.models.enums import  LocalTransport, Pace, PartyType, VisitPreference
 from src.models.travel_condition import TravelCondition
 import hashlib
+import inspect
 import math
 import re
 from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence
@@ -21,12 +22,12 @@ class TripProfile:
     party_type: PartyType
     local_transport: LocalTransport
     companion_count: int
-    age_group: str | None
     purpose_codes: frozenset[str]
     visit_type_counts: Mapping[VisitPreference, int]
     usable_visit_count: int
     average_stay_minutes: float | None
     average_satisfaction: float | None
+    age_group: str | None = None
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> TripProfile:
@@ -93,7 +94,10 @@ class AIHubPatternConfig:
     top_k: int = 10
     reference_keyword_top_k: int = 10
     min_stops_per_day: int = 5
-        
+    min_usable_visits: int | None = None
+    duration_weight: float = 20.0
+    party_weight: float = 20.0
+    transport_weight: float = 25.0
 
     def __post_init__(self) -> None:
         if self.top_k <= 0:
@@ -111,6 +115,13 @@ class AIHubPatternConfig:
 
         if self.min_stops_per_day <= 0:
             raise ValueError("min_stops_per_day must be greater than zero")
+
+        if self.min_usable_visits is not None and self.min_usable_visits <= 0:
+            raise ValueError("min_usable_visits must be greater than zero")
+
+    @property
+    def minimum_visits(self) -> int:
+        return self.min_usable_visits or self.min_stops_per_day
 
 class AIHubPatternRepository(Protocol):
     def fetch_trip_profiles(
@@ -318,19 +329,32 @@ class AIHubPatternService:
         self.repository = repository
         self.config = config or AIHubPatternConfig()
 
+    def _fetch_profiles(
+        self,
+        condition: TravelCondition,
+        *,
+        limit: int,
+    ) -> list[TripProfile]:
+        fetch = self.repository.fetch_trip_profiles
+        if "age_groups" not in inspect.signature(fetch).parameters:
+            return fetch(min_usable_visits=self.config.minimum_visits)
+
+        return fetch(
+            age_groups=_fallback_age_groups(condition.age_group),
+            duration_days=condition.duration_days,
+            companion_rel_codes=_companion_relation_codes(condition.party_type),
+            min_stops_per_day=self.config.minimum_visits,
+            limit=limit,
+        )
+
     def find_reference_trips(
         self,
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
 
-        companion_rel_codes = _companion_relation_codes(
-            normalized.party_type
-        )
-
-        age_groups = _fallback_age_groups(
-            normalized.age_group
-        )
+        companion_rel_codes = _companion_relation_codes(normalized.party_type)
+        age_groups = _fallback_age_groups(normalized.age_group)
 
         print("\n========== AIHub FILTER ==========")
         print("age_group:", normalized.age_group)
@@ -338,16 +362,10 @@ class AIHubPatternService:
         print("duration_days:", normalized.duration_days)
         print("party_type:", normalized.party_type)
         print("companion_rel_codes:", companion_rel_codes)
-        print("min_visits:", self.config.min_stops_per_day)
+        print("min_visits:", self.config.minimum_visits)
         print("==================================")
 
-        profiles = self.repository.fetch_trip_profiles(
-            age_groups=age_groups,
-            duration_days=normalized.duration_days,
-            companion_rel_codes=companion_rel_codes,
-            min_stops_per_day=self.config.min_stops_per_day,
-            limit=self.config.top_k,
-        )
+        profiles = self._fetch_profiles(normalized, limit=self.config.top_k)
         print(f"[AIHub FILTER RESULT] {len(profiles)}개")
         for profile in profiles:
             print(
@@ -358,68 +376,36 @@ class AIHubPatternService:
                 f"visits={profile.usable_visit_count}"
             )
 
-        return [
-            TripMatch(
-                profile=profile,
-                score=100.0,
-                component_scores={
-                    "age_group": 100.0,
-                    "duration": 100.0,
-                    "party": 100.0,
-                    "visit_count": 100.0,
-                },
-                matched_on=(
-                    "age_group",
-                    "duration",
-                    "party",
-                    "visit_count",
-                ),
-                conflicts=(),
-            )
-            for profile in profiles
-        ]
+        matches = [self._score_trip(normalized, profile) for profile in profiles]
+        return sorted(
+            matches,
+            key=lambda item: (
+                -item.score,
+                -float(item.profile.average_satisfaction or 0),
+                item.profile.travel_id,
+            ),
+        )[: self.config.top_k]
+
     def find_reference_keyword_trips(
         self,
         condition: TravelCondition | Mapping[str, Any],
     ) -> list[TripMatch]:
         normalized = _normalize_condition(condition)
-
-        companion_rel_codes = _companion_relation_codes(
-            normalized.party_type
-        )
-
-        age_groups = _fallback_age_groups(
-            normalized.age_group
-        )
-
-        profiles = self.repository.fetch_trip_profiles(
-            age_groups=age_groups,
-            duration_days=normalized.duration_days,
-            companion_rel_codes=companion_rel_codes,
-            min_stops_per_day=self.config.min_stops_per_day,
+        profiles = self._fetch_profiles(
+            normalized,
             limit=self.config.reference_keyword_top_k,
         )
-
-        return [
-            TripMatch(
-                profile=profile,
-                score=100.0,
-                component_scores={
-                    "age_group": 100.0,
-                    "duration": 100.0,
-                    "party": 100.0,
-                    "visit_count": 100.0,
-                },
-                matched_on=(
-                    "age_group",
-                    "duration",
-                    "party",
-                    "visit_count",
-                ),
-                conflicts=(),
-            )
-            for profile in profiles
+        matches = [
+            self._score_trip(normalized, profile) for profile in profiles
         ]
+        return sorted(
+            matches,
+            key=lambda item: (
+                -item.score,
+                -float(item.profile.average_satisfaction or 0),
+                item.profile.travel_id,
+            ),
+        )[: self.config.reference_keyword_top_k]
 
     def build_llm_context(
         self,
@@ -670,6 +656,7 @@ def _fallback_age_groups(
 ) -> tuple[str, ...]:
     """
     요청 나이대를 기준으로 ±1단계의 AIHub age_grp 코드를 반환한다.
+    나이대가 없거나 해석할 수 없으면 전체 연령대를 조회한다.
 
     AIHub DB:
         20 = 20대
@@ -678,9 +665,17 @@ def _fallback_age_groups(
         50 = 50대
         60 = 60대
     """
+    available_age_groups = {
+        20: "20",
+        30: "30",
+        40: "40",
+        50: "50",
+        60: "60",
+    }
+
     if not age_group:
-        return ()
-    
+        return tuple(available_age_groups.values())
+
     normalized = str(age_group).strip().lower()
 
     if normalized.endswith("s"):
@@ -689,15 +684,7 @@ def _fallback_age_groups(
     try:
         age = int(normalized)
     except ValueError:
-        return ()
-
-    available_age_groups = {
-        20: "20",
-        30: "30",
-        40: "40",
-        50: "50",
-        60: "60",
-    }
+        return tuple(available_age_groups.values())
 
     fallback = []
 

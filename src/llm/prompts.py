@@ -26,6 +26,7 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비�
   "preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 1개 이상을 담은 배열,
   "companion_count": 정수 또는 null,
   "age_group": 문자열 또는 null,
+  "region": "east" | "west" | "south" | "north" 또는 null,
   "pace": {PACE_VALUES} 중 하나 또는 null,
   "must_visit_places": 문자열 배열 (없으면 []),
   "excluded_places": 문자열 배열 (없으면 [])
@@ -37,6 +38,14 @@ CONDITION_EXTRACTION_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비�
 - "맛집" -> ["food_cafe"]
 - "트래킹" -> ["trail"]
 여러 스타일이 언급되면 해당하는 값을 모두 포함하세요.
+
+지역(region) 추출 규칙:
+- "동부", "제주 동쪽", "제주 동부", "동쪽 지역" -> "east"
+- "서부", "제주 서쪽", "제주 서부", "서쪽 지역" -> "west"
+- "남부", "제주 남쪽", "제주 남부", "서귀포 쪽" -> "south"
+- "북부", "제주 북쪽", "제주 북부", "제주시 쪽" -> "north"
+- 사용자가 여행 지역을 명시하지 않았으면 null
+- 지역을 임의로 추측하지 마세요.
 
 나이대(age_group) 추출 규칙:
 - "20대" -> "20s"
@@ -245,16 +254,15 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 {{
   "mode": "edit" 또는 "recommend",
   "target_day": 정수 또는 null,
-  "insert_after": 문자열 또는 null,
-  "insert_before": 문자열 또는 null,
-  "time_period": "morning"|"lunch"|"afternoon"|"evening" 또는 null,
   "add_must_visit_places": 문자열 배열,
   "remove_must_visit_places": 문자열 배열,
   "add_excluded_places": 문자열 배열,
   "remove_excluded_places": 문자열 배열,
+  "remove_places": 현재 일정에서 삭제하고 대체하지 않을 장소명 배열,
   "add_preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 값을 담은 배열,
   "remove_preferred_visit_types": {VISIT_PREFERENCE_VALUES} 중 값을 담은 배열,
   "duration_days": 정수 또는 null,
+  "region": "east" | "west" | "south" | "north" 또는 null,
   "party_type": {PARTY_TYPE_VALUES} 중 하나 또는 null,
   "local_transport": {LOCAL_TRANSPORT_VALUES} 중 하나 또는 null,
   "pace": {PACE_VALUES} 중 하나 또는 null,
@@ -282,6 +290,23 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   affected_slots/add_must_visit_places 등 다른 필드는 어떤 종류의 후보를
   찾아야 하는지 알려주는 용도로만 채우고, 실제로 일정에 반영되지는 않습니다.
 
+"region" 판단 규칙:
+
+- 사용자가 여행 지역을 새로 지정하거나 변경한 경우에만 region을 채우세요.
+- "동부", "제주 동쪽", "제주 동부", "동쪽 지역" -> "east"
+- "서부", "제주 서쪽", "제주 서부", "서쪽 지역" -> "west"
+- "남부", "제주 남쪽", "제주 남부", "남쪽 지역" -> "south"
+- "북부", "제주 북쪽", "제주 북부", "북쪽 지역" -> "north"
+- 여행 지역 변경이나 지정 요청이 없으면 반드시 null로 두세요.
+- 지역을 임의로 추측하지 마세요.
+- 지역을 변경해달라는 명확한 요청이면 mode="edit"로 판단하세요.
+
+예:
+- "동부로 바꿔줘" -> mode="edit", region="east"
+- "서부 위주로 바꿔줘" -> mode="edit", region="west"
+- "남부로 여행하고 싶어" -> mode="edit", region="south"
+- "북부 쪽으로 바꿔줘" -> mode="edit", region="north"
+
 "target_day" 판단 규칙:
 
 - 사용자가 "1일차", "둘째 날", "3일째" 처럼 특정 일차를 명시적으로 언급했을 때만
@@ -289,36 +314,6 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 - 일차를 언급하지 않았다면 반드시 null로 두세요. 임의로 추측해서 채우지 마세요.
 - target_day는 영향 범위를 그 날짜로만 좁히는 데 사용되므로, 잘못 채우면 다른
   날짜의 정당한 수정 요청까지 무시될 수 있습니다. 확실하지 않으면 null.
-
-"insert_after" / "insert_before" 사용 규칙 (매우 중요):
-
-- 사용자가 "A 다음에 B 추가해줘", "A 뒤에 B 넣어줘"처럼 기존 일정 속 특정
-  장소를 기준으로 위치를 지정했다면, 그 기준 장소명(A)을 "insert_after"에
-  넣으세요. add_must_visit_places에는 새로 추가할 장소(B)만 넣으세요.
-- "A 앞에 B 추가해줘", "A 전에 B 넣어줘"처럼 기준 장소 앞에 넣어달라고
-  했다면 "insert_before"에 A를 넣으세요.
-- insert_after와 insert_before는 동시에 채우지 마세요. 둘 다 해당하지
-  않으면 둘 다 null로 두세요.
-- 위치 기준 장소(A)는 add_must_visit_places나 remove_must_visit_places에
-  다시 넣지 마세요. 이미 insert_after/insert_before에 들어갔습니다.
-- 예: "1일차 제주이호랜드 다음으로 하도해변 추가해줘"
-  -> mode="edit", target_day=1, insert_after="제주이호랜드",
-     add_must_visit_places=["하도해변"]
-- 예: "성산일출봉 앞에 우도 넣어줘"
-  -> mode="edit", insert_before="성산일출봉", add_must_visit_places=["우도"]
-
-"time_period" 사용 규칙:
-
-- 사용자가 "아침/오전", "점심", "오후", "저녁/밤"처럼 구체적인 시간대에
-  넣어달라고 했지만 기준이 되는 장소명은 말하지 않았다면 time_period를
-  채우세요. "아침"/"오전" -> "morning", "점심" -> "lunch",
-  "오후" -> "afternoon", "저녁"/"밤" -> "evening".
-- insert_after/insert_before를 채웠다면 time_period는 null로 두세요
-  (장소 기준이 시간대 기준보다 우선합니다).
-- 시간대 언급이 전혀 없으면 null로 두세요.
-- 예: "2일차 아침에 하도해변 추가해줘"
-  -> mode="edit", target_day=2, time_period="morning",
-     add_must_visit_places=["하도해변"]
 
 "add_slots" 사용 규칙:
 
@@ -339,6 +334,12 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 - 예를 들어 "마요네즈 빼줘", "회 말고", "매운 음식은 싫어", "조용한 카페로", "흑돼지 말고 해산물" 같은 요청은 장소 제외가 아닙니다.
 - 이런 요청은 notes에만 간단히 요약하고, affected_slots에 관련 슬롯을 추가하세요.
 
+"remove_places" 사용 규칙:
+
+- 현재 일정의 장소를 단순히 삭제하거나 빼 달라는 요청에만 사용하세요.
+- 삭제한 자리를 다른 장소로 채우지 않으므로 affected_slots는 빈 배열([])로 두세요.
+- "A 대신 B"처럼 교체를 요청하면 remove_places가 아니라 add_excluded_places와 add_must_visit_places를 사용하세요.
+
 "affected_slots" 사용 규칙:
 
 - 기존 관광지, 맛집, 카페, 액티비티 등을 변경하거나 다시 추천해야 하는 요청이라면 해당 슬롯을 추가하세요.
@@ -350,10 +351,10 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   -> mode="edit", add_excluded_places=["우도"], add_must_visit_places=["협재해변"], affected_slots=["visit"]
 
 - "우도는 빼줘"
-  -> mode="edit", add_excluded_places=["우도"], affected_slots=["visit"]
+  -> mode="edit", remove_places=["우도"], affected_slots=[]
 
 - "허디거디 이도점은 빼줘"
-  -> mode="edit", add_excluded_places=["허디거디 이도점"], affected_slots=["food"]
+  -> mode="edit", remove_places=["허디거디 이도점"], affected_slots=[]
 
 - "해변가 가고싶어, 맛집 추천해줘"
   -> mode="recommend", affected_slots=["food"], notes="해변가 근처 맛집 추천 요청"

@@ -222,7 +222,7 @@ resource "aws_db_instance" "production" {
   parameter_group_name = "default.mysql8.4"
   option_group_name    = "default:mysql-8-4"
 
-  backup_retention_period    = 7
+  backup_retention_period    = 14
   backup_window              = "13:21-13:51"
   maintenance_window         = "tue:19:42-tue:20:12"
   copy_tags_to_snapshot      = true

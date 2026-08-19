@@ -16,7 +16,6 @@ from src.recommender import (
     PackageRecommendationService,
 )
 
-from apps.travel.kakao_route_service import get_kakao_day_route_path
 from .pricing import calculate_custom_package_price
 
 
@@ -48,7 +47,7 @@ def recommend_package_comparison(
 ) -> dict[str, Any]:
     """Return one stored recommendation and a provisional custom quote."""
 
-    # 자유일정 상품은 추천 패키지 조회와 별도로 먼저 생성
+    # 자유일정 가격 먼저 계산
     custom_package = _build_custom_package(
         payload,
         itinerary_id=itinerary_id,
@@ -59,8 +58,11 @@ def recommend_package_comparison(
         top_k=1,
     )
 
-    recommendations = result.get("recommendations") or []
+    recommendations = (
+        result.get("recommendations") or []
+    )
 
+    # 추천 패키지가 없어도 자유일정 정보는 반환
     if not recommendations:
         return {
             **result,
@@ -68,59 +70,19 @@ def recommend_package_comparison(
             "custom_package": custom_package,
         }
 
-    stored_package = dict(recommendations[0])
+    # 기존 추천 패키지 ID 보정 로직 유지
+    stored_package = dict(
+        recommendations[0]
+    )
 
-    database_id = stored_package.get("database_id")
+    database_id = stored_package.get(
+        "database_id"
+    )
 
     if database_id is not None:
         stored_package["id"] = database_id
 
-    # -------------------------------------------------
-    # 추천 패키지 DAY별 실제 카카오 자동차 도로 경로
-    # -------------------------------------------------
-    days = stored_package.get("days") or []
-
-    for day in days:
-        items = [
-            item
-            for item in (day.get("items") or [])
-            if (
-                item.get("latitude") is not None
-                and item.get("longitude") is not None
-            )
-        ]
-
-        items.sort(
-            key=lambda item: int(
-                item.get("sequence") or 0
-            )
-        )
-
-        day_path = []
-
-        if len(items) >= 2:
-            try:
-                day_path = get_kakao_day_route_path(
-                    items
-                )
-
-            except (ValueError, RuntimeError) as exc:
-                print(
-                    "[Kakao] 추천 패키지 경로 조회 실패:",
-                    f"DAY {day.get('day')}",
-                    exc,
-                )
-                day_path = []
-
-        day["path"] = day_path
-
-        print(
-            "[Kakao] 추천 패키지 경로 생성:",
-            f"DAY {day.get('day')}",
-            f"{len(day_path)} points",
-        )
-
-    # 추천 패키지와 자유일정 연결
+    # 자유일정이 어떤 추천 패키지를 기준으로 비교됐는지 저장
     custom_package["reference_package_id"] = (
         stored_package["package_id"]
     )
@@ -140,15 +102,23 @@ def _build_custom_package(
     *,
     itinerary_id: int,
 ) -> dict[str, Any]:
-    itinerary = payload.get("itinerary") or {}
+    itinerary = (
+        payload.get("itinerary") or {}
+    )
+
     condition = (
         payload.get("condition")
         or payload.get("conditions")
         or {}
     )
-    hotel = itinerary.get("hotel") or {}
 
-    duration_days = condition.get("duration_days")
+    hotel = (
+        itinerary.get("hotel") or {}
+    )
+
+    duration_days = condition.get(
+        "duration_days"
+    )
 
     if duration_days is None:
         duration_days = len(

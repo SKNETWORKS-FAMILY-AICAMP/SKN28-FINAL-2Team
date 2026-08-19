@@ -1,5 +1,5 @@
 from datetime import timedelta
-from decimal import Decimal
+from copy import deepcopy
 import json
 import math
 import traceback
@@ -7,9 +7,63 @@ import traceback
 from django.db import connections, transaction
 
 from src.api import get_itinerary_engine
-from src.models.itinerary import ItineraryState
+from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 from .route_optimizer import optimize_stops
+
+
+def _merge_schedule_into_engine_state(
+    state: dict,
+    schedule: list[dict],
+) -> dict:
+    merged = deepcopy(state)
+    existing_days = {
+        int(day["day"]): day
+        for day in merged.get("itinerary", {}).get("days", [])
+    }
+    existing_stops = {
+        (day_number, int(stop["sequence"])): stop
+        for day_number, day in existing_days.items()
+        for stop in day.get("stops", [])
+    }
+    retained_keys: set[tuple[int, int]] = set()
+    merged_days = []
+
+    for scheduled_day in schedule:
+        day_number = int(scheduled_day["day"])
+        day = deepcopy(existing_days.get(day_number, {"day": day_number}))
+        day.update(
+            {
+                key: deepcopy(value)
+                for key, value in scheduled_day.items()
+                if key != "stops"
+            }
+        )
+        stops = []
+        for scheduled_stop in scheduled_day.get("stops", []):
+            key = (day_number, int(scheduled_stop["sequence"]))
+            stop = deepcopy(existing_stops.get(key, {}))
+            stop.update(deepcopy(scheduled_stop))
+            stops.append(stop)
+            retained_keys.add(key)
+        day["stops"] = stops
+        merged_days.append(day)
+
+    merged.setdefault("itinerary", {})["days"] = merged_days
+    merged["slots"] = [
+        slot
+        for slot in merged.get("slots", [])
+        if (int(slot["day"]), int(slot["sequence"])) in retained_keys
+    ]
+    merged["used_content_ids"] = list(
+        dict.fromkeys(
+            int(stop["content_id"])
+            for day in merged_days
+            for stop in day.get("stops", [])
+            if stop.get("content_id") is not None
+        )
+    )
+    return merged
 
 
 LODGING_CONTENT_TYPE_ID = 32
@@ -144,7 +198,6 @@ def _select_fixed_accommodation(
         "is_fixed": True,
     }
 
-
 def _build_place_info_map(
     state: ItineraryState,
 ) -> dict[int, dict]:
@@ -263,13 +316,6 @@ def _save_itinerary_result(
     itinerary: Itinerary,
     state: ItineraryState,
 ):
-    """
-    엔진이 생성하거나 수정한 일정 결과를 Django DB에 저장한다.
-
-    기존 일정을 삭제한 뒤 새 일정으로 교체하며,
-    content_id를 이용해 Place 테이블에서 위도와 경도를 조회한다.
-    """
-
     result = state.itinerary
     place_info_map = _build_place_info_map(state)
 
@@ -290,7 +336,6 @@ def _save_itinerary_result(
         )
         for stop in day_data.get("stops", []):
             content_id = stop.get("content_id")
-
             place = None
 
             if content_id:
@@ -320,8 +365,6 @@ def _save_itinerary_result(
                 if place
                 else place_info["longitude"]
             )
-            latitude = round(Decimal(str(latitude)), 6) if latitude is not None else None
-            longitude = round(Decimal(str(longitude)), 6) if longitude is not None else None
 
             thumbnail = (
                 stop.get("image_url")
@@ -330,7 +373,6 @@ def _save_itinerary_result(
                 or place_info["thumbnail"]
                 or ""
             )
-
             print(
                 "장소 조회:",
                 content_id,
@@ -358,16 +400,19 @@ def _save_itinerary_result(
                 title=stop.get("title", ""),
                 description=stop.get("notes", ""),
                 thumbnail=thumbnail,
-                latitude=latitude,
-                longitude=longitude,
+                latitude=round(latitude, 6) if latitude is not None else None,
+                longitude=round(longitude, 6) if longitude is not None else None,
                 spot=None,
                 restaurant=None,
                 accommodation=None,
                 memo="",
             )
-
 @transaction.atomic
-def generate_itinerary(itinerary: Itinerary):
+def generate_itinerary(
+    itinerary: Itinerary,
+    additional_request: str = "",
+):
+
     """
     사용자 입력을 이용하여
 
@@ -423,6 +468,8 @@ def generate_itinerary(itinerary: Itinerary):
             f"{itinerary.get_companion_type_display()}, "
             f"{itinerary.age_group}대"
         )
+        if additional_request.strip():
+            user_text = f"{user_text}, 추가 요청: {additional_request.strip()}"
 
         if itinerary.style:
             user_text = f"{user_text}, {itinerary.style}"
@@ -442,10 +489,15 @@ def generate_itinerary(itinerary: Itinerary):
         # -------------------------------------------------
         _optimize_itinerary_routes(state)
 
-        nights = (itinerary.end_date - itinerary.start_date).days
-        hotel = _select_fixed_accommodation(state, nights=nights)
-        if hotel:
-            state.itinerary["hotel"] = hotel
+        start_date = getattr(itinerary, "start_date", None)
+        end_date = getattr(itinerary, "end_date", None)
+        if start_date is not None and end_date is not None:
+            hotel = _select_fixed_accommodation(
+                state,
+                nights=(end_date - start_date).days,
+            )
+            if hotel:
+                state.itinerary["hotel"] = hotel
 
         # -------------------------------------------------
         # 최종 일정
@@ -520,14 +572,13 @@ def revise_itinerary(
         )
         fixed_hotel = state.itinerary.get("hotel")
 
-                # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
+        # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
         chat_result = get_itinerary_engine().update_itinerary_from_chat(
             state,
             user_text,
         )
 
-       
-                # 추천만 조회했거나 변경 사항이 없는 경우
+        # 추천만 조회했거나 변경 사항이 없는 경우
         if chat_result.mode != "edit":
 
             if chat_result.mode == "recommend":
@@ -570,7 +621,7 @@ def revise_itinerary(
         print("=" * 80)
 
         return itinerary, chat_result
-        
+
     except Exception as e:
         print("=" * 80)
         print("===== revise_itinerary 실패 =====")

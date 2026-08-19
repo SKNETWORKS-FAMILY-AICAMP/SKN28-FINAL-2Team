@@ -1,6 +1,5 @@
 import styles from './booking.module.css'
 import cx from '../../utils/cx.js'
-import { won } from '../../data/packages.js'
 
 const durationLabel = (pkg) => {
   if (pkg.durationLabel || pkg.duration_label) {
@@ -8,6 +7,7 @@ const durationLabel = (pkg) => {
   }
 
   const days = Number(pkg.durationDays ?? pkg.duration_days)
+
   if (Number.isFinite(days) && days > 0) {
     return days === 1 ? '당일치기' : `${days - 1}박 ${days}일`
   }
@@ -30,12 +30,20 @@ export default function PackageList({
         const p = item.package
         const checked = selected.includes(p.id)
         const liked = isBookmarked(p.id)
+
         const tripDuration = durationLabel(p)
+
         const accommodationIncluded = Boolean(
-          p.accommodationIncluded ?? p.accommodation_included ?? p.hotel,
+          p.accommodationIncluded ??
+            p.accommodation_included ??
+            p.hotel
         )
+
         const accommodationName =
-          p.accommodationName ?? p.accommodation_name ?? p.hotel?.title ?? ''
+          p.accommodationName ??
+          p.accommodation_name ??
+          p.hotel?.title ??
+          ''
 
         return (
           <div key={item.cartId ?? p.id}>
@@ -74,13 +82,30 @@ export default function PackageList({
                 onClick={() => onToggle?.(p.id)}
               >
                 <h5>{p.name}</h5>
-                <div className={styles.desc}>{p.description}</div>
+
+                <div className={styles.desc}>
+                  {p.description}
+                </div>
+
                 <div className={styles.pkgMetaList}>
-                  {tripDuration && <span>{tripDuration}</span>}
-                  {p.region && <span>{p.region}</span>}
-                  <span>{p.isCustom ? '자유일정' : '여행사 패키지'}</span>
+                  {tripDuration && (
+                    <span>{tripDuration}</span>
+                  )}
+
+                  {p.region && (
+                    <span>{p.region}</span>
+                  )}
+
+                  <span>
+                    {p.isCustom
+                      ? '자유일정'
+                      : '여행사 패키지'}
+                  </span>
+
                   {accommodationIncluded && (
-                    <span>숙소 · {accommodationName || '포함'}</span>
+                    <span>
+                      숙소 · {accommodationName || '포함'}
+                    </span>
                   )}
                 </div>
               </div>
@@ -100,13 +125,6 @@ export default function PackageList({
                   {liked ? '❤️' : '🤍'}
                 </button>
               )}
-
-              <div
-                className={styles.pkgPrice}
-                onClick={() => onToggle?.(p.id)}
-              >
-                 {won(Number(p.price || 0) * item.quantity)}
-              </div>
             </div>
           </div>
         )

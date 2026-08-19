@@ -1,19 +1,27 @@
+import copy
+
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from apps.package_recommendation.services import recommend_package_comparison
-import copy
+from rest_framework.response import Response
+
 from .models import Itinerary, Package
-from .serializers import ( ItineraryRouteSerializer, ItinerarySerializer, 
-        ItineraryShareSerializer, ItineraryRevisionSerializer, PackageSerializer, PackageListSerializer
+from .serializers import (
+    ItineraryRouteSerializer,
+    ItinerarySerializer,
+    ItineraryShareSerializer,
+    ItineraryRevisionSerializer,
+    PackageSerializer,
+    PackageListSerializer,
 )
 from .services import generate_itinerary, revise_itinerary
 from .kakao_route_service import get_kakao_day_route_path
+
+from apps.package_recommendation.services import recommend_package_comparison
 
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -126,7 +134,6 @@ class ItineraryViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["post"])
     def revise(self, request, pk=None):
-
         itinerary = self.get_object()
         if itinerary.status == Itinerary.Status.CONFIRMED:
             return self._confirmed_edit_response()
@@ -166,6 +173,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
             data,
             status=status.HTTP_200_OK,
         )
+
     @extend_schema(
         tags=["Itinerary"],
         summary="일정 생성",
@@ -182,9 +190,13 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        additional_request = serializer.validated_data.get("additional_request", "")
         itinerary = serializer.save(user=request.user)
 
-        generate_itinerary(itinerary)
+        generate_itinerary(
+            itinerary,
+            additional_request=additional_request,
+        )
 
         serializer = self.get_serializer(itinerary)
 
@@ -325,13 +337,18 @@ class ItineraryViewSet(viewsets.ModelViewSet):
 
         itinerary = self.get_object()
         result = []
+
         for day in itinerary.days.all().order_by("day_number"):
+
             items = list(
-                day.items.filter(
+                day.items
+                .filter(
                     latitude__isnull=False,
                     longitude__isnull=False,
-                ).order_by("order")
+                )
+                .order_by("order")
             )
+
             points = [
                 {
                     "order": item.order,
@@ -349,6 +366,7 @@ class ItineraryViewSet(viewsets.ModelViewSet):
                     "path": [],
                 }
             )
+
         return Response(result)
 
     @extend_schema(

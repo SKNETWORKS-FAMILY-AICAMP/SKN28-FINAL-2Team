@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import math
 
-from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+from ortools.constraint_solver import pywrapcp
+from ortools.constraint_solver import routing_enums_pb2
 
 
 def build_distance_matrix(stops: list[dict]) -> list[list[int]]:
@@ -50,9 +51,9 @@ def build_distance_matrix(stops: list[dict]) -> list[list[int]]:
             matrix[from_index][to_index] = int(distance)
 
     return matrix
-
-
-def optimize_stops(stops: list[dict]) -> list[dict]:
+def optimize_stops(
+    stops: list[dict],
+) -> list[dict]:
     """
     하루 일정의 stop 목록을 좌표 기반 직선거리 기준으로
     OR-Tools를 이용해 최적화한다.
@@ -69,7 +70,9 @@ def optimize_stops(stops: list[dict]) -> list[dict]:
     if len(stops) <= 1:
         return stops
 
+    # -------------------------------------------------
     # 좌표 확인
+    # -------------------------------------------------
     for stop in stops:
         if (
             stop.get("latitude") is None
@@ -81,125 +84,242 @@ def optimize_stops(stops: list[dict]) -> list[dict]:
             )
             return stops
 
+    # -------------------------------------------------
     # 좌표 기반 거리 Matrix
-    # Kakao Directions API를 호출하지 않는다.
+    # Kakao API를 호출하지 않는다.
+    # -------------------------------------------------
     time_matrix = build_distance_matrix(stops)
 
     stop_count = len(stops)
 
+    # -------------------------------------------------
+    # 시작점 후보
+    #
+    # food는 시작점 후보에서 제외
+    # -------------------------------------------------
     candidate_start_indices = [
         index
         for index, stop in enumerate(stops)
         if stop.get("role") != "food"
-    ] or list(range(stop_count))
+    ]
 
-    def solve_route(start_index: int):
+    # 모든 장소가 food인 특수한 경우에는
+    # 전체 장소를 시작점 후보로 사용
+    if not candidate_start_indices:
+        candidate_start_indices = list(
+            range(stop_count)
+        )
+
+    print("=" * 80)
+    print("[OR-Tools] 시작점 후보")
+
+    for start_index in candidate_start_indices:
+        print(
+            start_index,
+            stops[start_index].get("role"),
+            stops[start_index].get("title"),
+        )
+
+    print("=" * 80)
+
+    # -------------------------------------------------
+    # 특정 시작점으로 경로 하나 계산
+    # -------------------------------------------------
+    def solve_route(
+        start_index: int,
+    ) -> tuple[list[int], int] | None:
+
+        # 종료점을 자유롭게 만들기 위한 가상 노드
         dummy_node = stop_count
+        total_nodes = stop_count + 1
 
         manager = pywrapcp.RoutingIndexManager(
-            stop_count + 1,
+            total_nodes,
             1,
             [start_index],
             [dummy_node],
         )
 
-        routing = pywrapcp.RoutingModel(manager)
+        routing = pywrapcp.RoutingModel(
+            manager
+        )
 
-        def time_callback(from_index, to_index):
-            from_node = manager.IndexToNode(from_index)
-            to_node = manager.IndexToNode(to_index)
+        # ---------------------------------------------
+        # 이동거리 비용
+        # ---------------------------------------------
+        def time_callback(
+            from_index,
+            to_index,
+        ):
+            from_node = manager.IndexToNode(
+                from_index
+            )
+
+            to_node = manager.IndexToNode(
+                to_index
+            )
 
             # 마지막 실제 장소 → 가상 종료점
+            # 비용은 0
             if to_node == dummy_node:
                 return 0
 
-            return time_matrix[from_node][to_node]
+            if from_node == dummy_node:
+                return 0
 
-        callback_index = routing.RegisterTransitCallback(
-            time_callback
+            return time_matrix[
+                from_node
+            ][to_node]
+
+        time_callback_index = (
+            routing.RegisterTransitCallback(
+                time_callback
+            )
         )
 
         routing.SetArcCostEvaluatorOfAllVehicles(
-            callback_index
+            time_callback_index
         )
 
-        parameters = pywrapcp.DefaultRoutingSearchParameters()
-
-        parameters.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+        # ---------------------------------------------
+        # 탐색 설정
+        # ---------------------------------------------
+        search_parameters = (
+            pywrapcp
+            .DefaultRoutingSearchParameters()
         )
 
-        solution = routing.SolveWithParameters(parameters)
+        search_parameters.first_solution_strategy = (
+            routing_enums_pb2
+            .FirstSolutionStrategy
+            .PATH_CHEAPEST_ARC
+        )
+
+        solution = routing.SolveWithParameters(
+            search_parameters
+        )
 
         if solution is None:
             return None
 
+        # ---------------------------------------------
+        # 경로 추출
+        # ---------------------------------------------
         ordered_indices = []
 
         index = routing.Start(0)
 
         while not routing.IsEnd(index):
-            node = manager.IndexToNode(index)
+            node = manager.IndexToNode(
+                index
+            )
 
             if node != dummy_node:
-                ordered_indices.append(node)
+                ordered_indices.append(
+                    node
+                )
 
             index = solution.Value(
                 routing.NextVar(index)
             )
 
-        total_distance = 0
+        # ---------------------------------------------
+        # 전체 전체 이동시간 계산
+        # ---------------------------------------------
+        total_travel_time = 0
 
-        for route_index in range(len(ordered_indices) - 1):
-            from_node = ordered_indices[route_index]
-            to_node = ordered_indices[route_index + 1]
+        for route_index in range(
+            len(ordered_indices) - 1
+        ):
+            from_node = (
+                ordered_indices[
+                    route_index
+                ]
+            )
 
-            total_distance += time_matrix[from_node][to_node]
+            to_node = (
+                ordered_indices[
+                    route_index + 1
+                ]
+            )
 
-        return ordered_indices, total_distance
+            total_travel_time += (
+                time_matrix[
+                    from_node
+                ][to_node]
+            )
 
+        return (
+            ordered_indices,
+            total_travel_time,
+        )
+
+    # -------------------------------------------------
+    # 가능한 시작점을 전부 시험
+    # -------------------------------------------------
     best_order = None
-    best_total_distance = None
+    best_total_time = None
     best_start_index = None
 
     for start_index in candidate_start_indices:
 
-        result = solve_route(start_index)
+        result = solve_route(
+            start_index
+        )
 
         if result is None:
             print(
                 "[OR-Tools] 시작점 경로 계산 실패:",
-                stops[start_index].get("title"),
+                stops[start_index].get(
+                    "title"
+                ),
             )
             continue
 
-        ordered_indices, total_distance = result
+        ordered_indices, total_time = result
 
         print(
             "[OR-Tools] 시작점:",
-            stops[start_index].get("title"),
+            stops[start_index].get(
+                "title"
+            ),
             "| 총 이동거리:",
-            total_distance,
+            total_time,
             "m",
         )
 
         print(
             "  경로:",
             " → ".join(
-                stops[index].get("title", "")
-                for index in ordered_indices
+                stops[index].get(
+                    "title",
+                    ""
+                )
+                for index
+                in ordered_indices
             ),
         )
 
         if (
-            best_total_distance is None
-            or total_distance < best_total_distance
+            best_total_time is None
+            or total_time
+            < best_total_time
         ):
-            best_total_distance = total_distance
-            best_order = ordered_indices
-            best_start_index = start_index
+            best_total_time = (
+                total_time
+            )
 
+            best_order = (
+                ordered_indices
+            )
+
+            best_start_index = (
+                start_index
+            )
+
+    # -------------------------------------------------
     # 모든 계산이 실패한 경우
+    # -------------------------------------------------
     if best_order is None:
         print(
             "[OR-Tools] 모든 경로 계산 실패 - "
@@ -207,7 +327,9 @@ def optimize_stops(stops: list[dict]) -> list[dict]:
         )
         return stops
 
+    # -------------------------------------------------
     # 최종 최적 경로 생성
+    # -------------------------------------------------
     optimized = [
         stops[index]
         for index in best_order
@@ -220,18 +342,22 @@ def optimize_stops(stops: list[dict]) -> list[dict]:
     ):
         stop["sequence"] = sequence
 
+    # -------------------------------------------------
     # 최종 로그
+    # -------------------------------------------------
     print("=" * 80)
     print("[OR-Tools] 최종 경로 선택")
 
     print(
         "선택된 시작점:",
-        stops[best_start_index].get("title"),
+        stops[
+            best_start_index
+        ].get("title"),
     )
 
     print(
         "총 직선 이동거리:",
-        best_total_distance,
+        best_total_time,
         "m",
     )
 

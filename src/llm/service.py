@@ -153,6 +153,8 @@ class LLMService:
                 "itinerary generation response is missing 'days'"
             )
 
+        _repair_generated_itinerary(raw, days_with_candidates)
+        _validate_generated_itinerary(raw, days_with_candidates)
         return raw
 
     # ------------------------------------------------------------------
@@ -227,13 +229,153 @@ class LLMService:
         print("LLM revise raw")
         print(raw)
         print("=" * 80)
-        
+
         if "days" not in raw:
             raise LLMClientError(
                 "itinerary revision response is missing 'days'"
             )
 
+        _validate_itinerary_revision(raw, existing_itinerary, changed_slots)
         return raw
+
+
+def _repair_generated_itinerary(
+    itinerary: dict[str, Any],
+    days_with_candidates: list[dict[str, Any]],
+) -> None:
+    slots = {
+        (int(day["day"]), int(slot["sequence"])): slot
+        for day in days_with_candidates
+        for slot in day.get("slots", [])
+    }
+    used_content_ids: set[int] = set()
+
+    for day in itinerary.get("days", []):
+        day_number = int(day["day"])
+        repaired_stops = []
+        for stop in day.get("stops", []):
+            key = (day_number, int(stop["sequence"]))
+            slot = slots.get(key, {})
+            candidates = slot.get("candidates", [])
+            try:
+                current_content_id = int(stop.get("content_id"))
+            except (TypeError, ValueError):
+                current_content_id = None
+
+            selected = next(
+                (
+                    candidate for candidate in candidates
+                    if int(candidate["content_id"]) == current_content_id
+                    and current_content_id not in used_content_ids
+                ),
+                None,
+            ) or next(
+                (
+                    candidate for candidate in candidates
+                    if int(candidate["content_id"]) not in used_content_ids
+                ),
+                None,
+            )
+            if selected is None:
+                continue
+
+            selected_content_id = int(selected["content_id"])
+            if selected_content_id != current_content_id:
+                stop["content_id"] = selected_content_id
+                if selected.get("title"):
+                    stop["title"] = selected["title"]
+                    stop["notes"] = f"{selected['title']} 방문"
+            stop["role"] = slot.get("role", stop.get("role"))
+            repaired_stops.append(stop)
+            used_content_ids.add(selected_content_id)
+        day["stops"] = repaired_stops
+
+
+def _validate_generated_itinerary(
+    itinerary: dict[str, Any],
+    days_with_candidates: list[dict[str, Any]],
+) -> None:
+    allowed = _candidate_ids_by_slot(days_with_candidates)
+    seen: set[int] = set()
+    for key, stop in _stops_by_slot(itinerary).items():
+        content_id = _content_id(stop)
+        if content_id not in allowed.get(key, set()):
+            raise LLMClientError(
+                f"itinerary generation selected content_id outside slot candidates: {key}"
+            )
+        if content_id in seen:
+            raise LLMClientError(
+                f"itinerary generation returned duplicate content_id: {content_id}"
+            )
+        seen.add(content_id)
+
+
+def _validate_itinerary_revision(
+    itinerary: dict[str, Any],
+    existing_itinerary: dict[str, Any],
+    changed_slots: list[dict[str, Any]],
+) -> None:
+    revised = _stops_by_slot(itinerary)
+    existing = _stops_by_slot(existing_itinerary)
+    changed_keys = {
+        (int(slot["day"]), int(slot["sequence"])) for slot in changed_slots
+    }
+    for key in (set(existing) | set(revised)) - changed_keys:
+        if revised.get(key) != existing.get(key):
+            raise LLMClientError(
+                f"itinerary revision changed an unchanged slot: {key}"
+            )
+
+    allowed = _candidate_ids_by_slot(
+        [{"day": slot["day"], "slots": [slot]} for slot in changed_slots]
+    )
+    for key in changed_keys:
+        stop = revised.get(key)
+        if stop is None or _content_id(stop) not in allowed.get(key, set()):
+            raise LLMClientError(
+                f"itinerary revision selected content_id outside slot candidates: {key}"
+            )
+
+    content_ids = [_content_id(stop) for stop in revised.values()]
+    if len(content_ids) != len(set(content_ids)):
+        raise LLMClientError("itinerary revision returned duplicate content_id")
+
+
+def _candidate_ids_by_slot(
+    days_with_candidates: list[dict[str, Any]],
+) -> dict[tuple[int, int], set[int]]:
+    allowed: dict[tuple[int, int], set[int]] = {}
+    for day in days_with_candidates:
+        day_number = int(day["day"])
+        for slot in day.get("slots", []):
+            allowed[(day_number, int(slot["sequence"]))] = {
+                int(candidate["content_id"])
+                for candidate in slot.get("candidates", [])
+            }
+    return allowed
+
+
+def _stops_by_slot(
+    itinerary: dict[str, Any],
+) -> dict[tuple[int, int], dict[str, Any]]:
+    stops: dict[tuple[int, int], dict[str, Any]] = {}
+    for day in itinerary.get("days", []):
+        day_number = int(day["day"])
+        for stop in day.get("stops", []):
+            key = (day_number, int(stop["sequence"]))
+            if key in stops:
+                raise LLMClientError(f"itinerary returned duplicate slot: {key}")
+            stops[key] = stop
+    return stops
+
+
+def _content_id(stop: dict[str, Any]) -> int:
+    try:
+        return int(stop["content_id"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise LLMClientError(
+            "itinerary stop is missing a valid candidate content_id"
+        ) from exc
 
 
 def create_llm_service(

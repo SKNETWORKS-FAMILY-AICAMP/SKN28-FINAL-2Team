@@ -1,13 +1,14 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styles from './review/review.module.css';
 import cx from '../utils/cx.js';
- import AppHeader from '../components/AppHeader.jsx'
+import AppHeader from './review/AppHeader.jsx';
 import { DayColumns } from './review/ItineraryOverview.jsx';
 import TripSummary from './review/TripSummary.jsx';
 import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useItineraries } from '../context/ItineraryContext.jsx';
 import { getPackageDetail, getPackages } from '../api/packageApi.js';
+import { won } from '../data/packages.js';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -39,8 +40,8 @@ const getCustomPackageThumbnail = (itinerary) => {
   return '';
 };
 
-const formatPrice = (value) =>
-  `${Number(value || 0).toLocaleString('ko-KR')}원`;
+
+const formatPrice = won;
 
 const formatCustomPrice = (customPackage) =>
   customPackage?.pricing_basis === 'free_day_trip'
@@ -451,7 +452,7 @@ export default function ReviewPage() {
             {isBooked
               ? '예약한 여행을 확인해보세요'
               : isItineraryOnlyView
-                ? '여행 일정을 확인해보세요'
+                ? '완성한 여행 일정을 확인해보세요'
                 : '나에게 맞는 여행을 선택해보세요'}
           </h1>
 
@@ -567,6 +568,18 @@ export default function ReviewPage() {
 
           {!token && !isItineraryOnlyView && itinerary.status === 'confirmed' && !isBooked && (
             <section className={styles.packageComparison}>
+              <div className={styles.packageComparisonHead}>
+                <span>여행 방식 선택</span>
+
+                <h2>
+                  내가 만든 일정과 추천 패키지를 비교해보세요
+                </h2>
+
+                <p>
+                  지도에서 여행 동선을 확인하고, 아래에서 원하는 여행 방식을 선택할 수 있어요.
+                </p>
+              </div>
+
               <div
                 id="package-comparison-map"
                 className={styles.comparisonMapSlot}
@@ -650,6 +663,10 @@ export default function ReviewPage() {
 
                     {packageComparison.stored_package && (
                       <>
+                        <p className={styles.packageMeta}>
+                          {packageComparison.stored_package.region} ·{' '}
+                          {packageComparison.stored_package.duration_days}일
+                        </p>
                         {Boolean(packageComparison.stored_package.hotel) && (
                           <div className={styles.accommodationInfo}>
                             <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
@@ -665,6 +682,10 @@ export default function ReviewPage() {
                         <ComparisonDays
                           days={packageComparison.stored_package.days}
                         />
+                        <div className={styles.packageAdvantages}>
+                          <span>✓ 확정 일정과 가장 유사한 구성</span>
+                          <span>✓ 바로 예약 가능한 패키지 상품</span>
+                        </div>
                       </>
                     )}
                   </article>
@@ -722,6 +743,11 @@ export default function ReviewPage() {
                             마음에 든 지금 일정 그대로, 나만의 여행을 즐겨보세요.
                           </p>
                         </div>
+                        <p className={styles.packageMeta}>
+                          {packageComparison.custom_package.pricing_basis === 'free_day_trip'
+                            ? `${itinerary.durationLabel} · 일정 무료 제공`
+                            : `${itinerary.durationLabel} · 숙소 비용만 포함`}
+                        </p>
                         {itinerary.hotel && (
                           <div className={styles.accommodationInfo}>
                             <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
@@ -743,10 +769,10 @@ export default function ReviewPage() {
                 <div className={styles.bookingAction}>
                   <span>
                     {selectedProduct === 'stored'
-                      ? '추천 패키지를 선택했어요.'
+                      ? '추천 패키지를 선택했습니다.'
                       : isFreeCustomPackage(packageComparison.custom_package)
-                        ? '무료 당일치기 일정은 내 일정에서 바로 확인할 수 있어요.'
-                        : '내가 만든 일정을 선택했어요.'}
+                        ? '무료 당일치기 일정은 확정과 동시에 내 일정에 저장되었습니다.'
+                        : '자유일정을 선택했습니다.'}
                   </span>
                   <div className={styles.bookingButtons}>
                     <button
@@ -894,6 +920,21 @@ export default function ReviewPage() {
               itinerary.status === 'confirmed' &&
               (isBookedCustom || isItineraryOnlyView) && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
+                  <div className={styles.packageComparisonHead}>
+                    <span>
+                      {isBookedCustom ? '예약한 여행' : '내 일정'}
+                    </span>
+
+                    <h2>
+                      {itinerary.durationLabel} {itinerary.companionTypeDisplay} 여행
+                    </h2>
+
+                    <p>
+                      {isBookedCustom
+                        ? '내가 만든 일정 그대로 예약한 여행이에요.'
+                        : '완성한 일정을 확인해보세요.'}
+                    </p>
+                  </div>
 
                 {!token && (
                   <div className={styles.reviewActions}>
@@ -998,6 +1039,6 @@ export default function ReviewPage() {
 
           </div>
         </div>  
-      </div>  
+      </div>
   );
 }

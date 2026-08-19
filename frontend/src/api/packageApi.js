@@ -21,8 +21,6 @@ export async function getPackageDetail(id) {
     const { data } = await api.get(`/travel/packages/${id}/`)
     return data
   } catch (error) {
-    throw new Error(
-      extractErrorMessage(error, '패키지 상세 정보를 불러오지 못했습니다.'),
-    )
+    throw new Error(extractErrorMessage(error, '패키지 상세 정보를 불러오지 못했습니다.'))
   }
 }

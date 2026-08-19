@@ -1,15 +1,7 @@
 from rest_framework import serializers
+from src.recommender.package_profile import infer_package_style
 
 from .models import Itinerary, ItineraryDay, ItineraryItem, Package
-
-
-def _csv_values(value):
-    return {
-        item.strip().lower()
-        for item in str(value or "").split(",")
-        if item.strip()
-    }
-    
 
 class PackageSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="title", read_only=True)
@@ -22,14 +14,28 @@ class PackageSerializer(serializers.ModelSerializer):
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    match_profile = serializers.ReadOnlyField()
 
     class Meta:
         model = Package
         fields = (
-            "id", "package_id", "name", "description", "price", "region", "duration_days",
-            "companion", "tags",
-            "thumbnail_url", "accommodation_included", "accommodation_name",
-            "style", "style_display", "course", "is_active",
+            "id",
+            "package_id",
+            "name",
+            "description",
+            "price",
+            "region",
+            "duration_days",
+            "companion",
+            "tags",
+            "match_profile",
+            "thumbnail_url",
+            "accommodation_included",
+            "accommodation_name",
+            "style",
+            "style_display",
+            "course",
+            "is_active",
         )
 
     def get_accommodation_included(self, obj):
@@ -73,22 +79,7 @@ class PackageSerializer(serializers.ModelSerializer):
         return row[0] if row and row[0] else ""
 
     def get_style(self, obj):
-        companions = _csv_values(obj.companion)
-        tags = _csv_values(obj.tags)
-
-        if "family" in companions:
-            return "family"
-
-        if "experience" in tags or "activity" in tags:
-            return "activity"
-
-        if "food" in tags:
-            return "food"
-
-        if "nature" in tags:
-            return "healing"
-
-        return ""
+        return infer_package_style(obj.companion, obj.tags)
 
     def get_style_display(self, obj):
         labels = {
@@ -224,6 +215,11 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
 
 class ItinerarySerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=False,allow_blank=True)
+    additional_request = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
     days = ItineraryDaySerializer(many=True, required=False)
     duration_label = serializers.ReadOnlyField()
     # style은 더 이상 choices로 제한된 카테고리가 아니라 자유 입력 텍스트이므로
@@ -236,7 +232,6 @@ class ItinerarySerializer(serializers.ModelSerializer):
     booked_price = serializers.SerializerMethodField()
     hotel = serializers.SerializerMethodField()
 
-
     class Meta:
         model = Itinerary
         fields = (
@@ -245,6 +240,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
             "companion_count",  "age_group", "style", "style_display",
             "selected_package", "status", "status_display", "is_public",
             "share_token", "duration_label", "days",
+            "additional_request",
             "created_at", "updated_at", "booked_product_type", "booked_package_db_id", "booked_price",
             "hotel"
         )
@@ -313,6 +309,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
         return itinerary_state.get("hotel")
 
     def create(self, validated_data):
+        validated_data.pop("additional_request", None)
         days_data = validated_data.pop("days", [])
         itinerary = Itinerary.objects.create(**validated_data)
         self._sync_days(itinerary, days_data)
@@ -320,6 +317,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
 
     def update(self, instance, validated_data):
+        validated_data.pop("additional_request", None)
         days_data = validated_data.pop("days", None)
 
         for attr, value in validated_data.items():
@@ -328,6 +326,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
         if days_data is not None:
             self._sync_days(instance, days_data)
+            self._sync_engine_state(instance)
 
         return instance
 
@@ -346,6 +345,35 @@ class ItinerarySerializer(serializers.ModelSerializer):
                 item_data.setdefault("order", idx)
                 ItineraryItem.objects.create(day=day, **item_data)
 
+    @staticmethod
+    def _sync_engine_state(itinerary):
+        if not itinerary.engine_state:
+            return
+
+        from .services import _merge_schedule_into_engine_state
+
+        schedule = [
+            {
+                "day": day.day_number,
+                "stops": [
+                    {
+                        "sequence": item.order,
+                        "title": item.title,
+                        "start_time": item.time,
+                        "notes": item.description,
+                        "item_type": item.item_type,
+                    }
+                    for item in day.items.all()
+                ],
+            }
+            for day in itinerary.days.prefetch_related("items").all()
+        ]
+        itinerary.engine_state = _merge_schedule_into_engine_state(
+            itinerary.engine_state,
+            schedule,
+        )
+        itinerary.save(update_fields=["engine_state"])
+
 
 class ItineraryRouteSerializer(serializers.Serializer):
     """
@@ -355,9 +383,6 @@ class ItineraryRouteSerializer(serializers.Serializer):
     day_number = serializers.IntegerField()
 
     points = serializers.ListField(
-        child=serializers.DictField(),
-    )
-    path = serializers.ListField(
         child=serializers.DictField(),
     )
 

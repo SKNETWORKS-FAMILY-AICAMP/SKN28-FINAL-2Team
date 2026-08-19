@@ -93,7 +93,7 @@ function CompareDemo() {
           </div>
           <p>대화로 완성한 관광지와 맛집 일정을 그대로 이용하는 상품이에요.</p>
           <div className="usage-route-summary">내가 확정한 2박 3일 관광지·맛집 일정 포함</div>
-          <div className="usage-benefits"><span>✓ 일정 맞춤 구성</span><span>✓ 숙소 미포함</span></div>
+          <div className="usage-benefits"><span>✓ 일정 맞춤 구성</span><span>✓ 숙소 포함</span></div>
           <button type="button">자유일정 선택</button>
         </article>
       </div>

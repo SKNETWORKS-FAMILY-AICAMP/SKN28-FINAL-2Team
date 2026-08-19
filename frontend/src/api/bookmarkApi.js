@@ -11,9 +11,7 @@ export async function getBookmarks() {
 
 export async function createBookmark(packageId) {
   try {
-    const { data } = await api.post('/bookmarks/', {
-      package_id: packageId,
-    })
+    const { data } = await api.post('/bookmarks/', { package_id: packageId })
     return data
   } catch (error) {
     throw new Error(extractErrorMessage(error, '북마크를 추가하지 못했습니다.'))

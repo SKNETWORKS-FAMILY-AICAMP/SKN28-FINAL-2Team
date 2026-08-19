@@ -5,9 +5,10 @@ import { getItinerary } from '../api/itinerary'
 
 import { getPackageDetail, getPackages } from '../api/packageApi'
 import { cancelReservation, getReservation } from '../api/reservationApi'
-import AppHeader from '../components/AppHeader.jsx'
-import styles from './reservation/reservationDetail.module.css'
 import { won } from '../data/packages.js'
+import AppHeader from './review/AppHeader.jsx'
+import ReservationRouteMap from './reservation/ReservationRouteMap.jsx'
+import styles from './reservation/reservationDetail.module.css'
 
 const itemTypeLabel = (type) => {
   if (type === 'restaurant') return '음식점'
@@ -262,6 +263,12 @@ export default function ReservationDetailPage() {
               ) : (
                 <p className={styles.sub}>표시할 일정이 없습니다.</p>
               )}
+            </div>
+
+            <div className={styles.routeMapSection}>
+              <h3>여행 동선</h3>
+              <p>일차별 방문 순서와 포함 숙소를 지도에서 확인할 수 있어요.</p>
+              <ReservationRouteMap days={days} hotel={hotelInfo} />
             </div>
           </section>
 

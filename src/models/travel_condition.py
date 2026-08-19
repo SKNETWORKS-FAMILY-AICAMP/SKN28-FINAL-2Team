@@ -1,18 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Mapping
 
-from ..models.enums import LocalTransport, Pace, PartyType, VisitPreference
-
-SlotRole = str  # "visit" | "activity" | "food" | "shopping"
-
-VALID_SLOT_ROLES: tuple[str, ...] = (
-    "visit",
-    "activity",
-    "food",
-    "shopping",
-)
+from .enums import LocalTransport, Pace, PartyType, VisitPreference
 
 
 @dataclass(frozen=True)
@@ -21,9 +12,9 @@ class TravelCondition:
     party_type: PartyType
     local_transport: LocalTransport
     preferred_visit_types: tuple[VisitPreference, ...]
-    companion_count: int
+    companion_count: int | None = None
+    region: str | None = None
     age_group: str | None = None
-
     purpose_codes: tuple[str, ...] = ()
     pace: Pace | None = None
     arrival_time: str | None = None
@@ -34,29 +25,87 @@ class TravelCondition:
     excluded_places: tuple[str, ...] = ()
     mobility_constraints: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if not 1 <= self.duration_days <= 30:
+            raise ValueError("duration_days must be between 1 and 30")
+
+        if self.companion_count is not None and self.companion_count < 0:
+            raise ValueError("companion_count must be zero or greater")
+
     @classmethod
-    def from_mapping(cls, value: dict[str, Any]) -> "TravelCondition":
-        return cls(
-            duration_days=_optional_int(value.get("duration_days")) or 1,
-            party_type=PartyType(value["party_type"]),
-            local_transport=LocalTransport(value["local_transport"]),
-            preferred_visit_types=_visit_type_tuple(
-                value.get("preferred_visit_types")
-            ),
-            companion_count=_optional_int(value.get("companion_count")) or 0,
-            age_group=str(value.get("age_group") or "").strip() or None,
-            purpose_codes=_string_tuple(value.get("purpose_codes")),
-            pace=Pace(value["pace"]) if value.get("pace") else None,
-            arrival_time=value.get("arrival_time"),
-            departure_time=value.get("departure_time"),
-            entry_point=value.get("entry_point"),
-            accommodation_address=value.get("accommodation_address"),
-            must_visit_places=_string_tuple(value.get("must_visit_places")),
-            excluded_places=_string_tuple(value.get("excluded_places")),
-            mobility_constraints=_string_tuple(
-                value.get("mobility_constraints")
-            ),
-        )
+    def from_mapping(
+        cls,
+        value: Mapping[str, Any],
+    ) -> "TravelCondition":
+        try:
+            preferred_visit_types = tuple(
+                VisitPreference(item)
+                for item in value["preferred_visit_types"]
+            )
+
+            return cls(
+                duration_days=int(value["duration_days"]),
+                party_type=PartyType(value["party_type"]),
+                local_transport=LocalTransport(
+                    value["local_transport"]
+                ),
+                preferred_visit_types=preferred_visit_types,
+                companion_count=_optional_int(
+                    value.get("companion_count")
+                ),
+                region=str(value.get("region") or "").strip() or None,
+                age_group=str(value.get("age_group") or "").strip() or None,
+                purpose_codes=_string_tuple(
+                    value.get("purpose_codes")
+                ),
+                pace=(
+                    Pace(value["pace"])
+                    if value.get("pace")
+                    else None
+                ),
+                arrival_time=_optional_string(
+                    value.get("arrival_time")
+                ),
+                departure_time=_optional_string(
+                    value.get("departure_time")
+                ),
+                entry_point=_optional_string(
+                    value.get("entry_point")
+                ),
+                accommodation_address=_optional_string(
+                    value.get("accommodation_address")
+                ),
+                must_visit_places=_string_tuple(
+                    value.get("must_visit_places")
+                ),
+                excluded_places=_string_tuple(
+                    value.get("excluded_places")
+                ),
+                mobility_constraints=_string_tuple(
+                    value.get("mobility_constraints")
+                ),
+            )
+
+        except KeyError as exc:
+            raise ValueError(
+                f"missing required travel condition: {exc.args[0]}"
+            ) from exc
+
+        except (TypeError, ValueError) as exc:
+            if (
+                isinstance(exc, ValueError)
+                and str(exc).startswith(
+                    (
+                        "duration_days",
+                        "companion_count",
+                    )
+                )
+            ):
+                raise
+
+            raise ValueError(
+                f"invalid travel condition: {exc}"
+            ) from exc
 
     def to_llm_dict(self) -> dict[str, Any]:
         return {
@@ -64,10 +113,12 @@ class TravelCondition:
             "party_type": self.party_type.value,
             "local_transport": self.local_transport.value,
             "preferred_visit_types": [
-                preference.value
-                for preference in self.preferred_visit_types
+                item.value
+                for item in self.preferred_visit_types
             ],
             "companion_count": self.companion_count,
+            "region": self.region,
+            "age_group": self.age_group,
             "purpose_codes": list(self.purpose_codes),
             "pace": self.pace.value if self.pace else None,
             "arrival_time": self.arrival_time,
@@ -76,8 +127,19 @@ class TravelCondition:
             "accommodation_address": self.accommodation_address,
             "must_visit_places": list(self.must_visit_places),
             "excluded_places": list(self.excluded_places),
-            "mobility_constraints": list(self.mobility_constraints),
+            "mobility_constraints": list(
+                self.mobility_constraints
+            ),
         }
+
+SlotRole = str  # "visit" | "activity" | "food" | "shopping"
+
+VALID_SLOT_ROLES: tuple[str, ...] = (
+    "visit",
+    "activity",
+    "food",
+    "shopping",
+)
 
 @dataclass(frozen=True)
 class SlotAddRequest:
@@ -113,9 +175,11 @@ class ConditionDelta:
     remove_must_visit_places: tuple[str, ...] = ()
     add_excluded_places: tuple[str, ...] = ()
     remove_excluded_places: tuple[str, ...] = ()
+    remove_places: tuple[str, ...] = ()
     add_preferred_visit_types: tuple[VisitPreference, ...] = ()
     remove_preferred_visit_types: tuple[VisitPreference, ...] = ()
     duration_days: int | None = None
+    region: str | None = None
     party_type: PartyType | None = None
     local_transport: LocalTransport | None = None
     pace: Pace | None = None
@@ -130,71 +194,89 @@ class ConditionDelta:
     # 특정 일차를 언급하지 않았다면 None이며, 이 경우 영향 범위를 day로
     # 좁히지 않는다.
     target_day: int | None = None
-    # "A 다음에 B 추가해줘" / "A 앞에 B 추가해줘"처럼 위치 기준이 되는
-    # 기존 일정 속 장소명. 둘 다 비어 있으면 위치를 지정하지 않은
-    # 것이므로 기존 방식(해당 day 맨 뒤)으로 추가한다.
-    insert_after: str | None = None
-    insert_before: str | None = None
-    # "아침/점심/오후/저녁"처럼 시간대로 위치를 지정했을 때만 채워지는 값.
-    # insert_after/insert_before가 있으면 그쪽이 우선한다.
-    time_period: str | None = None
 
     @classmethod
-    def from_mapping(cls, value: dict[str, Any]) -> "ConditionDelta":
-        mode = str(value.get("mode") or "edit").strip().lower()
+    def from_mapping(
+        cls,
+        value: dict[str, Any],
+    ) -> "ConditionDelta":
+        mode = str(
+            value.get("mode") or "edit"
+        ).strip().lower()
+
         if mode not in ("edit", "recommend"):
             mode = "edit"
-
-        time_period = str(value.get("time_period") or "").strip().lower() or None
-        if time_period not in (None, "morning", "lunch", "afternoon", "evening"):
-            time_period = None
 
         return cls(
             add_must_visit_places=_string_tuple(value.get("add_must_visit_places")),
             remove_must_visit_places=_string_tuple(value.get("remove_must_visit_places")),
             add_excluded_places=_string_tuple(value.get("add_excluded_places")),
             remove_excluded_places=_string_tuple(value.get("remove_excluded_places")),
+            remove_places=_string_tuple(value.get("remove_places")),
             add_preferred_visit_types=_visit_type_tuple(
                 value.get("add_preferred_visit_types")
             ),
             remove_preferred_visit_types=_visit_type_tuple(
                 value.get("remove_preferred_visit_types")
             ),
-            duration_days=_optional_int(value.get("duration_days")),
-            party_type=PartyType(value["party_type"])
-            if value.get("party_type")
-            else None,
-            local_transport=LocalTransport(value["local_transport"])
-            if value.get("local_transport")
-            else None,
-            pace=Pace(value["pace"]) if value.get("pace") else None,
-            affected_slots=_string_tuple(value.get("affected_slots")),
-            add_slots=_slot_add_request_tuple(value.get("add_slots")),
-            notes=str(value.get("notes") or "").strip(),
+            duration_days=_optional_int(
+                value.get("duration_days")
+            ),
+            region=str(value.get("region") or "").strip() or None,
+            party_type=(
+                PartyType(value["party_type"])
+                if value.get("party_type")
+                else None
+            ),
+            local_transport=(
+                LocalTransport(value["local_transport"])
+                if value.get("local_transport")
+                else None
+            ),
+            pace=(
+                Pace(value["pace"])
+                if value.get("pace")
+                else None
+            ),
+            affected_slots=_string_tuple(
+                value.get("affected_slots")
+            ),
+            add_slots=_slot_add_request_tuple(
+                value.get("add_slots")
+            ),
+            notes=str(
+                value.get("notes") or ""
+            ).strip(),
             mode=mode,
-            target_day=_optional_int(value.get("target_day")),
-            insert_after=(str(value.get("insert_after") or "").strip() or None),
-            insert_before=(str(value.get("insert_before") or "").strip() or None),
-            time_period=time_period,
+            target_day=_optional_int(
+                value.get("target_day")
+            ),
         )
 
     def is_empty(self) -> bool:
         if self.mode == "recommend":
-            # recommend 모드는 조건을 바꾸는 것이 아니라 후보만 보여주는
-            # 요청이므로, 다른 필드가 모두 비어 있어도 "아무 것도 안 해도
-            # 되는 메시지"로 취급하면 안 된다.
             return False
-        return replace(self, notes="", mode="edit", target_day=None) == ConditionDelta()
 
-def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCondition:
+        return replace(
+            self,
+            notes="",
+            mode="edit",
+            target_day=None,
+        ) == ConditionDelta()
 
+def apply_delta(
+    condition: TravelCondition,
+    delta: ConditionDelta,
+) -> TravelCondition:
     must_visit = _apply_set_ops(
         condition.must_visit_places, delta.add_must_visit_places, delta.remove_must_visit_places
     )
     excluded = _apply_set_ops(
-        condition.excluded_places, delta.add_excluded_places, delta.remove_excluded_places
+        condition.excluded_places,
+        (*delta.add_excluded_places, *delta.remove_places),
+        delta.remove_excluded_places,
     )
-    
+
     must_visit = tuple(place for place in must_visit if place not in excluded)
     excluded = tuple(place for place in excluded if place not in must_visit)
 
@@ -213,6 +295,8 @@ def apply_delta(condition: TravelCondition, delta: ConditionDelta) -> TravelCond
     }
     if delta.duration_days is not None:
         updates["duration_days"] = delta.duration_days
+    if delta.region is not None:
+        updates["region"] = delta.region
     if delta.party_type is not None:
         updates["party_type"] = delta.party_type
     if delta.local_transport is not None:
@@ -245,6 +329,8 @@ def infer_affected_slots(delta: ConditionDelta) -> tuple[SlotRole, ...]:
         roles.append("activity")
     if delta.add_must_visit_places or delta.remove_must_visit_places:
         roles.extend(["visit", "activity", "food", "shopping"])
+    if delta.remove_places and not roles:
+        return ()
     # NOTE: add_slots (이름 없이 "N개 더 추가해줘" 요청)는 여기 포함시키지 않는다.
     # 이건 기존 슬롯을 다시 검색/교체하라는 신호가 아니라 새 슬롯을 만들라는
     # 신호이므로, engine.update_itinerary_from_chat에서 별도로 처리한다.
@@ -309,6 +395,14 @@ def _optional_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def _optional_string(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+
+    text = str(value).strip()
+    return text or None
 
 
 __all__ = [

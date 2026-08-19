@@ -223,4 +223,3 @@ def get_visit_area_type_mapping(
     if visit_area_type_cd is None:
         return None
     return VISIT_AREA_TYPE_MAPPINGS.get(str(visit_area_type_cd).strip())
-
