@@ -9,7 +9,7 @@ import { useItineraries } from "../context/ItineraryContext.jsx";
 const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
-  const { itineraries, loading, refresh, remove } = useItineraries();
+  const { itineraries, loading, refresh, removeItinerary } = useItineraries();
   useEffect(() => {
     refresh().catch((err) => {
       console.error("내 일정 최신 목록 조회 실패", err);
@@ -27,7 +27,7 @@ export default function MyItinerariesPage() {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      await remove(id);
+      await removeItinerary(id);
       alert("일정이 삭제되었습니다.");
     } catch (err) {
       console.error(err);
@@ -74,12 +74,7 @@ export default function MyItinerariesPage() {
               <div className={styles.listItem} key={it.id}>
                 <Link
                   to={`/review/${it.id}?view=itinerary`}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    textDecoration: "none",
-                    color: "inherit",
-                  }}
+                  className={styles.listLink}
                 >
                   <div className={styles.listThumb}>🌴</div>
 
