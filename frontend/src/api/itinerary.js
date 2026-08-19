@@ -46,6 +46,11 @@ export const getItineraries = async () => {
     styleDisplay: item.style_display,
     status: item.status,
     statusDisplay: item.status_display,
+
+    bookedProductType: item.booked_product_type,
+    bookedPackageDbId: item.booked_package_db_id,
+    bookedPrice: item.booked_price,
+
     hotel: item.hotel || null,
   }));
 };

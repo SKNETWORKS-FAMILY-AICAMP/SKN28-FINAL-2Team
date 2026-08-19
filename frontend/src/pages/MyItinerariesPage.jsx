@@ -73,7 +73,11 @@ export default function MyItinerariesPage() {
             itineraries.map((it) => (
               <div className={styles.listItem} key={it.id}>
                 <Link
-                  to={`/review/${it.id}?view=itinerary`}
+                  to={
+                    it.bookedProductType === "stored_package"
+                      ? `/review/${it.id}`
+                      : `/review/${it.id}?view=itinerary`
+                  }
                   style={{
                     flex: 1,
                     display: "flex",

@@ -8,7 +8,7 @@ import ComparisonRouteMap from './review/ComparisonRouteMap.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useItineraries } from '../context/ItineraryContext.jsx';
 import { getPackageDetail, getPackages } from '../api/packageApi.js';
-
+import { getReservations } from '../api/reservationApi.js';
 import { useEffect, useRef, useState } from 'react';
 
 import html2canvas from 'html2canvas';
@@ -116,6 +116,7 @@ export default function ReviewPage() {
   const [packageError, setPackageError] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('custom');
   const [addingToCart, setAddingToCart] = useState(false);
+  const [bookedStoredHotel, setBookedStoredHotel] = useState(null);
 
   const pdfRef = useRef(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -145,6 +146,26 @@ export default function ReviewPage() {
             ) {
               const packageDetail = await getPackageDetail(
                 data.bookedPackageDbId
+              );
+
+              const reservationData = await getReservations();
+
+              const reservations = Array.isArray(reservationData)
+                ? reservationData
+                : reservationData.results || [];
+
+              const reservation = reservations.find(
+                (item) => Number(item.itinerary) === Number(data.id)
+              );
+
+              const reservationItem = reservation?.items?.find(
+                (item) =>
+                  item.product_type === 'stored_package' &&
+                  Number(item.package_db_id) === Number(data.bookedPackageDbId)
+              );
+
+              setBookedStoredHotel(
+                reservationItem?.accommodation ?? null
               );
 
               setPackageComparison({
@@ -850,7 +871,7 @@ export default function ReviewPage() {
                   packageComparison.stored_package.course ??
                   []
                 }
-                storedHotel={packageComparison.stored_package.hotel ?? null}
+                storedHotel={bookedStoredHotel}
                 mode="stored"
               />
             </div>
@@ -891,7 +912,35 @@ export default function ReviewPage() {
                     <small> / 1인</small>
                   </strong>
                 </div>
+                
+                {packageComparison.stored_package.accommodation_included && (
+                  <div className={styles.bookedAccommodationInfo}>
+                    <span
+                      className={styles.accommodationIcon}
+                      aria-hidden="true"
+                    >
+                      🛏
+                    </span>
 
+                    <span className={styles.accommodationCopy}>
+                      <small>
+                        패키지 포함 숙소
+                        {packageComparison.stored_package.duration_days > 1
+                          ? ` · ${packageComparison.stored_package.duration_days - 1}박`
+                          : ''}
+                      </small>
+
+                      <strong>
+                        {packageComparison.stored_package.accommodation_name || '숙소 포함'}
+                      </strong>
+                    </span>
+
+                    <span className={styles.accommodationIncluded}>
+                      숙박 포함
+                    </span>
+                  </div>
+                )}
+                
                 <ComparisonDays
                   days={
                     packageComparison.stored_package.days ??
