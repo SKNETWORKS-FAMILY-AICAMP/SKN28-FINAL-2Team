@@ -73,6 +73,20 @@ class CartItemSerializer(serializers.ModelSerializer):
 
         return PackageSerializer(package).data
 
+        package = (
+            Package.objects.using("travel")
+            .filter(
+                id=obj.package_db_id,
+                is_active=True,
+            )
+            .first()
+        )
+
+        if package is None:
+            return None
+
+        return PackageSerializer(package).data
+
 
 class CartSerializer(serializers.Serializer):
     items = CartItemSerializer(many=True)

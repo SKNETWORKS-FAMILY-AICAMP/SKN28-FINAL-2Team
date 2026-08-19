@@ -396,8 +396,6 @@ export default function ChatColumn({
               itinerary: result.itinerary,
             },
           ])
-
-          setOpenPreviewId(null)
           } else if (result.mode === 'recommend') {
             setHistory((prev) => [
               ...prev,
