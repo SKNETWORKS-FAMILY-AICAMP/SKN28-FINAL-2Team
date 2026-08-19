@@ -270,15 +270,40 @@ jobs:
       - name: Deploy backend
         shell: bash
         run: |
+          wait_for_deployment() {
+            local attempt=1 rollout_state
+
+            while (( attempt <= 80 )); do
+              rollout_state=$(aws ecs describe-services \
+                --cluster "$ECS_CLUSTER" \
+                --services "$ECS_SERVICE" \
+                --query 'services[0].deployments[?status==`PRIMARY`].rolloutState | [0]' \
+                --output text)
+
+              case "$rollout_state" in
+                COMPLETED) return 0 ;;
+                FAILED)
+                  aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+                  return 1
+                  ;;
+              esac
+
+              echo "Waiting for ECS deployment ($attempt/80): $rollout_state"
+              sleep 15
+              ((attempt += 1))
+            done
+
+            echo "ECS deployment did not complete within 20 minutes" >&2
+            return 1
+          }
+
           aws ecs update-service \
             --cluster "$ECS_CLUSTER" \
             --service "$ECS_SERVICE" \
             --task-definition "$NEW_TASK_DEFINITION" > /dev/null
 
           if ! {
-            aws ecs wait services-stable \
-              --cluster "$ECS_CLUSTER" \
-              --services "$ECS_SERVICE" &&
+            wait_for_deployment &&
             curl --fail --silent --show-error \
               --retry 5 --retry-delay 5 --retry-all-errors \
               "${VITE_API_BASE_URL%/}/ready/" > /dev/null;
@@ -287,9 +312,7 @@ jobs:
               --cluster "$ECS_CLUSTER" \
               --service "$ECS_SERVICE" \
               --task-definition "$PREVIOUS_TASK_DEFINITION" > /dev/null
-            aws ecs wait services-stable \
-              --cluster "$ECS_CLUSTER" \
-              --services "$ECS_SERVICE"
+            wait_for_deployment
             exit 1
           fi
 
