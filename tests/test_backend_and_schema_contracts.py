@@ -48,12 +48,13 @@ class ItineraryGenerationReflectionTests(unittest.TestCase):
         self.assertTrue(serializer.fields["additional_request"].write_only)
 
     @patch("apps.travel.services._save_itinerary_result")
-    @patch("apps.travel.services.itinerary_engine.create_itinerary")
+    @patch("apps.travel.services.get_itinerary_engine")
     def test_generation_passes_additional_request_to_engine(
         self,
-        mocked_create,
+        mocked_get_engine,
         mocked_save_result,
     ) -> None:
+        mocked_create = mocked_get_engine.return_value.create_itinerary
         mocked_create.return_value = SimpleNamespace(
             itinerary={"days": []},
             slots=[],

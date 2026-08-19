@@ -6,7 +6,7 @@ import traceback
 
 from django.db import connections, transaction
 
-from src.api import itinerary_engine
+from src.api import get_itinerary_engine
 from src.models import ItineraryState
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 from .route_optimizer import optimize_stops
@@ -482,7 +482,7 @@ def generate_itinerary(
         # -------------------------------------------------
         # 전체 파이프라인 실행
         # -------------------------------------------------
-        state = itinerary_engine.create_itinerary(user_text)
+        state = get_itinerary_engine().create_itinerary(user_text)
 
         # -------------------------------------------------
         # OR-Tools 경로 최적화
@@ -573,7 +573,7 @@ def revise_itinerary(
         fixed_hotel = state.itinerary.get("hotel")
 
         # 엔진을 이용하여 일정 수정 (또는 추천만 조회)
-        chat_result = itinerary_engine.update_itinerary_from_chat(
+        chat_result = get_itinerary_engine().update_itinerary_from_chat(
             state,
             user_text,
         )
