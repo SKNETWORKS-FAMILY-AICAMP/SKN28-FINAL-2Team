@@ -12,6 +12,86 @@ from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 from .route_optimizer import optimize_stops
 
 
+def _clone_itinerary_as_draft(itinerary: Itinerary) -> Itinerary:
+    title = itinerary.title
+    if not title.endswith("(수정본)"):
+        title = f"{title} (수정본)"
+
+    clone = Itinerary.objects.create(
+        user=itinerary.user,
+        title=title[:150],
+        subtitle=itinerary.subtitle,
+        start_date=itinerary.start_date,
+        end_date=itinerary.end_date,
+        companion_type=itinerary.companion_type,
+        age_group=itinerary.age_group,
+        companion_count=itinerary.companion_count,
+        style=itinerary.style,
+        selected_package=None,
+        status=Itinerary.Status.DRAFT,
+        is_public=False,
+        share_token=None,
+        engine_state=deepcopy(itinerary.engine_state),
+    )
+
+    for day in itinerary.days.prefetch_related("items").all():
+        cloned_day = ItineraryDay.objects.create(
+            itinerary=clone,
+            day_number=day.day_number,
+            date=day.date,
+        )
+        ItineraryItem.objects.bulk_create(
+            [
+                ItineraryItem(
+                    day=cloned_day,
+                    order=item.order,
+                    time=item.time,
+                    item_type=item.item_type,
+                    title=item.title,
+                    description=item.description,
+                    thumbnail=item.thumbnail,
+                    spot=item.spot,
+                    restaurant=item.restaurant,
+                    accommodation=item.accommodation,
+                    latitude=item.latitude,
+                    longitude=item.longitude,
+                    memo=item.memo,
+                )
+                for item in day.items.all()
+            ]
+        )
+
+    return clone
+
+
+@transaction.atomic
+def prepare_itinerary_for_edit(
+    itinerary: Itinerary,
+) -> tuple[Itinerary, bool]:
+    if itinerary.status == Itinerary.Status.DRAFT:
+        return itinerary, False
+
+    if itinerary.reservations.exists():
+        return _clone_itinerary_as_draft(itinerary), True
+
+    # 확정 당시의 공유 링크와 장바구니 견적은 수정 후 유효하지 않다.
+    itinerary.cart_product_items.all().delete()
+    itinerary.status = Itinerary.Status.DRAFT
+    itinerary.selected_package = None
+    itinerary.is_public = False
+    itinerary.share_token = None
+    itinerary.save(
+        update_fields=[
+            "status",
+            "selected_package",
+            "is_public",
+            "share_token",
+            "updated_at",
+        ]
+    )
+    return itinerary, False
+
+
 def _merge_schedule_into_engine_state(
     state: dict,
     schedule: list[dict],

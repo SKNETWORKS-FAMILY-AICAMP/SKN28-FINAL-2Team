@@ -142,6 +142,18 @@ export const patchItinerary = async (id, payload) => {
 
   return mapItinerary(data);
 };
+
+export const prepareItineraryForEdit = async (id) => {
+  const { data } = await api.post(
+    `/travel/itineraries/${id}/prepare-edit/`
+  );
+
+  return {
+    itinerary: mapItinerary(data),
+    copied: Boolean(data.copied),
+  };
+};
+
 // 일정 삭제
 export const deleteItinerary = async (id) => {
   await api.delete(`/travel/itineraries/${id}/`);
