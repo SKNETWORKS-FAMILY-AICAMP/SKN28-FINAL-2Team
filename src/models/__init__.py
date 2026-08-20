@@ -11,6 +11,7 @@ from .travel_condition import (
     VisitPreference,
     apply_delta,
     infer_affected_slots,
+    summarize_trip_title,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "VisitPreference",
     "apply_delta",
     "infer_affected_slots",
+    "summarize_trip_title",
 ]

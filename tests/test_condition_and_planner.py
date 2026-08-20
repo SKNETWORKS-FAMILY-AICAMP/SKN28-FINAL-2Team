@@ -12,6 +12,7 @@ from src.models.travel_condition import (
     VisitPreference,
     apply_delta,
     infer_affected_slots,
+    summarize_trip_title,
 )
 from src.planner.config import PlannerConfig
 from src.planner.planner import select_candidates
@@ -66,6 +67,18 @@ class TravelConditionTests(unittest.TestCase):
         self.assertEqual(condition.local_transport, LocalTransport.PUBLIC_TRANSIT)
         self.assertEqual(condition.preferred_visit_types, (VisitPreference.NATURE,))
         self.assertIsNone(condition.companion_count)
+
+    def test_summarize_trip_title_uses_condition_instead_of_raw_request(self) -> None:
+        condition = _condition(
+            duration_days=3,
+            party_type=PartyType.WITH_CHILDREN,
+            preferred_visit_types=(VisitPreference.NATURE, VisitPreference.FOOD_CAFE),
+        )
+
+        self.assertEqual(
+            summarize_trip_title(condition),
+            "2박 3일 아이와 가족 자연·맛집 여행",
+        )
 
     def test_slot_add_request_rejects_role_and_clamps_count(self) -> None:
         self.assertIsNone(SlotAddRequest.from_mapping({"role": "hotel"}))

@@ -7,7 +7,7 @@ import traceback
 from django.db import connections, transaction
 
 from src.api import get_itinerary_engine
-from src.models import ItineraryState
+from src.models import ItineraryState, summarize_trip_title
 from .models import Itinerary, ItineraryDay, ItineraryItem, Place
 from .route_optimizer import optimize_stops
 
@@ -293,11 +293,33 @@ def _build_place_info_map(
                 "thumbnail": (
                     place.get("image_url")
                     or place.get("thumbnail_url")
+                    or place.get("thumbnail")
                     or ""
                 ),
             }
 
     return place_info_map
+
+
+def _get_place_thumbnail(content_id: int | None) -> str:
+    if not content_id:
+        return ""
+
+    with connections["travel"].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT COALESCE(NULLIF(image_url, ''), thumbnail_url)
+            FROM place_images
+            WHERE content_id = %s
+              AND (NULLIF(image_url, '') IS NOT NULL OR NULLIF(thumbnail_url, '') IS NOT NULL)
+            ORDER BY display_order
+            LIMIT 1
+            """,
+            [content_id],
+        )
+        row = cursor.fetchone()
+
+    return str(row[0] or "") if row else ""
 
 def _attach_coordinates_to_stops(
     state: ItineraryState,
@@ -451,6 +473,7 @@ def _save_itinerary_result(
                 or stop.get("thumbnail_url")
                 or stop.get("thumbnail")
                 or place_info["thumbnail"]
+                or _get_place_thumbnail(content_id)
                 or ""
             )
             print(
@@ -504,14 +527,6 @@ def generate_itinerary(
     6. Django DB 저장
     """
 
-    itinerary.title = (
-        f"{itinerary.duration_label} "
-        f"{itinerary.get_companion_type_display()} "
-        f"{itinerary.style}"
-    )
-    itinerary.save(update_fields=["title"])
-
-
     print("=" * 80)
     print("===== generate_itinerary 시작 =====")
 
@@ -563,6 +578,8 @@ def generate_itinerary(
         # 전체 파이프라인 실행
         # -------------------------------------------------
         state = get_itinerary_engine().create_itinerary(user_text)
+        itinerary.title = summarize_trip_title(state.condition)
+        itinerary.save(update_fields=["title"])
 
         # -------------------------------------------------
         # OR-Tools 경로 최적화

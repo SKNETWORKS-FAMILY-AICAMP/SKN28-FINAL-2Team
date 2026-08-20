@@ -254,6 +254,9 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
 {{
   "mode": "edit" 또는 "recommend",
   "target_day": 정수 또는 null,
+  "insert_after": 문자열 또는 null,
+  "insert_before": 문자열 또는 null,
+  "time_period": "morning"|"lunch"|"afternoon"|"evening" 또는 null,
   "add_must_visit_places": 문자열 배열,
   "remove_must_visit_places": 문자열 배열,
   "add_excluded_places": 문자열 배열,
@@ -270,6 +273,14 @@ CHAT_UPDATE_SYSTEM_PROMPT = f"""당신은 제주 여행 일정 서비스의 자�
   "add_slots": [{{"day": 정수 또는 null, "role": "visit"|"activity"|"food"|"shopping", "count": 정수}}] 배열,
   "notes": "짧은 설명. 장소명이 아닌 음식 취향, 메뉴, 재료, 분위기, 선호 조건 변경도 notes에 기록하세요. (예: 마요네즈 제외 요청, 회 제외 요청, 조용한 카페 선호)"
 }}
+
+
+위치 지정 규칙:
+- "A 다음에 B 추가"는 insert_after="A", add_must_visit_places=["B"]로 반환하세요.
+- "A 앞에 B 추가"는 insert_before="A", add_must_visit_places=["B"]로 반환하세요.
+- 장소 기준이 없고 "아침/점심/오후/저녁에 B 추가"이면 time_period에 morning/lunch/afternoon/evening을 넣으세요.
+- 위치 기준 장소 A는 add_must_visit_places 및 remove_must_visit_places에 중복해서 넣지 마세요.
+- insert_after와 insert_before는 동시에 채우지 마세요.
 
 "mode" 판단 규칙 (매우 중요):
 

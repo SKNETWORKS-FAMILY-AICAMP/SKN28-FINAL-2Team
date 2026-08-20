@@ -132,6 +132,45 @@ class TravelCondition:
             ),
         }
 
+
+def summarize_trip_title(condition: TravelCondition) -> str:
+    party_labels = {
+        PartyType.SOLO: "혼자",
+        PartyType.NON_FAMILY_TWO: "둘이",
+        PartyType.NON_FAMILY_GROUP: "친구",
+        PartyType.FAMILY_TWO: "가족",
+        PartyType.FAMILY_GROUP: "가족",
+        PartyType.WITH_CHILDREN: "아이와 가족",
+        PartyType.WITH_PARENTS: "부모님과 가족",
+        PartyType.THREE_GENERATIONS: "3대 가족",
+    }
+    preference_labels = {
+        VisitPreference.NATURE: "자연",
+        VisitPreference.HISTORY: "역사",
+        VisitPreference.CULTURE: "문화",
+        VisitPreference.MARKET_SHOPPING: "쇼핑",
+        VisitPreference.LEISURE: "휴양",
+        VisitPreference.THEME_PARK: "테마",
+        VisitPreference.TRAIL: "트레킹",
+        VisitPreference.FESTIVAL: "축제",
+        VisitPreference.FOOD_CAFE: "맛집",
+        VisitPreference.EXPERIENCE: "체험",
+    }
+    duration = (
+        "당일"
+        if condition.duration_days == 1
+        else f"{condition.duration_days - 1}박 {condition.duration_days}일"
+    )
+    themes = list(
+        dict.fromkeys(
+            preference_labels[preference]
+            for preference in condition.preferred_visit_types
+            if preference in preference_labels
+        )
+    )
+    theme = "·".join(themes[:2]) or "제주"
+    return f"{duration} {party_labels[condition.party_type]} {theme} 여행"
+
 SlotRole = str  # "visit" | "activity" | "food" | "shopping"
 
 VALID_SLOT_ROLES: tuple[str, ...] = (
@@ -194,6 +233,9 @@ class ConditionDelta:
     # 특정 일차를 언급하지 않았다면 None이며, 이 경우 영향 범위를 day로
     # 좁히지 않는다.
     target_day: int | None = None
+    insert_after: str | None = None
+    insert_before: str | None = None
+    time_period: str | None = None
 
     @classmethod
     def from_mapping(
@@ -206,6 +248,10 @@ class ConditionDelta:
 
         if mode not in ("edit", "recommend"):
             mode = "edit"
+
+        time_period = str(value.get("time_period") or "").strip().lower() or None
+        if time_period not in (None, "morning", "lunch", "afternoon", "evening"):
+            time_period = None
 
         return cls(
             add_must_visit_places=_string_tuple(value.get("add_must_visit_places")),
@@ -251,6 +297,9 @@ class ConditionDelta:
             target_day=_optional_int(
                 value.get("target_day")
             ),
+            insert_after=str(value.get("insert_after") or "").strip() or None,
+            insert_before=str(value.get("insert_before") or "").strip() or None,
+            time_period=time_period,
         )
 
     def is_empty(self) -> bool:

@@ -16,6 +16,7 @@ from .mappings.trip_feature_mapping import (
 )
 from .aihub.similarity import AIHubPatternService, aggregate_role_keywords
 from .common.env import load_env_file
+from .common.geo import haversine_km
 from .llm import LLMService, create_llm_service
 from .models import ConditionDelta, ItinerarySlot, ItineraryState, SlotAddRequest, SlotCandidate, TravelCondition, apply_delta, infer_affected_slots
 
@@ -145,6 +146,7 @@ class ChatUpdateResult:
     state: ItineraryState
     message: str = ""
     recommendations: list[dict[str, Any]] = field(default_factory=list)
+    locked_days: tuple[int, ...] = ()
 
     @property
     def condition(self) -> TravelCondition:
@@ -389,7 +391,11 @@ class ItineraryEngine:
         # --------------------------------------------------------------
         if delta.mode == "recommend":
             print("[revise] mode == recommend -> 일정 미변경, 후보만 조회")
-            recommendations = self._build_chat_recommendations(state, delta, user_text)
+            recommendations = self._build_route_aware_recommendations(
+                state,
+                delta,
+                user_text,
+            )
             next_state = ItineraryState(
                 condition=state.condition,
                 slots=state.slots,
@@ -449,10 +455,7 @@ class ItineraryEngine:
             # → 섭지코지만 검색
             # → 기존 1일차 전체 슬롯 재검색 X
             # ----------------------------------------------------------
-            if (
-                recommended_place is None
-                and delta.remove_must_visit_places
-            ):
+            if recommended_place is None:
                 replacement_name = (
                     delta.add_must_visit_places[0]
                 )
@@ -511,13 +514,19 @@ class ItineraryEngine:
                     new_condition=new_condition,
                     recommendation=recommended_place,
                     target_day=delta.target_day,
-                    remove_places=delta.remove_must_visit_places,
+                    remove_places=(
+                        delta.remove_must_visit_places
+                        or delta.add_excluded_places
+                    ),
                     role_hint=(
                         delta.affected_slots[0]
                         if delta.affected_slots
                         else None
                     ),
                     user_text=user_text,
+                    insert_after=delta.insert_after,
+                    insert_before=delta.insert_before,
+                    time_period=delta.time_period,
                 )
 
             if delta.remove_must_visit_places:
@@ -1180,6 +1189,65 @@ class ItineraryEngine:
             candidates=candidates,
         )
 
+    def _build_route_aware_recommendations(
+        self,
+        state: ItineraryState,
+        delta: ConditionDelta,
+        user_text: str,
+        *,
+        limit: int = 3,
+    ) -> list[dict[str, Any]]:
+        """`_build_chat_recommendations()`를 "동선 인지" 버전으로 감싼다.
+
+        예전에는 "day 전체 stop 좌표 평균"을 기준점으로 근처 후보를
+        찾았다. 그러면 1일차 2번째 슬롯(카페)을 바꾸려는데, 6번째
+        슬롯 근처의 카페가 "평균 위치와 가깝다"는 이유로 추천될 수
+        있었다 - 사용자가 원하는 "① -> 후보 -> ③" 동선과는 무관한
+        기준이었다.
+
+        여기서는:
+        1) delta.remove_must_visit_places로 "바꾸려는 대상"이 기존
+           일정의 어느 (day, sequence)인지 먼저 찾는다.
+        2) 그 슬롯을 알면, 슬롯의 바로 앞/뒤 장소를 기준점으로 검색하고
+           (_anchor_location_hint), 결과도 그 앞/뒤 장소 사이 우회
+           거리로 다시 정렬한다 (_rerank_recommendations_by_route).
+        3) 특정 슬롯을 모르면(예: "1일차 카페 추천해줘") day 전체를
+           기준으로 하되, 정렬은 "그 day 어딘가에 넣었을 때 가장 우회가
+           적은 위치" 기준으로 한다.
+        """
+
+        target_key: tuple[int, int] | None = None
+        replace_places = (
+            delta.remove_must_visit_places
+            or delta.add_excluded_places
+        )
+        if replace_places:
+            target_key = _find_stop_key_by_name(
+                state,
+                replace_places[0],
+                delta.target_day,
+            )
+
+        anchor_day = target_key[0] if target_key else delta.target_day
+        anchor_sequence = target_key[1] if target_key else None
+
+        location_hint = _anchor_location_hint(state, anchor_day, anchor_sequence)
+
+        recommendations = self._build_chat_recommendations(
+            state,
+            delta,
+            user_text,
+            limit=limit,
+            location_hint=location_hint,
+        )
+
+        return _rerank_recommendations_by_route(
+            recommendations,
+            state=state,
+            day_no=anchor_day,
+            target_sequence=anchor_sequence,
+        )
+
     def _apply_recommended_place(
         self,
         *,
@@ -1190,6 +1258,9 @@ class ItineraryEngine:
         remove_places: Sequence[str] = (),
         role_hint: str | None = None,
         user_text: str = "",
+        insert_after: str | None = None,
+        insert_before: str | None = None,
+        time_period: str | None = None,
     ) -> ChatUpdateResult:
         """
         최근 추천 후보를 다시 검색하지 않고 기존 일정에 직접 반영한다.
@@ -1198,7 +1269,12 @@ class ItineraryEngine:
         기존 일정에서 해당 장소를 찾아 추천 장소로 교체한다.
 
         2. remove_places가 없으면:
-        지정된 날짜의 마지막 슬롯 뒤에 추천 장소를 새로 추가한다.
+        - insert_after/insert_before(장소 기준) 또는 time_period(시간대
+          기준)가 지정되어 있고, 그 기준을 실제 일정에서 찾을 수 있으면
+          해당 위치에 정확히 끼워넣고 그 day의 순서(sequence)를 코드
+          레벨에서 강제로 재배열한다 (LLM에게 순서 판단을 맡기지 않는다).
+        - 위치 기준이 없거나 찾지 못하면 기존 방식대로 지정된 날짜의
+          마지막 슬롯 뒤에 추천 장소를 새로 추가한다.
         """
 
         title = str(
@@ -1226,6 +1302,7 @@ class ItineraryEngine:
         # 기존 state를 직접 수정하지 않도록 복사
         # ------------------------------------------------------------
         updated_slots = copy.deepcopy(state.slots)
+        position_locked_day: int | None = None
 
         # ============================================================
         # 1) 교체 모드
@@ -1443,39 +1520,6 @@ class ItineraryEngine:
         # 2) 추가 모드
         # ============================================================
         else:
-            day_no = target_day or 1
-
-            target_day_slots = [
-                slot
-                for slot in updated_slots
-                if slot.day == day_no
-            ]
-
-            if not target_day_slots:
-                print(
-                    f"[revise] 추천 후보 직접 삽입 실패: day={day_no}"
-                )
-
-                return ChatUpdateResult(
-                    mode="no_change",
-                    state=state,
-                    message=(
-                        f"{day_no}일차 슬롯을 "
-                        "찾지 못했어요."
-                    ),
-                )
-
-            next_sequence = (
-                max(
-                    (
-                        slot.sequence
-                        for slot in target_day_slots
-                    ),
-                    default=0,
-                )
-                + 1
-            )
-
             candidate = SlotCandidate(
                 content_id=int(content_id),
                 title=title,
@@ -1507,48 +1551,183 @@ class ItineraryEngine:
                 forced=True,
             )
 
-            new_slot = ItinerarySlot(
-                day=day_no,
-                sequence=next_sequence,
-                role=role,
-                target_collections=tuple(
-                    SLOT_TARGET_COLLECTIONS.get(
-                        role,
-                        (),
+            # --------------------------------------------------------
+            # 2-a) 위치 지정 삽입 시도
+            #
+            # "A 다음에/앞에 B 추가해줘" 또는 "아침/점심/오후/저녁에
+            # B 추가해줘" 처럼 위치 기준이 주어졌다면, 그 기준을 실제
+            # 일정에서 찾아 정확한 위치에 끼워넣는다. 순서 재배열은
+            # LLM이 아니라 코드가 결정한다.
+            # --------------------------------------------------------
+            insert_index: int | None = None
+            day_no = target_day
+
+            anchor_name = insert_after or insert_before
+            if anchor_name:
+                anchor_key = _find_anchor_stop_key(
+                    state.itinerary, anchor_name, target_day
+                )
+                if anchor_key is not None:
+                    anchor_day, anchor_sequence = anchor_key
+                    day_no = anchor_day
+                    anchor_stops = sorted(
+                        (
+                            stop
+                            for (day, _sequence), stop in _itinerary_stops_by_key(
+                                state.itinerary
+                            ).items()
+                            if day == anchor_day
+                        ),
+                        key=lambda stop: stop.get("sequence", 0),
                     )
-                ),
-                itinerary_roles=tuple(
-                    SLOT_ITINERARY_ROLES.get(
-                        role,
-                        (),
+                    anchor_index = next(
+                        (
+                            index
+                            for index, stop in enumerate(anchor_stops)
+                            if stop.get("sequence") == anchor_sequence
+                        ),
+                        None,
                     )
-                ),
-                stay_minutes=_DEFAULT_STAY_MINUTES_BY_ROLE.get(
-                    role,
-                    90,
-                ),
-                location_hint=None,
-                query="chat_recommendation",
-                candidates=[candidate],
-            )
+                    if anchor_index is not None:
+                        insert_index = anchor_index + (1 if insert_after else 0)
+                        print(
+                            "[revise] 위치 지정 삽입(장소 기준):",
+                            f"anchor={anchor_name}",
+                            f"anchor_key={anchor_key}",
+                            f"insert_after={bool(insert_after)}",
+                            f"insert_index={insert_index}",
+                        )
+                else:
+                    print(
+                        "[revise] 위치 기준 장소를 찾지 못함 -> "
+                        f"기본 위치(맨 뒤)로 추가: anchor={anchor_name}",
+                    )
 
-            updated_slots.append(new_slot)
+            if insert_index is None and time_period:
+                day_no = day_no or 1
+                day_stops_sorted = sorted(
+                    (
+                        stop
+                        for (day, _seq), stop in _itinerary_stops_by_key(
+                            state.itinerary
+                        ).items()
+                        if day == day_no
+                    ),
+                    key=lambda stop: stop.get("sequence", 0),
+                )
+                if day_stops_sorted:
+                    insert_index = _resolve_time_period_index(
+                        day_stops_sorted, time_period
+                    )
+                    print(
+                        "[revise] 위치 지정 삽입(시간대 기준):",
+                        f"day={day_no}",
+                        f"time_period={time_period}",
+                        f"insert_index={insert_index}",
+                    )
 
-            changed_keys = {
-                (day_no, next_sequence),
-            }
+            if insert_index is not None:
+                day_no = day_no or 1
+                (
+                    updated_slots,
+                    changed_keys,
+                    changed_slot_payloads,
+                ) = _rebuild_day_slots_with_insertion(
+                    state=state,
+                    updated_slots=updated_slots,
+                    day_no=day_no,
+                    insert_index=insert_index,
+                    new_candidate=candidate,
+                    new_role=role,
+                )
 
-            changed_slot_payloads = [
-                new_slot.to_dict()
-            ]
+                position_locked_day = day_no
 
-            print(
-                "[revise] 추천 후보 직접 삽입:",
-                f"day={day_no}",
-                f"sequence={next_sequence}",
-                f"role={role}",
-                f"title={title}",
-            )
+                print(
+                    "[revise] 위치 지정 삽입 완료:",
+                    f"day={day_no}",
+                    f"changed_keys={sorted(changed_keys)}",
+                )
+
+            else:
+                # ------------------------------------------------
+                # 2-b) 위치 기준이 없거나 못 찾음 -> 기존 방식(맨 뒤 추가)
+                # ------------------------------------------------
+                day_no = day_no or 1
+
+                target_day_slots = [
+                    slot
+                    for slot in updated_slots
+                    if slot.day == day_no
+                ]
+
+                if not target_day_slots:
+                    print(
+                        f"[revise] 추천 후보 직접 삽입 실패: day={day_no}"
+                    )
+
+                    return ChatUpdateResult(
+                        mode="no_change",
+                        state=state,
+                        message=(
+                            f"{day_no}일차 슬롯을 "
+                            "찾지 못했어요."
+                        ),
+                    )
+
+                next_sequence = (
+                    max(
+                        (
+                            slot.sequence
+                            for slot in target_day_slots
+                        ),
+                        default=0,
+                    )
+                    + 1
+                )
+
+                new_slot = ItinerarySlot(
+                    day=day_no,
+                    sequence=next_sequence,
+                    role=role,
+                    target_collections=tuple(
+                        SLOT_TARGET_COLLECTIONS.get(
+                            role,
+                            (),
+                        )
+                    ),
+                    itinerary_roles=tuple(
+                        SLOT_ITINERARY_ROLES.get(
+                            role,
+                            (),
+                        )
+                    ),
+                    stay_minutes=_DEFAULT_STAY_MINUTES_BY_ROLE.get(
+                        role,
+                        90,
+                    ),
+                    location_hint=None,
+                    query="chat_recommendation",
+                    candidates=[candidate],
+                )
+
+                updated_slots.append(new_slot)
+
+                changed_keys = {
+                    (day_no, next_sequence),
+                }
+
+                changed_slot_payloads = [
+                    new_slot.to_dict()
+                ]
+
+                print(
+                    "[revise] 추천 후보 직접 삽입:",
+                    f"day={day_no}",
+                    f"sequence={next_sequence}",
+                    f"role={role}",
+                    f"title={title}",
+                )
 
         # ============================================================
         # 3) used_content_ids 재계산
@@ -1605,6 +1784,11 @@ class ItineraryEngine:
             mode="edit",
             state=new_state,
             message=message,
+            locked_days=(
+                (position_locked_day,)
+                if position_locked_day is not None
+                else ()
+            ),
         )
 
     def _force_include_must_visit_places(
@@ -1900,11 +2084,32 @@ def _remove_schedule_entries(
                 retained_stops.append(stop)
         day["stops"] = retained_stops
 
-    slots = [
-        slot
-        for slot in state.slots
-        if (slot.day, slot.sequence) not in removed_keys
-    ]
+    slots_by_key = {(slot.day, slot.sequence): slot for slot in state.slots}
+    slots: list[ItinerarySlot] = []
+    used_slot_keys: set[tuple[int, int]] = set()
+
+    for day in itinerary.get("days", []):
+        day_number = int(day.get("day") or 0)
+        renumbered_stops = []
+        for sequence, stop in enumerate(day.get("stops", []), start=1):
+            old_key = (day_number, int(stop.get("sequence") or 0))
+            updated_stop = deepcopy(stop)
+            updated_stop["sequence"] = sequence
+            renumbered_stops.append(updated_stop)
+
+            slot = slots_by_key.get(old_key)
+            if slot is not None:
+                updated_slot = deepcopy(slot)
+                updated_slot.sequence = sequence
+                slots.append(updated_slot)
+                used_slot_keys.add(old_key)
+        day["stops"] = renumbered_stops
+
+    for key, slot in slots_by_key.items():
+        if key not in removed_keys and key not in used_slot_keys:
+            slots.append(deepcopy(slot))
+
+    slots.sort(key=lambda slot: (slot.day, slot.sequence))
     used_content_ids = {
         candidate.content_id
         for slot in slots
@@ -2141,7 +2346,12 @@ def _candidate_to_recommendation(candidate: SlotCandidate) -> dict[str, Any]:
         "title": candidate.title,
         "summary": summary,
         "address": place.get("address") or place.get("road_address") or "",
-        "thumbnail": place.get("image_url") or place.get("thumbnail_url") or "",
+        "thumbnail": (
+            place.get("image_url")
+            or place.get("thumbnail_url")
+            or place.get("thumbnail")
+            or ""
+        ),
         "latitude": place.get("latitude"),
         "longitude": place.get("longitude"),
     }
@@ -2202,6 +2412,460 @@ def _best_name_match(
             return place
     return None
 
+
+def _find_anchor_stop_key(
+    itinerary: dict[str, Any],
+    anchor_name: str,
+    target_day: int | None,
+) -> tuple[int, int] | None:
+    """"A 다음/앞에" 요청에서 기준이 되는 A를 실제 일정에서 찾는다.
+
+    target_day가 주어지면 해당 day에서만 찾는다. 못 찾으면 target_day
+    제한을 풀고 다시 시도한다 (사용자가 A만 언급하고 day를 착각했을 수도
+    있으므로, 완전히 실패로 처리하기 전에 한 번 더 시도).
+    """
+
+    normalized_anchor = _normalize_title(anchor_name)
+    if not normalized_anchor:
+        return None
+
+    stops_by_key = _itinerary_stops_by_key(itinerary)
+
+    def _search(day_filter: int | None) -> tuple[int, int] | None:
+        for (day_no, sequence), stop in stops_by_key.items():
+            if day_filter is not None and day_no != day_filter:
+                continue
+            stop_title = _normalize_title(str(stop.get("title") or ""))
+            if not stop_title:
+                continue
+            if normalized_anchor in stop_title or stop_title in normalized_anchor:
+                return (day_no, sequence)
+        return None
+
+    result = _search(target_day)
+    if result is not None:
+        return result
+    if target_day is not None:
+        return _search(None)
+    return None
+
+
+def _resolve_time_period_index(
+    day_stops: list[dict[str, Any]],
+    time_period: str,
+) -> int:
+    """시간대(아침/점심/오후/저녁) 요청을 해당 day의 삽입 인덱스(0-based)로
+    변환한다. day_stops는 sequence 오름차순으로 정렬되어 있어야 한다.
+
+    규칙 (문서의 "배치 규칙"을 그대로 코드화):
+    - morning : 그 날 첫 스톱 앞
+    - lunch   : 그 날 첫 food 슬롯(보통 점심) 앞
+    - afternoon : 첫 food 슬롯(점심) 바로 뒤
+    - evening : 마지막 food 슬롯(보통 저녁) 앞, food가 없으면 맨 뒤
+    """
+
+    if not day_stops:
+        return 0
+
+    food_indexes = [
+        index
+        for index, stop in enumerate(day_stops)
+        if stop.get("role") == "food"
+    ]
+
+    if time_period == "morning":
+        return 0
+
+    if time_period == "lunch":
+        return food_indexes[0] if food_indexes else len(day_stops) // 2
+
+    if time_period == "afternoon":
+        return food_indexes[0] + 1 if food_indexes else len(day_stops) // 2 + 1
+
+    if time_period == "evening":
+        return food_indexes[-1] if food_indexes else len(day_stops)
+
+    return len(day_stops)
+
+
+def _rebuild_day_slots_with_insertion(
+    *,
+    state: ItineraryState,
+    updated_slots: list[ItinerarySlot],
+    day_no: int,
+    insert_index: int,
+    new_candidate: SlotCandidate,
+    new_role: str,
+) -> tuple[list[ItinerarySlot], set[tuple[int, int]], list[dict[str, Any]]]:
+    """지정된 day 안에서 insert_index 위치에 new_candidate를 끼워넣고,
+    그 day 전체의 sequence를 1부터 다시 매긴다.
+
+    "A 다음에 B" 같은 순서 요청은 LLM에게 판단을 맡기면 안 되므로, 이
+    함수가 최종 순서를 코드 레벨에서 확정한다. 기존 stop들은 각각
+    forced=True인 단일 후보로 다시 만들어서 changed_slots로 넘기므로,
+    LLM(revise_itinerary)은 지정된 content_id 순서를 그대로 유지한 채
+    start_time/end_time/notes만 자연스럽게 채운다.
+    """
+
+    stops_by_key = _itinerary_stops_by_key(state.itinerary)
+    day_stops = sorted(
+        (stop for (day, _seq), stop in stops_by_key.items() if day == day_no),
+        key=lambda stop: stop.get("sequence", 0),
+    )
+
+    # 기존 slot의 candidate.place에는 image_url/thumbnail_url 등 썸네일
+    # 정보가 들어있다. 아래에서 day 전체를 스켈레톤으로 재구성하면서 이
+    # place 정보를 그대로 들고 있지 않으면, 이 day의 모든 항목(새로
+    # 추가되는 장소가 아닌 기존 장소들)이 썸네일을 잃어버리게 된다.
+    # content_id 기준으로 기존 place 정보를 미리 모아둔다.
+    existing_place_by_content_id: dict[int, dict[str, Any]] = {}
+    for existing_slot in state.slots:
+        if existing_slot.day != day_no:
+            continue
+        for existing_candidate in existing_slot.candidates:
+            if existing_candidate.content_id is not None:
+                existing_place_by_content_id[existing_candidate.content_id] = (
+                    existing_candidate.place or {}
+                )
+
+    # 기존 stop들을 (content_id, title, role, 좌표) 스켈레톤으로 변환
+    skeletons: list[dict[str, Any]] = []
+    for stop in day_stops:
+        stop_content_id = stop.get("content_id")
+        existing_place = (
+            existing_place_by_content_id.get(int(stop_content_id))
+            if stop_content_id is not None
+            else None
+        ) or {}
+        skeletons.append(
+            {
+                "content_id": stop_content_id,
+                "title": stop.get("title"),
+                "role": stop.get("role") or "visit",
+                "latitude": stop.get("latitude"),
+                "longitude": stop.get("longitude"),
+                "thumbnail": (
+                    stop.get("image_url")
+                    or stop.get("thumbnail_url")
+                    or stop.get("thumbnail")
+                    or existing_place.get("image_url")
+                    or existing_place.get("thumbnail_url")
+                    or existing_place.get("thumbnail")
+                ),
+            }
+        )
+
+    new_place = new_candidate.place or {}
+    new_skeleton = {
+        "content_id": new_candidate.content_id,
+        "title": new_candidate.title,
+        "role": new_role,
+        "latitude": new_place.get("latitude"),
+        "longitude": new_place.get("longitude"),
+        "_new": True,
+    }
+
+    insert_at = max(0, min(insert_index, len(skeletons)))
+    skeletons.insert(insert_at, new_skeleton)
+
+    remaining_slots = [slot for slot in updated_slots if slot.day != day_no]
+
+    new_day_slots: list[ItinerarySlot] = []
+    changed_keys: set[tuple[int, int]] = set()
+    changed_slot_payloads: list[dict[str, Any]] = []
+
+    for sequence, skeleton in enumerate(skeletons, start=1):
+        role = skeleton["role"]
+
+        if skeleton.get("_new"):
+            candidate = new_candidate
+        else:
+            candidate = SlotCandidate(
+                content_id=int(skeleton["content_id"]),
+                title=skeleton.get("title") or "",
+                final_score=1.0,
+                similarity_score=1.0,
+                place={
+                    "content_id": skeleton.get("content_id"),
+                    "title": skeleton.get("title"),
+                    "latitude": skeleton.get("latitude"),
+                    "longitude": skeleton.get("longitude"),
+                    # 기존에 갖고 있던 썸네일 정보를 유지한다.
+                    # (이게 없으면 day 재정렬 시 기존 장소들의
+                    # 이미지가 전부 사라져 버린다.)
+                    "image_url": skeleton.get("thumbnail") or "",
+                },
+                forced=True,
+            )
+
+        slot = ItinerarySlot(
+            day=day_no,
+            sequence=sequence,
+            role=role,
+            target_collections=tuple(SLOT_TARGET_COLLECTIONS.get(role, ())),
+            itinerary_roles=tuple(SLOT_ITINERARY_ROLES.get(role, ())),
+            stay_minutes=_DEFAULT_STAY_MINUTES_BY_ROLE.get(role, 90),
+            location_hint=None,
+            query="chat_recommendation_insert",
+            candidates=[candidate],
+        )
+
+        new_day_slots.append(slot)
+        changed_keys.add((day_no, sequence))
+        changed_slot_payloads.append(slot.to_dict())
+
+    remaining_slots.extend(new_day_slots)
+
+    return remaining_slots, changed_keys, changed_slot_payloads
+
+
+def _day_stop_coords(
+    state: "ItineraryState", day_no: int | None
+) -> list[tuple[int, float, float]]:
+    """day_no의 stop들을 (sequence, latitude, longitude)로, sequence
+    오름차순 정렬해서 반환한다. day_no가 None이면 일정 전체 stop을
+    (day, sequence)를 무시하고 좌표만 모은다 (호출부에서 day_no가 없는
+    경우는 "day 평균" 용도로만 쓰고, 순서 기반 로직에는 안 쓴다).
+
+    좌표가 없는 stop은 건너뛴다.
+    """
+
+    coords: list[tuple[int, float, float]] = []
+
+    for day in state.itinerary.get("days", []):
+        if day_no is not None and day.get("day") != day_no:
+            continue
+        for stop in day.get("stops", []):
+            lat = stop.get("latitude")
+            lng = stop.get("longitude")
+            sequence = stop.get("sequence")
+            if lat is None or lng is None or sequence is None:
+                continue
+            coords.append((int(sequence), float(lat), float(lng)))
+
+    coords.sort(key=lambda item: item[0])
+    return coords
+
+
+def _find_stop_key_by_name(
+    state: "ItineraryState", name: str, day_no: int | None = None
+) -> tuple[int, int] | None:
+    """이름으로 기존 일정 안의 stop을 찾아 (day, sequence)를 반환한다.
+
+    "헬로효주 대신 제주당으로 바꿔줘"처럼 교체 대상(헬로효주)은 이미
+    일정에 있는 stop이므로, 그 stop의 정확한 위치를 알아야 "그 자리
+    앞뒤 장소 사이"로 후보를 좁힐 수 있다. 못 찾으면 None.
+    """
+
+    normalized_name = _normalize_title(name)
+    if not normalized_name:
+        return None
+
+    for day in state.itinerary.get("days", []):
+        if day_no is not None and day.get("day") != day_no:
+            continue
+        for stop in day.get("stops", []):
+            title = _normalize_title(str(stop.get("title") or ""))
+            if not title:
+                continue
+            if normalized_name in title or title in normalized_name:
+                sequence = stop.get("sequence")
+                day_value = day.get("day")
+                if sequence is None or day_value is None:
+                    continue
+                return (int(day_value), int(sequence))
+
+    return None
+
+
+def _neighbor_coords_for_sequence(
+    day_coords: list[tuple[int, float, float]], sequence: int
+) -> tuple[tuple[float, float] | None, tuple[float, float] | None]:
+    """정렬된 day_coords에서 sequence 바로 앞/뒤 stop의 좌표를 찾는다.
+
+    sequence가 그 day의 첫 slot이면 prev는 None, 마지막 slot이면
+    next는 None (출발지/도착지 취급은 호출부에서 필요하면 처리).
+    """
+
+    prev_coord: tuple[float, float] | None = None
+    next_coord: tuple[float, float] | None = None
+
+    for seq, lat, lng in day_coords:
+        if seq < sequence:
+            prev_coord = (lat, lng)
+        elif seq > sequence and next_coord is None:
+            next_coord = (lat, lng)
+
+    return prev_coord, next_coord
+
+
+def _detour_km(
+    prev_coord: tuple[float, float] | None,
+    next_coord: tuple[float, float] | None,
+    candidate_coord: tuple[float, float],
+) -> float | None:
+    """prev -> candidate -> next로 갔을 때, prev -> next 직행 대비 얼마나
+    더 돌아가는지(km)를 계산한다.
+
+    prev/next 중 하나가 없으면(맨 앞/맨 뒤에 넣는 경우) 있는 쪽까지의
+    단순 거리로 근사한다. 둘 다 없으면 비교 기준이 없으므로 None.
+    """
+
+    d_prev_cand = (
+        haversine_km(prev_coord[0], prev_coord[1], candidate_coord[0], candidate_coord[1])
+        if prev_coord
+        else None
+    )
+    d_cand_next = (
+        haversine_km(candidate_coord[0], candidate_coord[1], next_coord[0], next_coord[1])
+        if next_coord
+        else None
+    )
+
+    if d_prev_cand is not None and d_cand_next is not None:
+        d_prev_next = haversine_km(
+            prev_coord[0], prev_coord[1], next_coord[0], next_coord[1]
+        )
+        baseline = d_prev_next if d_prev_next is not None else 0.0
+        return d_prev_cand + d_cand_next - baseline
+
+    if d_prev_cand is not None:
+        return d_prev_cand
+
+    if d_cand_next is not None:
+        return d_cand_next
+
+    return None
+
+
+def _best_detour_km_in_day(
+    day_coords: list[tuple[int, float, float]],
+    candidate_coord: tuple[float, float],
+) -> float | None:
+    """day_coords의 모든 삽입 위치(맨 앞/사이/맨 뒤) 중, candidate를
+    넣었을 때 가장 우회가 적은 값을 찾는다.
+
+    사용자가 특정 슬롯을 지정하지 않고 "1일차 카페 추천해줘"라고 했을
+    때 쓴다 - 어디에 넣을지는 아직 안 정했으니, "이 day 어딘가에 넣는다면
+    가장 자연스러운 후보가 뭔가"를 판단하는 용도.
+    """
+
+    if not day_coords:
+        return None
+
+    points: list[tuple[float, float] | None] = (
+        [None] + [(lat, lng) for _, lat, lng in day_coords] + [None]
+    )
+
+    best: float | None = None
+
+    for i in range(len(points) - 1):
+        cost = _detour_km(points[i], points[i + 1], candidate_coord)
+        if cost is None:
+            continue
+        if best is None or cost < best:
+            best = cost
+
+    return best
+
+
+def _anchor_location_hint(
+    state: "ItineraryState", day_no: int | None, target_sequence: int | None
+) -> dict[str, float] | None:
+    """"근처" 검색의 기준점(위도/경도)을 만든다.
+
+    target_sequence가 있으면(특정 슬롯을 바꾸는 경우) 그 슬롯의 바로
+    앞/뒤 장소 좌표 평균을 기준점으로 쓴다. 이렇게 해야 예를 들어 1일차
+    6개 장소 중 2번째를 바꾸는데, 6번째 장소 근처의 카페가 "가깝다"는
+    이유로 걸러지지 않고 먼저 걸러지는 문제를 막을 수 있다.
+
+    target_sequence가 없으면(day 전체에서 아무 위치에나 추가하는 경우)
+    기존처럼 day 전체 stop 좌표 평균을 쓴다.
+
+    좌표가 있는 stop이 하나도 없으면 None (호출부는 위치 필터 없이
+    검색하게 된다).
+    """
+
+    if day_no is None:
+        return None
+
+    day_coords = _day_stop_coords(state, day_no)
+    if not day_coords:
+        return None
+
+    if target_sequence is not None:
+        prev_coord, next_coord = _neighbor_coords_for_sequence(
+            day_coords, target_sequence
+        )
+        neighbor_points = [p for p in (prev_coord, next_coord) if p is not None]
+        if neighbor_points:
+            return {
+                "latitude": sum(p[0] for p in neighbor_points) / len(neighbor_points),
+                "longitude": sum(p[1] for p in neighbor_points) / len(neighbor_points),
+            }
+
+    return {
+        "latitude": sum(lat for _, lat, _ in day_coords) / len(day_coords),
+        "longitude": sum(lng for _, _, lng in day_coords) / len(day_coords),
+    }
+
+
+def _rerank_recommendations_by_route(
+    recommendations: list[dict[str, Any]],
+    *,
+    state: "ItineraryState",
+    day_no: int | None,
+    target_sequence: int | None,
+) -> list[dict[str, Any]]:
+    """추천 후보를 "day 평균 위치와 가까운 순"이 아니라 "기존 동선에
+    넣었을 때 우회가 가장 적은 순"으로 다시 정렬한다.
+
+    - target_sequence가 있으면: 그 슬롯의 앞/뒤 장소 사이에 넣었을 때의
+      우회 거리만 본다 (예: "2번째 카페 바꿔줘").
+    - target_sequence가 없으면: 그 day의 모든 삽입 위치 중 가장 우회가
+      적은 값을 본다 (예: "1일차 카페 추천해줘").
+
+    day_no가 없거나, day에 좌표 있는 stop이 하나도 없으면(예: 새로
+    만드는 날짜) 재정렬하지 않고 원래 순서를 그대로 둔다. 좌표가 없는
+    추천 후보도 마찬가지로 순서를 그대로 두되, 좌표가 있는 후보들
+    뒤로 보낸다 (우회 거리를 모르는 후보를 우선순위 있는 것처럼
+    보여주지 않기 위해서).
+    """
+
+    if day_no is None:
+        return recommendations
+
+    day_coords = _day_stop_coords(state, day_no)
+    if not day_coords:
+        return recommendations
+
+    scored: list[tuple[float, int, dict[str, Any]]] = []
+    unscored: list[dict[str, Any]] = []
+
+    for index, recommendation in enumerate(recommendations):
+        lat = recommendation.get("latitude")
+        lng = recommendation.get("longitude")
+        if lat is None or lng is None:
+            unscored.append(recommendation)
+            continue
+
+        candidate_coord = (float(lat), float(lng))
+
+        if target_sequence is not None:
+            prev_coord, next_coord = _neighbor_coords_for_sequence(
+                day_coords, target_sequence
+            )
+            cost = _detour_km(prev_coord, next_coord, candidate_coord)
+        else:
+            cost = _best_detour_km_in_day(day_coords, candidate_coord)
+
+        if cost is None:
+            unscored.append(recommendation)
+        else:
+            scored.append((cost, index, recommendation))
+
+    scored.sort(key=lambda item: (item[0], item[1]))
+    return [recommendation for _, _, recommendation in scored] + unscored
 
 def _location_hint_for_day(
     state: ItineraryState,

@@ -48,15 +48,8 @@ export function ReservationProvider({ children }) {
   }
 
   const cancelReservation = async (id) => {
-    const updated = await cancelReservationApi(id)
-
-    setReservations((prev) =>
-      prev.map((reservation) =>
-        reservation.id === id ? updated : reservation
-      )
-    )
-
-    return updated
+    await cancelReservationApi(id)
+    setReservations((prev) => prev.filter((reservation) => reservation.id !== id))
   }
 
   return (
