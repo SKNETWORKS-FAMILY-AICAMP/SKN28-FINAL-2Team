@@ -200,6 +200,11 @@ class ItineraryEngineTests(unittest.TestCase):
 
         self.assertEqual(len(updated.itinerary["days"][0]["stops"]), 4)
         self.assertEqual(len(updated.slots), 4)
+        self.assertEqual(
+            [stop["sequence"] for stop in updated.itinerary["days"][0]["stops"]],
+            [1, 2, 3, 4],
+        )
+        self.assertEqual([slot.sequence for slot in updated.slots], [1, 2, 3, 4])
         self.assertNotIn(removed_content_id, updated.used_content_ids)
         self.assertIn(removed_title, updated.condition.excluded_places)
         self.assertEqual(llm.revision_calls, [])
@@ -233,6 +238,34 @@ class ItineraryEngineTests(unittest.TestCase):
         self.assertNotIn(removed["content_id"], remaining_ids)
         self.assertNotIn(removed["content_id"], updated.used_content_ids)
         self.assertEqual(llm.revision_calls, [])
+
+    def test_add_after_uses_current_position_after_a_delete(self) -> None:
+        engine, llm, retrieval = self._engine()
+        retrieval.places = (*retrieval.places, _place(6, "New cafe", "restaurants"))
+        with redirect_stdout(StringIO()):
+            state = engine.create_itinerary("trip")
+
+        removed_title = state.itinerary["days"][0]["stops"][1]["title"]
+        llm.delta = ConditionDelta(remove_places=(removed_title,))
+        with redirect_stdout(StringIO()):
+            after_delete = engine.update_itinerary_from_chat(state, "delete")
+
+        remaining_ids = [
+            slot.candidates[0].content_id for slot in after_delete.state.slots
+        ]
+        anchor_title = after_delete.state.itinerary["days"][0]["stops"][1]["title"]
+        llm.delta = ConditionDelta(
+            add_must_visit_places=("New cafe",),
+            affected_slots=("food",),
+            insert_after=anchor_title,
+        )
+        with redirect_stdout(StringIO()):
+            after_add = engine.update_itinerary_from_chat(after_delete.state, "add")
+
+        self.assertEqual(
+            [slot.candidates[0].content_id for slot in after_add.state.slots],
+            [*remaining_ids[:2], 6, *remaining_ids[2:]],
+        )
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ from apps.travel.serializers import PackageSerializer
 
 from .models import CartItem
 from .serializers import ReservationCreateSerializer, ReservationItemSerializer
-from .views import CartAPIView, create_package_itinerary
+from .views import CartAPIView, ReservationCancelAPIView, create_package_itinerary
 
 
 class ReservationItemSerializerTests(SimpleTestCase):
@@ -137,6 +137,23 @@ class CartAPIViewTests(SimpleTestCase):
                 "option_date",
             ]
         )
+
+
+class ReservationCancelAPIViewTests(SimpleTestCase):
+    @patch("apps.reservation.views.get_object_or_404")
+    def test_cancel_deletes_reservation(self, mocked_get_object):
+        reservation = SimpleNamespace(delete=Mock())
+        mocked_get_object.return_value = reservation
+        request = APIRequestFactory().patch("/api/reservations/1/cancel/")
+        force_authenticate(
+            request,
+            user=SimpleNamespace(is_authenticated=True),
+        )
+
+        response = ReservationCancelAPIView.as_view()(request, pk=1)
+
+        self.assertEqual(response.status_code, 204)
+        reservation.delete.assert_called_once_with()
 
 
 class ReservationCreateSerializerTests(SimpleTestCase):

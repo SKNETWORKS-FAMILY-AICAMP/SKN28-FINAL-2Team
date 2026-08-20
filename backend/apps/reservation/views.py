@@ -686,7 +686,7 @@ class ReservationDetailAPIView(RetrieveAPIView):
     summary="예약 취소",
     request=None,
     responses={
-        200: ReservationSerializer,
+        204: None,
         400: None,
         404: None,
     },
@@ -701,19 +701,5 @@ class ReservationCancelAPIView(APIView):
             user=request.user,
         )
 
-        if reservation.status == Reservation.Status.CANCELLED:
-            return Response(
-                {"detail": "이미 취소된 예약입니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        reservation.status = Reservation.Status.CANCELLED
-        reservation.save(update_fields=["status", "updated_at"])
-
-        return Response(
-            ReservationSerializer(
-                reservation,
-                context={"include_schedule": False},
-            ).data,
-            status=status.HTTP_200_OK,
-        )
+        reservation.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

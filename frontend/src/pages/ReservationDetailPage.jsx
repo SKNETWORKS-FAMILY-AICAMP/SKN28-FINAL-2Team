@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { getItinerary } from '../api/itinerary'
 
 import { getPackageDetail, getPackages } from '../api/packageApi'
-import { cancelReservation, getReservation } from '../api/reservationApi'
+import { getReservation } from '../api/reservationApi'
+import { useReservations } from '../context/ReservationContext.jsx'
 import AppHeader from '../components/AppHeader.jsx'
 import styles from './reservation/reservationDetail.module.css'
 import { won } from '../data/packages.js'
@@ -29,6 +30,8 @@ const packageDays = (course = []) =>
 
 export default function ReservationDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { cancelReservation } = useReservations()
   const [reservation, setReservation] = useState(null)
   const [itinerary, setItinerary] = useState(null)
   const [packageDetails, setPackageDetails] = useState({})
@@ -132,8 +135,8 @@ export default function ReservationDetailPage() {
     if (!window.confirm('이 예약을 취소할까요? 취소 후에는 되돌릴 수 없습니다.')) return
     setCancelling(true)
     try {
-      const updated = await cancelReservation(reservation.id)
-      setReservation(updated)
+      await cancelReservation(reservation.id)
+      navigate('/my/reservations', { replace: true })
     } catch (cancelError) {
       alert(cancelError.message || '예약을 취소하지 못했습니다.')
     } finally {
