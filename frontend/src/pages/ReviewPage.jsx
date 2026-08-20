@@ -19,6 +19,7 @@ import {
   getItinerary,
   getPackageRecommendations,
   getSharedItinerary,
+  prepareItineraryForEdit,
 } from '../api/itinerary';
 
 const getCustomPackageThumbnail = (itinerary) => {
@@ -115,6 +116,7 @@ export default function ReviewPage() {
   const [packageError, setPackageError] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('custom');
   const [addingToCart, setAddingToCart] = useState(false);
+  const [isPreparingEdit, setIsPreparingEdit] = useState(false);
 
   const pdfRef = useRef(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -342,6 +344,33 @@ export default function ReviewPage() {
     }
   };
 
+  const handleEditItinerary = async () => {
+    if (isPreparingEdit) return;
+
+    try {
+      setIsPreparingEdit(true);
+      const result = await prepareItineraryForEdit(itinerary.id);
+
+      refreshItineraries().catch((error) => {
+        console.error('일정 목록 새로고침 실패:', error);
+      });
+
+      if (result.copied) {
+        alert('예약된 원본은 보존하고 수정용 일정 복사본을 만들었습니다.');
+      }
+
+      navigate(`/itinerary/${result.itinerary.id}`);
+    } catch (error) {
+      console.error('일정 편집 준비 실패:', error);
+      alert(
+        error.response?.data?.detail ??
+          '일정을 수정할 수 있는 상태로 준비하지 못했습니다.'
+      );
+    } finally {
+      setIsPreparingEdit(false);
+    }
+  };
+
   const handlePdfDownload = async () => {
     if (!pdfRef.current || isDownloading) return;
 
@@ -464,6 +493,23 @@ export default function ReviewPage() {
           </p>
         </div>
 
+        {!token && (
+          <div className={styles.reviewActions}>
+            <button
+              type="button"
+              className={cx(styles.btn, styles.ghost, styles.sm)}
+              onClick={handleEditItinerary}
+              disabled={isPreparingEdit}
+            >
+              {isPreparingEdit
+                ? '수정 준비 중...'
+                : isBooked
+                  ? '✏️ 복사해서 일정 수정'
+                  : '✏️ 일정 수정하기'}
+            </button>
+          </div>
+        )}
+
 
         <div>
           {(token || itinerary.status !== 'confirmed') && (
@@ -507,15 +553,6 @@ export default function ReviewPage() {
                         {isDownloading ? 'PDF 생성 중...' : '📄 PDF 저장'}
                       </button>
                     </>
-                  )}
-
-                  {itinerary.status !== 'confirmed' && (
-                    <Link
-                      to={`/itinerary/${id}`}
-                      className={cx(styles.btn, styles.ghost, styles.sm)}
-                  >
-                    ✏️ 일정 수정하기
-                    </Link>
                   )}
 
                   <Link

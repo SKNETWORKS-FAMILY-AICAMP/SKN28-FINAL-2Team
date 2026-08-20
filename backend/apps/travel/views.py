@@ -18,7 +18,11 @@ from .serializers import (
     PackageSerializer,
     PackageListSerializer,
 )
-from .services import generate_itinerary, revise_itinerary
+from .services import (
+    generate_itinerary,
+    prepare_itinerary_for_edit,
+    revise_itinerary,
+)
 from .kakao_route_service import get_kakao_day_route_path
 
 from apps.package_recommendation.services import recommend_package_comparison
@@ -226,6 +230,25 @@ class ItineraryViewSet(viewsets.ModelViewSet):
         if self.get_object().status == Itinerary.Status.CONFIRMED:
             return self._confirmed_edit_response()
         return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        tags=["Itinerary"],
+        summary="일정 편집 준비",
+        request=None,
+        responses={200: OpenApiTypes.OBJECT},
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="prepare-edit",
+    )
+    def prepare_edit(self, request, pk=None):
+        itinerary, copied = prepare_itinerary_for_edit(
+            self.get_object()
+        )
+        data = self.get_serializer(itinerary).data
+        data["copied"] = copied
+        return Response(data, status=status.HTTP_200_OK)
 
     @extend_schema(
         tags=["Itinerary"],

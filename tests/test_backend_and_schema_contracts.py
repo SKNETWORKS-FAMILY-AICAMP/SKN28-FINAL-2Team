@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -21,9 +21,14 @@ django.setup()
 
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from apps.travel.models import Itinerary
+from apps.travel.models import Itinerary, ItineraryDay
 from apps.travel.serializers import ItinerarySerializer
-from apps.travel.services import _merge_schedule_into_engine_state, generate_itinerary
+from apps.travel.services import (
+    _clone_itinerary_as_draft,
+    _merge_schedule_into_engine_state,
+    generate_itinerary,
+    prepare_itinerary_for_edit,
+)
 from apps.travel.views import ItineraryViewSet
 from src.config.settings import MySQLConfig
 from src.recommender.package_repository import MySQLPackageRepository
@@ -137,6 +142,174 @@ class ItineraryStateSyncTests(unittest.TestCase):
         )
         self.assertEqual(merged["used_content_ids"], [22])
         self.assertEqual(len(state["itinerary"]["days"][0]["stops"]), 2)
+
+
+class ItineraryEditPreparationTests(unittest.TestCase):
+    @patch("apps.travel.views.prepare_itinerary_for_edit")
+    @patch.object(ItineraryViewSet, "get_serializer")
+    @patch.object(ItineraryViewSet, "get_object")
+    def test_prepare_edit_action_returns_editable_itinerary(
+        self,
+        mocked_get_object,
+        mocked_get_serializer,
+        mocked_prepare,
+    ) -> None:
+        source = SimpleNamespace(id=1)
+        editable = SimpleNamespace(id=2)
+        mocked_get_object.return_value = source
+        mocked_prepare.return_value = (editable, True)
+        mocked_get_serializer.return_value.data = {
+            "id": 2,
+            "status": Itinerary.Status.DRAFT,
+        }
+        request = APIRequestFactory().post(
+            "/api/travel/itineraries/1/prepare-edit/"
+        )
+        force_authenticate(
+            request,
+            user=SimpleNamespace(is_authenticated=True),
+        )
+        view = ItineraryViewSet.as_view({"post": "prepare_edit"})
+
+        response = view(request, pk=1)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {"id": 2, "status": Itinerary.Status.DRAFT, "copied": True},
+        )
+        mocked_prepare.assert_called_once_with(source)
+
+    def test_unbooked_confirmed_itinerary_reopens_and_invalidates_quote(self) -> None:
+        cart_items = Mock()
+        itinerary = SimpleNamespace(
+            status=Itinerary.Status.CONFIRMED,
+            reservations=SimpleNamespace(
+                exists=Mock(return_value=False),
+            ),
+            cart_product_items=SimpleNamespace(
+                all=Mock(return_value=cart_items),
+            ),
+            selected_package=42,
+            is_public=True,
+            share_token="shared-token",
+            save=Mock(),
+        )
+
+        editable, copied = prepare_itinerary_for_edit.__wrapped__(itinerary)
+
+        self.assertIs(editable, itinerary)
+        self.assertFalse(copied)
+        self.assertEqual(itinerary.status, Itinerary.Status.DRAFT)
+        self.assertIsNone(itinerary.selected_package)
+        self.assertFalse(itinerary.is_public)
+        self.assertIsNone(itinerary.share_token)
+        cart_items.delete.assert_called_once_with()
+        itinerary.save.assert_called_once_with(
+            update_fields=[
+                "status",
+                "selected_package",
+                "is_public",
+                "share_token",
+                "updated_at",
+            ]
+        )
+
+    @patch("apps.travel.services._clone_itinerary_as_draft")
+    def test_booked_itinerary_returns_a_draft_copy(self, mocked_clone) -> None:
+        clone = SimpleNamespace(status=Itinerary.Status.DRAFT)
+        mocked_clone.return_value = clone
+        itinerary = SimpleNamespace(
+            status=Itinerary.Status.CONFIRMED,
+            reservations=SimpleNamespace(
+                exists=Mock(return_value=True),
+            ),
+        )
+
+        editable, copied = prepare_itinerary_for_edit.__wrapped__(itinerary)
+
+        self.assertIs(editable, clone)
+        self.assertTrue(copied)
+        mocked_clone.assert_called_once_with(itinerary)
+
+    @patch("apps.travel.services.ItineraryItem.objects.bulk_create")
+    @patch("apps.travel.services.ItineraryDay.objects.create")
+    @patch("apps.travel.services.Itinerary.objects.create")
+    def test_draft_copy_preserves_schedule_but_resets_links(
+        self,
+        mocked_create_itinerary,
+        mocked_create_day,
+        mocked_bulk_create,
+    ) -> None:
+        clone = Itinerary(
+            id=2,
+            start_date=date(2026, 1, 15),
+            end_date=date(2026, 1, 16),
+        )
+        cloned_day = ItineraryDay(
+            id=20,
+            itinerary=clone,
+            day_number=1,
+            date=date(2026, 1, 15),
+        )
+        mocked_create_itinerary.return_value = clone
+        mocked_create_day.return_value = cloned_day
+        item = SimpleNamespace(
+            order=1,
+            time="09:00",
+            item_type="spot",
+            title="협재해변",
+            description="바다",
+            thumbnail="image.jpg",
+            spot=None,
+            restaurant=None,
+            accommodation=None,
+            latitude=33.3,
+            longitude=126.2,
+            memo="",
+        )
+        day = SimpleNamespace(
+            day_number=1,
+            date=date(2026, 1, 15),
+            items=SimpleNamespace(all=Mock(return_value=[item])),
+        )
+        source = SimpleNamespace(
+            user=SimpleNamespace(id=1),
+            title="제주 여행",
+            subtitle="바다 여행",
+            start_date=date(2026, 1, 15),
+            end_date=date(2026, 1, 16),
+            companion_type="friend",
+            age_group="30",
+            companion_count=2,
+            style="힐링",
+            engine_state={"itinerary": {"days": [{"day": 1}]}},
+            days=SimpleNamespace(
+                prefetch_related=Mock(
+                    return_value=SimpleNamespace(
+                        all=Mock(return_value=[day])
+                    )
+                )
+            ),
+        )
+
+        result = _clone_itinerary_as_draft(source)
+
+        self.assertIs(result, clone)
+        create_kwargs = mocked_create_itinerary.call_args.kwargs
+        self.assertEqual(create_kwargs["status"], Itinerary.Status.DRAFT)
+        self.assertIsNone(create_kwargs["selected_package"])
+        self.assertIsNone(create_kwargs["share_token"])
+        self.assertIsNot(create_kwargs["engine_state"], source.engine_state)
+        mocked_create_day.assert_called_once_with(
+            itinerary=clone,
+            day_number=1,
+            date=date(2026, 1, 15),
+        )
+        cloned_items = mocked_bulk_create.call_args.args[0]
+        self.assertEqual(len(cloned_items), 1)
+        self.assertEqual(cloned_items[0].title, "협재해변")
+        self.assertIs(cloned_items[0].day, cloned_day)
 
 
 class PackageRecommendationAPIContractTests(unittest.TestCase):
