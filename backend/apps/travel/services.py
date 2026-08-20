@@ -578,7 +578,12 @@ def generate_itinerary(
         # 전체 파이프라인 실행
         # -------------------------------------------------
         state = get_itinerary_engine().create_itinerary(user_text)
-        itinerary.title = summarize_trip_title(state.condition)
+        condition = getattr(state, "condition", None)
+        itinerary.title = (
+            summarize_trip_title(condition)
+            if condition is not None
+            else f"{itinerary.duration_label} {itinerary.get_companion_type_display()} 여행"
+        )
         itinerary.save(update_fields=["title"])
 
         # -------------------------------------------------
