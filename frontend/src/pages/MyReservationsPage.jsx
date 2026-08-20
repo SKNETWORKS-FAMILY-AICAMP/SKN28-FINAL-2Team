@@ -43,8 +43,12 @@ export default function MyReservationsPage() {
               const firstItem = reservation.items?.[0]
               const extraCount = Math.max((reservation.items?.length || 0) - 1, 0)
               const itemSummary = firstItem
-                ? `${firstItem.name}${extraCount ? ` 외 ${extraCount}개` : ''}`
+                ? `${firstItem.display_name || firstItem.name}${extraCount ? ` 외 ${extraCount}개` : ''}`
                 : '예약한 여행 상품'
+              const tripInfo = [
+                firstItem?.option_date?.replaceAll('-', '.'),
+                firstItem?.option_people && `${firstItem.option_people}명`,
+              ].filter(Boolean).join(' · ') || '예약한 여행'
               const isCustom =
                 firstItem?.product_type === 'custom_itinerary' ||
                 String(firstItem?.package_id || '').toUpperCase().startsWith('CUSTOM-')
@@ -56,11 +60,19 @@ export default function MyReservationsPage() {
                   className={styles.listItem}
                 >
                   <div className={styles.listThumb}>
-                    {isCustom ? '🏝️' : '🧳'}
+                    {firstItem?.thumbnail_url ? (
+                      <img
+                        src={firstItem.thumbnail_url}
+                        alt={firstItem.display_name || firstItem.name}
+                        className={styles.listThumbImage}
+                      />
+                    ) : (
+                      isCustom ? '🏝️' : '🧳'
+                    )}
                   </div>
                   <div className={styles.listInfo}>
-                    <h5>예약 #{reservation.id}</h5>
-                    <p>{itemSummary}</p>
+                    <h5>{itemSummary}</h5>
+                    <p>{tripInfo}</p>
                     <span className={cx(styles.badge, badgeStyle(reservation.status))}>
                       {reservation.status_display}
                     </span>

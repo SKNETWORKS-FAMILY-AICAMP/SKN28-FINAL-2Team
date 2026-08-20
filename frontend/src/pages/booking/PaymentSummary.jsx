@@ -5,6 +5,8 @@ import { won } from '../../data/packages.js'
 export default function PaymentSummary({
   items = [],
   totalPrice = 0,
+  peopleCount = 1,
+  usePeopleCount = false,
   onConfirm,
   submitting,
 }) {
@@ -24,7 +26,7 @@ export default function PaymentSummary({
           </span>
 
           <span className={styles.v}>
-            {won(Number(item.package.price) * item.quantity)}
+            {won(Number(item.package.price) * (usePeopleCount ? peopleCount : item.quantity))}
           </span>
         </div>
       ))}

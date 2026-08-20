@@ -5,11 +5,16 @@ import cx from "../utils/cx.js";
 import AccountHeader from "./account/AccountHeader.jsx";
 import AccountTabs from "./account/AccountTabs.jsx";
 import { useItineraries } from "../context/ItineraryContext.jsx";
+import { useReservations } from "../context/ReservationContext.jsx";
 
 const won = (n) => Number(n ?? 0).toLocaleString("ko-KR") + "원";
 
 export default function MyItinerariesPage() {
   const { itineraries, loading, refresh, remove } = useItineraries();
+  const { reservations } = useReservations();
+  const packageReservations = reservations.filter(
+    (reservation) => !reservation.itinerary && reservation.status !== "cancelled",
+  );
 
   useEffect(() => {
     refresh().catch((err) => {
@@ -47,15 +52,15 @@ export default function MyItinerariesPage() {
         <div className={styles.pageHead}>
           <div className={styles.sectionTag}>✓ 내 일정</div>
 
-          <h1>저장한 여행 일정</h1>
+          <h1>내 여행 일정</h1>
 
           <p>
-            지금까지 만든 일정을 다시 확인하고 이어서 편집할 수 있어요.
+            직접 만든 일정과 예약한 패키지를 한곳에서 확인할 수 있어요.
           </p>
         </div>
 
         <div className={styles.card}>
-          {itineraries.length === 0 ? (
+          {itineraries.length === 0 && packageReservations.length === 0 ? (
             <div className={styles.empty}>
               <div className={styles.icon}>🗓️</div>
 
@@ -71,28 +76,47 @@ export default function MyItinerariesPage() {
               </Link>
             </div>
           ) : (
-            itineraries.map((it) => (
+            <>
+            {itineraries.map((it) => (
               <div className={styles.listItem} key={it.id}>
                 <Link
                   to={`/review/${it.id}?view=itinerary`}
                   style={{
                     flex: 1,
                     display: "flex",
+                    gap: "16px",
                     textDecoration: "none",
                     color: "inherit",
                   }}
                 >
-                  <div className={styles.listThumb}>🌴</div>
+                  <div className={styles.listThumb}>
+                    {it.thumbnailUrl ? (
+                      <img
+                        src={it.thumbnailUrl}
+                        alt={it.title || "내 여행 일정"}
+                        className={styles.listThumbImage}
+                      />
+                    ) : (
+                      "🌴"
+                    )}
+                  </div>
 
                   <div className={styles.listInfo}>
                     <h5>
-                      {it.durationLabel} {it.companionTypeDisplay} 여행
+                      {it.title || `${it.durationLabel} ${it.companionTypeDisplay} 여행`}
                     </h5>
 
                     <p>
                       {it.styleDisplay?.replace("여행", "")} · {it.startDate} ~ {it.endDate} ·{" "}
                       {it.durationLabel} · {it.companionCount}명
                     </p>
+                    {it.bookedProductType && (
+                      <span className={cx(styles.badge, styles.badgeConfirmed)}>
+                        {it.bookedProductType === "stored_package"
+                          ? "추천 패키지 예약 완료"
+                          : "자유일정 예약 완료"}
+                      </span>
+                    )}
                   </div>
                 </Link>
 
@@ -114,7 +138,51 @@ export default function MyItinerariesPage() {
                   </button>
                 </div>
               </div>
-            ))
+            ))}
+
+            {packageReservations.map((reservation) => {
+              const firstItem = reservation.items?.[0];
+              const extraCount = Math.max((reservation.items?.length || 0) - 1, 0);
+              const title = firstItem
+                ? `${firstItem.display_name || firstItem.name}${extraCount ? ` 외 ${extraCount}개` : ""}`
+                : "예약한 여행 패키지";
+
+              return (
+                <Link
+                  className={styles.listItem}
+                  key={`reservation-${reservation.id}`}
+                  to={`/my/reservations/${reservation.id}`}
+                >
+                  <div className={styles.listThumb}>
+                    {firstItem?.thumbnail_url ? (
+                      <img
+                        src={firstItem.thumbnail_url}
+                        alt={title}
+                        className={styles.listThumbImage}
+                      />
+                    ) : (
+                      "🧳"
+                    )}
+                  </div>
+
+                  <div className={styles.listInfo}>
+                    <h5>{title}</h5>
+                    <p>
+                      예약 패키지 · {new Date(reservation.created_at).toLocaleDateString("ko-KR")}
+                    </p>
+                    <span className={cx(styles.badge, styles.badgeConfirmed)}>
+                      예약 완료
+                    </span>
+                  </div>
+
+                  <div className={styles.listMeta}>
+                    <div className={styles.price}>{won(reservation.total_price)}</div>
+                    <div className={styles.detailToggle}>일정 보기 →</div>
+                  </div>
+                </Link>
+              );
+            })}
+            </>
           )}
         </div>
       </div>

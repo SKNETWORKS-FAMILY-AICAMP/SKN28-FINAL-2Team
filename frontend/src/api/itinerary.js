@@ -1,5 +1,10 @@
 import api from "./axios";
 
+const getItineraryThumbnail = (days = []) =>
+  days
+    .flatMap((day) => day.items ?? [])
+    .find((item) => item.thumbnail)?.thumbnail ?? "";
+
 const mapItinerary = (data) => ({
   id: data.id,
   title: data.title,
@@ -23,6 +28,7 @@ const mapItinerary = (data) => ({
   bookedPackageDbId: data.booked_package_db_id,
   bookedPrice: data.booked_price,
   hotel: data.hotel || null,
+  thumbnailUrl: getItineraryThumbnail(data.days),
 
   days: data.days.map((day) => ({
     dayNumber: day.day_number,
@@ -46,6 +52,10 @@ export const getItineraries = async () => {
     styleDisplay: item.style_display,
     status: item.status,
     statusDisplay: item.status_display,
+    bookedProductType: item.booked_product_type,
+    bookedPackageDbId: item.booked_package_db_id,
+    bookedPrice: item.booked_price,
+    thumbnailUrl: getItineraryThumbnail(item.days),
     hotel: item.hotel || null,
   }));
 };

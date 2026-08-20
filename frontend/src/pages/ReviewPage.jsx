@@ -134,7 +134,11 @@ export default function ReviewPage() {
 
         setItinerary(data);
 
-        if (!token && !isItineraryOnlyView && data.status === 'confirmed') {
+        if (
+          !token &&
+          data.status === 'confirmed' &&
+          (!isItineraryOnlyView || data.bookedProductType === 'stored_package')
+        ) {
           setPackageLoading(true);
           setPackageError('');
 
@@ -232,6 +236,9 @@ export default function ReviewPage() {
         state: {
           bookingSource: 'package',
           itineraryId: itinerary.id,
+          startDate: itinerary.startDate,
+          endDate: itinerary.endDate,
+          peopleCount: itinerary.companionCount,
           packageIds: [storedPackageDbId],
           packages: [
             {
@@ -268,6 +275,9 @@ export default function ReviewPage() {
       state: {
         bookingSource: 'custom-itinerary',
         itineraryId: itinerary.id,
+        startDate: itinerary.startDate,
+        endDate: itinerary.endDate,
+        peopleCount: itinerary.companionCount,
         packages: [
           {
             id: `custom-${itinerary.id}`,
@@ -467,7 +477,8 @@ export default function ReviewPage() {
       <AppHeader />
 
       <div className={styles.wrap}>
-        <div className={styles.pageHead}>
+        {!isBooked && (
+          <div className={styles.pageHead}>
           <div className={styles.sectionTag}>
             {isBooked
               ? '✓ 예약 일정 확인'
@@ -491,9 +502,10 @@ export default function ReviewPage() {
                 ? '완성한 일정과 이동 경로를 한눈에 확인할 수 있어요.'
                 : '방금 완성한 일정을 그대로 이용하거나, 일정과 잘 맞는 추천 패키지를 선택할 수 있어요.'}
           </p>
-        </div>
+          </div>
+        )}
 
-        {!token && (
+        {!token && !isItineraryOnlyView && !isBooked && (
           <div className={styles.reviewActions}>
             <button
               type="button"
@@ -614,7 +626,11 @@ export default function ReviewPage() {
                     itineraryId={itinerary.id}
                     storedPackageId={packageComparison.stored_package?.id}
                     storedDays={packageComparison.stored_package?.days ?? []}
-                    storedHotel={packageComparison.stored_package?.hotel ?? null}
+                    storedHotel={
+                      packageComparison.stored_package?.hotel ??
+                      packageComparison.stored_package?.accommodation ??
+                      null
+                    }
                     customHotel={itinerary.hotel ?? null}
                     selectedProduct={selectedProduct}
                   />
@@ -824,7 +840,6 @@ export default function ReviewPage() {
           )}
   
       {!token &&
-        !isItineraryOnlyView &&
         itinerary.status === 'confirmed' &&
         isBookedStored &&
         packageComparison?.stored_package && (
@@ -874,7 +889,12 @@ export default function ReviewPage() {
                   packageComparison.stored_package.course ??
                   []
                 }
-                storedHotel={packageComparison.stored_package.hotel ?? null}
+                storedHotel={
+                  itinerary.hotel ??
+                  packageComparison.stored_package.hotel ??
+                  packageComparison.stored_package.accommodation ??
+                  null
+                }
                 mode="stored"
               />
             </div>
@@ -916,6 +936,18 @@ export default function ReviewPage() {
                   </strong>
                 </div>
 
+                {itinerary.hotel && (
+                  <div className={styles.bookedAccommodationInfo}>
+                    <span className={styles.accommodationIcon} aria-hidden="true">🛏</span>
+                    <span className={styles.accommodationCopy}>
+                      <small>패키지 포함 숙소 · {itinerary.hotel.nights}박</small>
+                      <strong>{itinerary.hotel.title}</strong>
+                      {itinerary.hotel.address && <em>{itinerary.hotel.address}</em>}
+                    </span>
+                    <span className={styles.accommodationIncluded}>숙박 포함</span>
+                  </div>
+                )}
+
                 <ComparisonDays
                   days={
                     packageComparison.stored_package.days ??
@@ -929,7 +961,7 @@ export default function ReviewPage() {
       )}
             {!token &&
               itinerary.status === 'confirmed' &&
-              (isBookedCustom || isItineraryOnlyView) && (
+              (isBookedCustom || (isItineraryOnlyView && !isBookedStored)) && (
                 <section className={cx(styles.packageComparison, styles.bookedComparison)}>
 
                 {!token && (

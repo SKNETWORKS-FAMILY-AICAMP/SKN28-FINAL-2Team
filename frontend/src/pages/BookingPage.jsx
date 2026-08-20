@@ -5,13 +5,29 @@ import cx from '../utils/cx.js'
 import AppHeader from '../components/AppHeader.jsx'
 import PackageList from './booking/PackageList.jsx'
 import PaymentSummary from './booking/PaymentSummary.jsx'
+import TripInfoCard from './booking/TripInfoCard.jsx'
 import { useBookmarks } from '../context/BookmarkContext.jsx'
 import { useReservations } from '../context/ReservationContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
+import { useItineraries } from '../context/ItineraryContext.jsx'
 import { won } from '../data/packages.js'
+
+const toDateInputValue = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const addDays = (dateValue, days) => {
+  const date = new Date(`${dateValue}T00:00:00`)
+  date.setDate(date.getDate() + days)
+  return toDateInputValue(date)
+}
 
 export default function BookingPage() {
   const { addReservation } = useReservations()
+  const { refresh: refreshItineraries } = useItineraries()
   const { state } = useLocation();
   const bookingSource = state?.bookingSource || 'itinerary'
   const initialSelected =
@@ -34,6 +50,12 @@ export default function BookingPage() {
 
   const isCartBooking = bookingSource === 'cart'
   const isCustomBooking = bookingSource === 'custom-itinerary'
+  const isPackageBooking = bookingSource === 'package'
+  const isStandalonePackageBooking = isPackageBooking && !itineraryId
+  const usesPeopleCount = isStandalonePackageBooking || Boolean(itineraryId)
+  const minStartDate = addDays(toDateInputValue(new Date()), 1)
+  const [startDate, setStartDate] = useState(state?.startDate || minStartDate)
+  const [peopleCount, setPeopleCount] = useState(state?.peopleCount || 1)
   useEffect(() => {
     if (isCartBooking) {
       setSelected(
@@ -44,7 +66,6 @@ export default function BookingPage() {
   const directPackages = Array.isArray(state?.packages)
     ? state.packages
     : []
-
   const packageItems = directPackages.map((p) => ({
     cartId: `package-${p.id}`,
     package: p,
@@ -55,10 +76,17 @@ export default function BookingPage() {
       selected.includes(item.package.id)
   )
   const chosen = chosenItems.map((item) => item.package)
+  const durationDays = Math.max(
+    Number(chosen[0]?.durationDays ?? chosen[0]?.duration_days ?? 1),
+    1,
+  )
+  const endDate = itineraryId
+    ? state?.endDate || startDate
+    : startDate ? addDays(startDate, durationDays - 1) : ''
 
   const total = chosenItems.reduce(
     (sum, item) =>
-      sum + Number(item.package.price) * item.quantity,
+      sum + Number(item.package.price) * (usesPeopleCount ? peopleCount : item.quantity),
     0
   )
 
@@ -77,6 +105,8 @@ export default function BookingPage() {
           ? chosenItems.map((item) => item.cartId)
           : undefined,
         itineraryId,
+        startDate: isStandalonePackageBooking ? startDate : undefined,
+        peopleCount: usesPeopleCount ? peopleCount : undefined,
       }
     )
 
@@ -86,6 +116,14 @@ export default function BookingPage() {
 
     setConfirmedReservation(reservation)
     setConfirmed(true)
+
+    if (itineraryId || isStandalonePackageBooking) {
+      try {
+        await refreshItineraries()
+      } catch (error) {
+        console.error('예약 후 일정 목록 새로고침 실패:', error)
+      }
+    }
 
     if (isCartBooking) {
       await refreshCart()
@@ -102,7 +140,7 @@ export default function BookingPage() {
 }
   const confirmedItemNames =
     confirmedReservation?.items
-      ?.map((item) => item.name)
+      ?.map((item) => item.display_name || item.name)
       .filter(Boolean) ?? []
 
   const confirmedTitle =
@@ -110,10 +148,12 @@ export default function BookingPage() {
       ? confirmedItemNames.join(', ')
       : '예약한 제주 패키지'
 
-  const confirmedDate =
-    confirmedReservation?.created_at
-      ? new Date(confirmedReservation.created_at).toLocaleDateString('ko-KR')
-      : ''
+  const confirmedItem = confirmedReservation?.items?.[0]
+  const confirmedStartDate = confirmedItem?.option_date || startDate
+  const confirmedDate = confirmedStartDate
+    ? `${confirmedStartDate.replaceAll('-', '.')} ~ ${endDate.replaceAll('-', '.')}`
+    : ''
+  const confirmedPeople = confirmedItem?.option_people || confirmedItem?.quantity
 
   return (
     <div className={styles.page}>
@@ -171,6 +211,10 @@ export default function BookingPage() {
                 <span className={styles.k}>결제 금액</span>
                 <span className={styles.v}>{won(confirmedTotal)}</span>
               </div>
+              <div className={styles.row}>
+                <span className={styles.k}>인원</span>
+                <span className={styles.v}>{confirmedPeople || 1}명</span>
+              </div>
             </div>
             <div style={{ marginTop: 26, display: 'flex', gap: 10, justifyContent: 'center' }}>
               <Link to="/my/reservations" className={cx(styles.btn, styles.ghost)}>
@@ -191,11 +235,24 @@ export default function BookingPage() {
                 isBookmarked={isBookmarked}
                 onToggleBookmark={toggleBookmark}
               />
+              {usesPeopleCount && (
+                <TripInfoCard
+                  startDate={startDate}
+                  endDate={endDate}
+                  peopleCount={peopleCount}
+                  minStartDate={minStartDate}
+                  dateLocked={Boolean(itineraryId)}
+                  onStartDateChange={setStartDate}
+                  onPeopleCountChange={setPeopleCount}
+                />
+              )}
               </div>
 
               <PaymentSummary
                 items={chosenItems}
                 totalPrice={total}
+                peopleCount={peopleCount}
+                usePeopleCount={usesPeopleCount}
                 onConfirm={handleConfirm}
                 submitting={submitting}
               />

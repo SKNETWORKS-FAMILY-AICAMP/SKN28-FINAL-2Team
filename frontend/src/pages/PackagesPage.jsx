@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './packages/packages.module.css'
 import cx from '../utils/cx.js'
-import AccountMenu from '../components/AccountMenu.jsx'
+import AppHeader from '../components/AppHeader.jsx'
 import PackageDetailModal from '../components/PackageDetailModal.jsx'
 import { won } from '../data/packages.js'
 import { getPackages, getPackageDetail, } from '../api/packageApi.js'
@@ -117,17 +117,7 @@ export default function PackagesPage() {
 
   return (
   <div className={styles.page}>
-    <header className={styles.appnav}>
-      <Link to="/" className={styles.logo}>
-        <span className={styles.logoMark}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2c4 3 6 7 6 11a6 6 0 0 1-12 0c0-4 2-8 6-11z" fill="#fff" />
-          </svg>
-        </span>
-        탐나플랜
-      </Link>
-      <AccountMenu />
-    </header>
+    <AppHeader variant="main" />
 
     <div className={styles.wrap}>
       <div className={styles.pageHead}>

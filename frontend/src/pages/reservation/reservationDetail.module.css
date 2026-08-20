@@ -10,6 +10,8 @@
 .productTabActive{ border-color:var(--ink); background:var(--ink); color:#fff; }
 .card{ padding:26px 28px 30px; border:2.5px solid var(--ink); border-radius:22px; background:#fff; box-shadow:6px 6px 0 var(--green-soft-2); }
 .topRow{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; }
+.titleGroup{ display:flex; align-items:center; gap:16px; min-width:0; }
+.productThumb{ width:88px; height:72px; flex:0 0 88px; border:2px solid var(--ink); border-radius:14px; object-fit:cover; }
 .productBadges{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:8px; }
 .productType{ display:inline-flex; margin-bottom:0; padding:5px 10px; border-radius:100px; background:var(--green-soft); color:var(--green-deep); font-size:11px; font-weight:800; }
 .topRow h2{ font-family:var(--display); font-size:22px; }
@@ -31,7 +33,7 @@
 .message{ padding:70px 20px; text-align:center; color:var(--muted); }
 .error{ color:#c0392b; }
 @media (max-width:900px){ .contentGrid{ grid-template-columns:1fr; } .days{ grid-template-columns:1fr; } }
-@media (max-width:600px){ .wrap{ padding:24px 16px 45px; } .card{ padding:20px 16px 24px; } .topRow{ flex-direction:column; } }
+@media (max-width:600px){ .wrap{ padding:24px 16px 45px; } .card{ padding:20px 16px 24px; } .topRow{ flex-direction:column; } .titleGroup{ align-items:flex-start; } }
 .scheduleSummary{ margin-top:26px; padding:22px; border:2px solid var(--ink); border-radius:18px; background:var(--bg-soft); }
 .scheduleSummaryHead{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px dashed var(--line); }
 .scheduleSummaryHead h3{ font-family:var(--display); font-size:17px; }

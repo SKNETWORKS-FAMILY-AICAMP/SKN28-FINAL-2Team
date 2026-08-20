@@ -110,7 +110,14 @@ export default function ReservationDetailPage() {
   const days = isCustom
     ? (itinerary?.days || [])
     : packageDays(activeItem?.schedule?.length ? activeItem.schedule : packageDetail?.course)
-  const title = activeItem?.name || packageDetail?.name || itinerary?.title || '예약한 여행 일정'
+  const title = isCustom
+    ? itinerary?.title || activeItem?.display_name || activeItem?.name
+    : packageDetail?.name || activeItem?.display_name || activeItem?.name
+  const thumbnailUrl =
+    activeItem?.thumbnail_url ||
+    packageDetail?.thumbnail_url ||
+    itinerary?.thumbnailUrl ||
+    ''
   const description = isCustom
     ? '사용자가 확정한 일정으로 구성된 자유패키지입니다.'
     : packageDetail?.description || '여행사에서 구성한 제주 여행 패키지입니다.'
@@ -166,12 +173,21 @@ export default function ReservationDetailPage() {
 
         <article className={styles.card}>
           <div className={styles.topRow}>
-            <div>
-              <div className={styles.productBadges}>
-                <span className={styles.productType}>{isCustom ? '자유패키지' : '여행사 패키지'}</span>
+            <div className={styles.titleGroup}>
+              {thumbnailUrl && (
+                <img
+                  src={thumbnailUrl}
+                  alt={title || '예약한 여행 일정'}
+                  className={styles.productThumb}
+                />
+              )}
+              <div>
+                <div className={styles.productBadges}>
+                  <span className={styles.productType}>{isCustom ? '자유패키지' : '여행사 패키지'}</span>
+                </div>
+                <h2>{title || '예약한 여행 일정'}</h2>
+                <p className={styles.sub}>{description}</p>
               </div>
-              <h2>{title}</h2>
-              <p className={styles.sub}>{description}</p>
             </div>
             <strong className={styles.price}>{won(activeItem?.price)} <small>/ 1인</small></strong>
           </div>
