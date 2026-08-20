@@ -19,7 +19,7 @@ export async function getReservation(id) {
 }
 
 export async function createReservation(paymentMethod, options = {}) {
-  const { packageIds, cartItemIds, itineraryId } = options
+  const { packageIds, cartItemIds, itineraryId, startDate, peopleCount } = options
 
   try {
     const { data } = await api.post('/reservations/', {
@@ -31,6 +31,8 @@ export async function createReservation(paymentMethod, options = {}) {
         ? { cart_item_ids: cartItemIds }
         : {}),
       ...(itineraryId ? { itinerary_id: itineraryId } : {}),
+      ...(startDate ? { start_date: startDate } : {}),
+      ...(peopleCount ? { people_count: peopleCount } : {}),
     })
     return data
   } catch (error) {

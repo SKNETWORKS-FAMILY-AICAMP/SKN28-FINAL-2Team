@@ -10,6 +10,7 @@ class PackageSerializer(serializers.ModelSerializer):
 
     accommodation_included = serializers.SerializerMethodField()
     accommodation_name = serializers.SerializerMethodField()
+    accommodation = serializers.SerializerMethodField()
     style = serializers.SerializerMethodField()
     style_display = serializers.SerializerMethodField()
     course = serializers.SerializerMethodField()
@@ -32,6 +33,7 @@ class PackageSerializer(serializers.ModelSerializer):
             "thumbnail_url",
             "accommodation_included",
             "accommodation_name",
+            "accommodation",
             "style",
             "style_display",
             "course",
@@ -77,6 +79,35 @@ class PackageSerializer(serializers.ModelSerializer):
             row = cursor.fetchone()
 
         return row[0] if row and row[0] else ""
+
+    def get_accommodation(self, obj):
+        from django.db import connections
+
+        with connections["travel"].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.title, p.addr1, p.addr2, p.latitude, p.longitude
+                FROM package_items pi
+                LEFT JOIN places p ON p.content_id = pi.content_id
+                WHERE pi.package_db_id = %s
+                  AND pi.item_type = 'hotel'
+                ORDER BY pi.day_no, pi.sequence
+                LIMIT 1
+                """,
+                [obj.id],
+            )
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        title, addr1, addr2, latitude, longitude = row
+        return {
+            "title": title or "숙소",
+            "address": " ".join(part for part in (addr1, addr2) if part),
+            "latitude": float(latitude) if latitude is not None else None,
+            "longitude": float(longitude) if longitude is not None else None,
+        }
 
     def get_style(self, obj):
         return infer_package_style(obj.companion, obj.tags)
@@ -306,7 +337,30 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
     def get_hotel(self, obj):
         itinerary_state = (obj.engine_state or {}).get("itinerary") or {}
-        return itinerary_state.get("hotel")
+        hotel = itinerary_state.get("hotel")
+        if hotel and hotel.get("latitude") is not None and hotel.get("longitude") is not None:
+            return hotel
+
+        package_db_id = itinerary_state.get("package_db_id")
+        if not package_db_id:
+            return hotel
+
+        package = Package.objects.using("travel").filter(id=package_db_id).first()
+        accommodation = (
+            PackageSerializer(package).data.get("accommodation")
+            if package
+            else None
+        )
+        if not accommodation:
+            return hotel
+
+        return {
+            **accommodation,
+            "nights": (hotel or {}).get(
+                "nights",
+                max((obj.end_date - obj.start_date).days, 0),
+            ),
+        }
 
     def create(self, validated_data):
         validated_data.pop("additional_request", None)

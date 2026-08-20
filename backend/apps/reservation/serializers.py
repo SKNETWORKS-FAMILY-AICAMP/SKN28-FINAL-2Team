@@ -6,6 +6,26 @@ from apps.travel.serializers import PackageSerializer
 from .models import CartItem, Reservation, ReservationItem
 
 
+def _get_itinerary_thumbnail_url(itinerary):
+    if itinerary is None:
+        return ""
+
+    for day in itinerary.days.all().order_by("day_number"):
+        first_item = (
+            day.items
+            .exclude(item_type="restaurant")
+            .exclude(thumbnail="")
+            .exclude(thumbnail__isnull=True)
+            .order_by("order")
+            .first()
+        )
+
+        if first_item:
+            return first_item.thumbnail
+
+    return ""
+
+
 class CartItemSerializer(serializers.ModelSerializer):
     package_detail = serializers.SerializerMethodField()
 
@@ -30,24 +50,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     def get_package_detail(self, obj):
         if obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY:
-            thumbnail_url = ""
-
             itinerary = obj.itinerary
-
-            if itinerary:
-                for day in itinerary.days.all().order_by("day_number"):
-                    first_item = (
-                        day.items
-                        .exclude(item_type="restaurant")
-                        .exclude(thumbnail="")
-                        .exclude(thumbnail__isnull=True)
-                        .order_by("order")
-                        .first()
-                    )
-
-                    if first_item:
-                        thumbnail_url = first_item.thumbnail
-                        break
 
             return {
                 "id": f"custom-{obj.itinerary_id}",
@@ -55,23 +58,9 @@ class CartItemSerializer(serializers.ModelSerializer):
                 "name": obj.product_name or "Custom itinerary package",
                 "description": "확정한 일정 그대로 예약하는 자유패키지입니다.",
                 "price": obj.unit_price,
-                "thumbnail_url": thumbnail_url,
+                "thumbnail_url": _get_itinerary_thumbnail_url(itinerary),
                 "isCustom": True,
             }
-
-        package = (
-            Package.objects.using("travel")
-            .filter(
-                id=obj.package_db_id,
-                is_active=True,
-            )
-            .first()
-        )
-
-        if package is None:
-            return None
-
-        return PackageSerializer(package).data
 
         package = (
             Package.objects.using("travel")
@@ -159,6 +148,8 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
 class ReservationItemSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
     accommodation = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ReservationItem
@@ -168,6 +159,8 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "package_db_id",
             "package_id",
             "name",
+            "display_name",
+            "thumbnail_url",
             "price",
             "quantity",
             "option_date",
@@ -176,13 +169,56 @@ class ReservationItemSerializer(serializers.ModelSerializer):
             "schedule",
         )
 
-    def get_accommodation(self, obj):
-        is_custom = (
+    @staticmethod
+    def _is_custom(obj):
+        return (
             obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
             or str(obj.package_id or "").upper().startswith("CUSTOM-")
         )
 
-        if is_custom:
+    def _get_stored_package(self, obj):
+        cache_name = "_resolved_reservation_package"
+        if hasattr(obj, cache_name):
+            return getattr(obj, cache_name)
+
+        filters = {}
+        if obj.package_db_id:
+            filters["id"] = obj.package_db_id
+        elif obj.package_id:
+            filters["package_id"] = obj.package_id
+        else:
+            package = None
+            setattr(obj, cache_name, package)
+            return package
+
+        package = (
+            Package.objects.using("travel")
+            .filter(**filters)
+            .first()
+        )
+        setattr(obj, cache_name, package)
+        return package
+
+    def get_display_name(self, obj):
+        if self._is_custom(obj):
+            itinerary = obj.reservation.itinerary
+            return itinerary.title if itinerary and itinerary.title else obj.name
+
+        package = self._get_stored_package(obj)
+        return package.title if package and package.title else obj.name
+
+    def get_thumbnail_url(self, obj):
+        if self._is_custom(obj):
+            return _get_itinerary_thumbnail_url(obj.reservation.itinerary)
+
+        package = self._get_stored_package(obj)
+        if package is None:
+            return ""
+
+        return PackageSerializer().get_thumbnail_url(package)
+
+    def get_accommodation(self, obj):
+        if self._is_custom(obj):
             itinerary = obj.reservation.itinerary
             if itinerary is None:
                 return None
@@ -242,10 +278,7 @@ class ReservationItemSerializer(serializers.ModelSerializer):
         if not self.context.get("include_schedule", True):
             return []
         
-        if (
-            obj.product_type == CartItem.ProductType.CUSTOM_ITINERARY
-            or str(obj.package_id or "").upper().startswith("CUSTOM-")
-        ):
+        if self._is_custom(obj):
             return []
 
         package_db_id = obj.package_db_id
@@ -386,4 +419,15 @@ class ReservationCreateSerializer(serializers.Serializer):
     payment_method = serializers.CharField(
         required=False,
         allow_blank=True,
+    )
+
+    start_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+    )
+
+    people_count = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=20,
     )
